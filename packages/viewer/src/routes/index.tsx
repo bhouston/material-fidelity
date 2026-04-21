@@ -151,15 +151,33 @@ function App() {
                           #
                         </a>
                       </h3>
-                      <a
-                        className="ml-auto inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:no-underline"
-                        href={material.sourceUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        <span>Source</span>
-                        <ExternalLink aria-hidden="true" className="size-3.5" />
-                      </a>
+                      <div className="ml-auto flex items-center gap-3 text-sm">
+                        <a
+                          className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline"
+                          href={material.liveViewerUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          <span>Live Viewer</span>
+                          <ExternalLink aria-hidden="true" className="size-3.5" />
+                        </a>
+                        <a
+                          className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline"
+                          download
+                          href={material.downloadMtlxZipUrl}
+                        >
+                          <span>Download Mtlx.zip</span>
+                        </a>
+                        <a
+                          className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline"
+                          href={material.sourceUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          <span>Source</span>
+                          <ExternalLink aria-hidden="true" className="size-3.5" />
+                        </a>
+                      </div>
                     </div>
 
                     <div className="mt-3 overflow-x-auto pb-2">

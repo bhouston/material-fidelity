@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiAssetSplatRouteImport } from './routes/api/asset/$'
 import { Route as ApiReferenceImageMaterialTypeMaterialNameAdapterRouteImport } from './routes/api/reference-image/$materialType/$materialName/$adapter'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAssetSplatRoute = ApiAssetSplatRouteImport.update({
+  id: '/api/asset/$',
+  path: '/api/asset/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReferenceImageMaterialTypeMaterialNameAdapterRoute =
@@ -26,30 +32,41 @@ const ApiReferenceImageMaterialTypeMaterialNameAdapterRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/asset/$': typeof ApiAssetSplatRoute
   '/api/reference-image/$materialType/$materialName/$adapter': typeof ApiReferenceImageMaterialTypeMaterialNameAdapterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/asset/$': typeof ApiAssetSplatRoute
   '/api/reference-image/$materialType/$materialName/$adapter': typeof ApiReferenceImageMaterialTypeMaterialNameAdapterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/asset/$': typeof ApiAssetSplatRoute
   '/api/reference-image/$materialType/$materialName/$adapter': typeof ApiReferenceImageMaterialTypeMaterialNameAdapterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/reference-image/$materialType/$materialName/$adapter'
+  fullPaths:
+    | '/'
+    | '/api/asset/$'
+    | '/api/reference-image/$materialType/$materialName/$adapter'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/reference-image/$materialType/$materialName/$adapter'
+  to:
+    | '/'
+    | '/api/asset/$'
+    | '/api/reference-image/$materialType/$materialName/$adapter'
   id:
     | '__root__'
     | '/'
+    | '/api/asset/$'
     | '/api/reference-image/$materialType/$materialName/$adapter'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiAssetSplatRoute: typeof ApiAssetSplatRoute
   ApiReferenceImageMaterialTypeMaterialNameAdapterRoute: typeof ApiReferenceImageMaterialTypeMaterialNameAdapterRoute
 }
 
@@ -60,6 +77,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/asset/$': {
+      id: '/api/asset/$'
+      path: '/api/asset/$'
+      fullPath: '/api/asset/$'
+      preLoaderRoute: typeof ApiAssetSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/reference-image/$materialType/$materialName/$adapter': {
@@ -74,6 +98,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiAssetSplatRoute: ApiAssetSplatRoute,
   ApiReferenceImageMaterialTypeMaterialNameAdapterRoute:
     ApiReferenceImageMaterialTypeMaterialNameAdapterRoute,
 }

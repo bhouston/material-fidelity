@@ -4,6 +4,9 @@ import { createRenderer as createMaterialXViewRenderer } from '@materialx-fideli
 import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs'
 
 const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/tree/main/materials'
+const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca'
+const DEFAULT_LOCAL_HOST = 'localhost:3000'
+const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca'
 const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const
 interface MaterialDescriptor {
   type: string
@@ -17,6 +20,8 @@ export interface MaterialViewModel {
   type: string
   name: string
   sourceUrl: string
+  liveViewerUrl: string
+  downloadMtlxZipUrl: string
   images: Record<string, string | null>
 }
 
@@ -40,6 +45,29 @@ export interface ViewerRoots {
 
 function toGithubSourceUrl(relativeDirectory: string): string {
   return `${MATERIAL_SOURCE_BASE_URL}/${relativeDirectory.replaceAll(path.sep, '/')}`
+}
+
+function resolveViewerHostName(): string {
+  const configuredHostName = process.env.HOST_NAME?.trim()
+  if (configuredHostName) {
+    return configuredHostName
+  }
+
+  return process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_HOST : DEFAULT_LOCAL_HOST
+}
+
+function toViewerOrigin(hostName: string): string {
+  const protocol = hostName.startsWith('localhost') || hostName.startsWith('127.0.0.1') ? 'http' : 'https'
+  return `${protocol}://${hostName}`
+}
+
+function toMaterialZipUrl(materialType: string, materialName: string): string {
+  return `${toViewerOrigin(resolveViewerHostName())}/api/asset/${encodeURIComponent(materialType)}/${encodeURIComponent(materialName)}.mtlx.zip`
+}
+
+function toLiveViewerUrl(materialType: string, materialName: string): string {
+  const materialUrl = toMaterialZipUrl(materialType, materialName)
+  return `${HOMAGE_VIEWER_BASE_URL}/?material=${encodeURIComponent(materialUrl)}`
 }
 
 function inferRepoRoot(invocationCwd: string): string {
@@ -196,6 +224,8 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
       type: descriptor.type,
       name: descriptor.name,
       sourceUrl: descriptor.sourceUrl,
+      liveViewerUrl: toLiveViewerUrl(descriptor.type, descriptor.name),
+      downloadMtlxZipUrl: toMaterialZipUrl(descriptor.type, descriptor.name),
       images,
     }
     const group = grouped.get(descriptor.type) ?? []
@@ -223,6 +253,18 @@ export async function resolveReferenceImagePath(
   materialName: string,
   adapterName: string,
 ): Promise<string | undefined> {
+  const targetDirectory = await resolveMaterialDirectory(materialType, materialName)
+  if (!targetDirectory) {
+    return undefined
+  }
+
+  return resolveReferenceImageCandidatePath(targetDirectory, adapterName)
+}
+
+export async function resolveMaterialDirectory(
+  materialType: string,
+  materialName: string,
+): Promise<string | undefined> {
   const roots = resolveViewerRoots()
   const targetDirectory = path.resolve(roots.materialsRoot, materialType, materialName)
   const materialsRootPrefix = `${path.resolve(roots.materialsRoot)}${path.sep}`
@@ -230,5 +272,10 @@ export async function resolveReferenceImagePath(
     return undefined
   }
 
-  return resolveReferenceImageCandidatePath(targetDirectory, adapterName)
+  const materialPath = path.join(targetDirectory, 'material.mtlx')
+  if (!(await directoryExists(materialPath))) {
+    return undefined
+  }
+
+  return targetDirectory
 }
