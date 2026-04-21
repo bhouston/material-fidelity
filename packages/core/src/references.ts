@@ -2,9 +2,9 @@ import path from 'node:path';
 import { access, mkdir, readFile, rm } from 'node:fs/promises';
 import pLimit from 'p-limit';
 import { PNG } from 'pngjs';
+import sharp from 'sharp';
 import { findFilesByName } from './fs-utils.js';
-import { loadAdapters } from './adapters.js';
-import type { CreateReferencesOptions, CreateReferencesResult, FidelityAdapter, RenderFailure } from './types.js';
+import type { CreateReferencesOptions, CreateReferencesResult, FidelityRenderer, RenderFailure } from './types.js';
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
@@ -27,8 +27,13 @@ async function assertRenderIsNotEmpty(outputPngPath: string): Promise<void> {
   throw new Error('Render output is empty (all pixels are black).');
 }
 
-function createOutputPath(materialPath: string, adapterName: string): string {
-  return path.join(path.dirname(materialPath), `${adapterName}.png`);
+function createOutputPath(materialPath: string, rendererName: string): string {
+  return path.join(path.dirname(materialPath), `${rendererName}.png`);
+}
+
+function toWebpPath(outputPngPath: string): string {
+  const parsedPath = path.parse(outputPngPath);
+  return path.join(parsedPath.dir, `${parsedPath.name}.webp`);
 }
 
 function parseMaterialSelectorAsRegex(selector: string): RegExp | undefined {
@@ -137,37 +142,40 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     );
   }
 
-  const adapters = await loadAdapters({
-    adaptersRoot: options.adaptersRoot,
-    context: {
-      thirdPartyRoot: options.thirdPartyRoot,
-    },
-  });
-  const normalizedRequestedAdapters = [...new Set((options.adapterNames ?? []).map((name) => name.trim()).filter(Boolean))];
-  const selectedAdapterNames = normalizedRequestedAdapters.length > 0 ? normalizedRequestedAdapters : [...adapters.keys()];
-  if (selectedAdapterNames.length === 0) {
-    const available = [...adapters.keys()].toSorted().join(', ');
-    throw new Error(`No adapters are available. Available adapters: ${available || '(none)'}.`);
+  const rendererMap = new Map<string, FidelityRenderer>();
+  for (const renderer of options.renderers) {
+    if (rendererMap.has(renderer.name)) {
+      throw new Error(`Duplicate renderer name detected: "${renderer.name}".`);
+    }
+    rendererMap.set(renderer.name, renderer);
   }
-  const missingAdapterNames = selectedAdapterNames.filter((adapterName) => !adapters.has(adapterName));
-  if (missingAdapterNames.length > 0) {
-    const available = [...adapters.keys()].toSorted().join(', ');
+
+  const normalizedRequestedRenderers = [...new Set((options.rendererNames ?? []).map((name) => name.trim()).filter(Boolean))];
+  const selectedRendererNames =
+    normalizedRequestedRenderers.length > 0 ? normalizedRequestedRenderers : [...rendererMap.keys()];
+  if (selectedRendererNames.length === 0) {
+    const available = [...rendererMap.keys()].toSorted().join(', ');
+    throw new Error(`No renderers are available. Available renderers: ${available || '(none)'}.`);
+  }
+  const missingRendererNames = selectedRendererNames.filter((rendererName) => !rendererMap.has(rendererName));
+  if (missingRendererNames.length > 0) {
+    const available = [...rendererMap.keys()].toSorted().join(', ');
     throw new Error(
-      `Adapter(s) "${missingAdapterNames.join(', ')}" not found. Available adapters: ${available || '(none)'}.`,
+      `Renderer(s) "${missingRendererNames.join(', ')}" not found. Available renderers: ${available || '(none)'}.`,
     );
   }
-  const selectedAdapters = selectedAdapterNames.map((adapterName) => adapters.get(adapterName) as FidelityAdapter);
-  const failedAdapterChecks: string[] = [];
-  for (const adapter of selectedAdapters) {
-    const checkResult = await adapter.checkPrerequisites();
+  const selectedRenderers = selectedRendererNames.map((rendererName) => rendererMap.get(rendererName) as FidelityRenderer);
+  const failedRendererChecks: string[] = [];
+  for (const renderer of selectedRenderers) {
+    const checkResult = await renderer.checkPrerequisites();
     if (!checkResult.success) {
-      failedAdapterChecks.push(
-        `${adapter.name}: ${checkResult.message?.trim() || 'Adapter prerequisites are not satisfied.'}`,
+      failedRendererChecks.push(
+        `${renderer.name}: ${checkResult.message?.trim() || 'Renderer prerequisites are not satisfied.'}`,
       );
     }
   }
-  if (failedAdapterChecks.length > 0) {
-    throw new Error(`Adapter prerequisites are not met:\n- ${failedAdapterChecks.join('\n- ')}`);
+  if (failedRendererChecks.length > 0) {
+    throw new Error(`Renderer prerequisites are not met:\n- ${failedRendererChecks.join('\n- ')}`);
   }
 
   const failures: RenderFailure[] = [];
@@ -177,29 +185,29 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   let stopped = false;
   const shouldStop = (): boolean => options.shouldStop?.() === true;
   const renderQueue = selectedMaterialFiles.flatMap((materialPath) =>
-    selectedAdapters.map((adapter) => ({ materialPath, adapter })),
+    selectedRenderers.map((renderer) => ({ materialPath, renderer })),
   );
-  const startedAdapters: FidelityAdapter[] = [];
+  const startedRenderers: FidelityRenderer[] = [];
   try {
-    for (const adapter of selectedAdapters) {
-      await adapter.start();
-      startedAdapters.push(adapter);
+    for (const renderer of selectedRenderers) {
+      await renderer.start();
+      startedRenderers.push(renderer);
     }
 
     const limit = pLimit(Math.max(1, options.concurrency));
     await Promise.all(
-      renderQueue.map(({ materialPath, adapter }) =>
+      renderQueue.map(({ materialPath, renderer }) =>
         limit(async () => {
           if (shouldStop()) {
             stopped = true;
             return;
           }
 
-          const outputPngPath = createOutputPath(materialPath, adapter.name);
+          const outputPngPath = createOutputPath(materialPath, renderer.name);
           started += 1;
           await options.onProgress?.({
             phase: 'start',
-            adapterName: adapter.name,
+            rendererName: renderer.name,
             materialPath,
             outputPngPath,
             total: renderQueue.length,
@@ -211,7 +219,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
           let renderError: Error | undefined;
           const startedAt = Date.now();
           try {
-            await adapter.generateImage({
+            await renderer.generateImage({
               mtlxPath: materialPath,
               outputPngPath,
               environmentHdrPath: hdrPath,
@@ -219,9 +227,12 @@ export async function createReferences(options: CreateReferencesOptions): Promis
               backgroundColor: DEFAULT_BACKGROUND_COLOR,
             });
             await assertRenderIsNotEmpty(outputPngPath);
+            const outputWebpPath = toWebpPath(outputPngPath);
+            await sharp(outputPngPath).webp({ quality: 99 }).toFile(outputWebpPath);
+            await rm(outputPngPath, { force: true });
           } catch (error) {
             renderError = error instanceof Error ? error : new Error(String(error));
-            failures.push({ adapterName: adapter.name, materialPath, outputPngPath, error: renderError });
+            failures.push({ rendererName: renderer.name, materialPath, outputPngPath, error: renderError });
           } finally {
             attempted += 1;
             completed += 1;
@@ -229,7 +240,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
 
           await options.onProgress?.({
             phase: 'finish',
-            adapterName: adapter.name,
+            rendererName: renderer.name,
             materialPath,
             outputPngPath,
             total: renderQueue.length,
@@ -244,9 +255,9 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     );
   } finally {
     let shutdownError: Error | undefined;
-    for (const adapter of startedAdapters.toReversed()) {
+    for (const renderer of startedRenderers.toReversed()) {
       try {
-        await adapter.shutdown();
+        await renderer.shutdown();
       } catch (error) {
         shutdownError ??= error instanceof Error ? error : new Error(String(error));
       }
@@ -257,7 +268,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   }
 
   return {
-    adapterNames: selectedAdapters.map((adapter) => adapter.name),
+    rendererNames: selectedRenderers.map((renderer) => renderer.name),
     total: renderQueue.length,
     attempted,
     rendered: attempted - failures.length,

@@ -1,8 +1,8 @@
 packages:
   - packages/*
-  - adapters/*
 
 link-workspace-packages: true
 
 onlyBuiltDependencies:
   - esbuild
+  - sharp

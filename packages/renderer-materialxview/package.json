@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/materialxview-adapter",
+  "name": "@materialx-fidelity/renderer-materialxview",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

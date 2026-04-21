@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { resolveReferenceImagePath } from '#/lib/material-index'
 
 export const Route = createFileRoute(
@@ -18,10 +19,11 @@ export const Route = createFileRoute(
         }
 
         const bytes = await readFile(filePath)
+        const contentType = path.extname(filePath).toLowerCase() === '.webp' ? 'image/webp' : 'image/png'
         return new Response(bytes, {
           status: 200,
           headers: {
-            'Content-Type': 'image/png',
+            'Content-Type': contentType,
             'Cache-Control': 'public, max-age=300',
           },
         })

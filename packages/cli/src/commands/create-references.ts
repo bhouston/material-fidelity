@@ -2,7 +2,9 @@ import path from 'node:path';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
 import { createReferences } from '@materialx-fidelity/core';
-import type { CreateReferencesProgressEvent, CreateReferencesResult } from '@materialx-fidelity/core';
+import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@materialx-fidelity/core';
+import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
+import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 
@@ -28,7 +30,7 @@ function renderProgressBar(completed: number, total: number, width = 28): string
 
 interface RenderLogLine {
   key: string;
-  adapterName: string;
+  rendererName: string;
   materialLabel: string;
   status: 'IN PROGRESS' | 'SUCCESS' | 'FAILED';
   durationText?: string;
@@ -38,12 +40,12 @@ interface RenderLogLine {
 function renderLogLineText(entry: RenderLogLine): string {
   const durationPart = entry.durationText ? ` (${entry.durationText})` : '';
   const errorPart = entry.errorMessage ? ` - ${entry.errorMessage}` : '';
-  return `${entry.adapterName} | ${entry.materialLabel} | ${entry.status}${durationPart}${errorPart}`;
+  return `${entry.rendererName} | ${entry.materialLabel} | ${entry.status}${durationPart}${errorPart}`;
 }
 
-function normalizeAdapterNames(rawAdapters: unknown): string[] {
-  const adapterValues = rawAdapters == null ? [] : Array.isArray(rawAdapters) ? rawAdapters : [rawAdapters];
-  return [...new Set(adapterValues.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
+function normalizeRendererNames(rawRenderers: unknown): string[] {
+  const rendererValues = rawRenderers == null ? [] : Array.isArray(rawRenderers) ? rawRenderers : [rawRenderers];
+  return [...new Set(rendererValues.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
 }
 
 function normalizeStringList(rawValues: unknown): string[] {
@@ -63,9 +65,9 @@ function renderLogLineColor(entry: RenderLogLine): string {
 
 interface InkCreateReferencesAppProps {
   args: {
-    adaptersRoot: string;
+    renderers: FidelityRenderer[];
     thirdPartyRoot: string;
-    adapterNames: string[];
+    rendererNames: string[];
     concurrency: number;
     materialSelectors: string[];
     filter?: string;
@@ -105,16 +107,16 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
 
       if (event.phase === 'start') {
         const label = formatMaterialLabel(event.materialPath, materialsRoot);
-        const logEntryKey = `${event.adapterName}:${event.materialPath}`;
+        const logEntryKey = `${event.rendererName}:${event.materialPath}`;
         setTotal(event.total);
         setStarted(event.started);
         setCompleted(event.completed);
-        setStatusLine(`Rendering ${event.adapterName} | ${label}`);
+        setStatusLine(`Rendering ${event.rendererName} | ${label}`);
         setRenderLogs((previous) => [
           ...previous,
           {
             key: logEntryKey,
-            adapterName: event.adapterName,
+            rendererName: event.rendererName,
             materialLabel: label,
             status: 'IN PROGRESS',
           },
@@ -128,7 +130,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
       setDurationTotalMs((value) => value + (event.durationMs ?? 0));
       setRenderLogs((previous) =>
         previous.map((entry) =>
-          entry.key === `${event.adapterName}:${event.materialPath}`
+          entry.key === `${event.rendererName}:${event.materialPath}`
             ? {
                 ...entry,
                 status: event.success ? 'SUCCESS' : 'FAILED',
@@ -141,9 +143,9 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     };
 
     void createReferences({
-      adaptersRoot: args.adaptersRoot,
+      renderers: args.renderers,
       thirdPartyRoot: args.thirdPartyRoot,
-      adapterNames: args.adapterNames,
+      rendererNames: args.rendererNames,
       concurrency: args.concurrency,
       materialSelectors: args.materialSelectors,
       filter: args.filter,
@@ -192,7 +194,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     createElement(
       Text,
       { color: 'cyan' },
-      `Adapters: ${args.adapterNames.length > 0 ? args.adapterNames.join(', ') : 'all (auto-discovered)'}`,
+      `Renderers: ${args.rendererNames.length > 0 ? args.rendererNames.join(', ') : 'all (built-in)'}`,
     ),
     createElement(Text, { color: 'gray' }, statusLine),
     createElement(Text, { color: 'white' }, ''),
@@ -232,19 +234,14 @@ export const command = defineCommand({
   describe: 'Generate reference PNG images for each MaterialX sample material.',
   builder: (yargs) =>
     yargs
-      .option('adapters', {
+      .option('renderers', {
         type: 'array',
-        describe: 'Adapter names to use. Supports repeated values and comma-separated lists.',
+        describe: 'Renderer names to use. Supports repeated values and comma-separated lists.',
       })
       .option('third-party-root', {
         type: 'string',
         default: '../',
         describe: 'Path containing third-party repositories such as materialX-samples and threejs.',
-      })
-      .option('adapters-root', {
-        type: 'string',
-        default: './adapters',
-        describe: 'Path to the adapters directory.',
       })
       .option('concurrency', {
         type: 'number',
@@ -262,16 +259,19 @@ export const command = defineCommand({
   handler: async (argv) => {
     const invocationCwd = process.env.INIT_CWD ?? process.cwd();
     const thirdPartyRoot = path.resolve(invocationCwd, argv['third-party-root']);
-    const adaptersRoot = path.resolve(invocationCwd, argv['adapters-root']);
+    const renderers: FidelityRenderer[] = [
+      createMaterialXViewRenderer(),
+      createThreeJsRenderer({ thirdPartyRoot }),
+    ];
     const startedAt = Date.now();
     const materialSelectors = normalizeStringList(argv.materials);
     if (argv.filter && argv.filter.trim().length > 0) {
       materialSelectors.push(argv.filter);
     }
     const commandArgs = {
-      adaptersRoot,
+      renderers,
       thirdPartyRoot,
-      adapterNames: normalizeAdapterNames(argv.adapters),
+      rendererNames: normalizeRendererNames(argv.renderers),
       concurrency: Math.max(1, argv.concurrency),
       materialSelectors: [...new Set(materialSelectors)],
       filter: argv.filter,
@@ -290,7 +290,7 @@ export const command = defineCommand({
             const status = event.success ? 'SUCCESS' : 'FAILED';
             const materialLabel = formatMaterialLabel(event.materialPath, materialsRoot);
             process.stdout.write(
-              `${event.adapterName} | ${materialLabel} | ${status} (${elapsed}) ${event.completed}/${event.total}\n`,
+              `${event.rendererName} | ${materialLabel} | ${status} (${elapsed}) ${event.completed}/${event.total}\n`,
             );
           },
         });
@@ -298,12 +298,12 @@ export const command = defineCommand({
     const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
 
     process.stdout.write(
-      `Rendered ${result.rendered}/${result.total} images with adapters ${result.adapterNames.map((name) => `"${name}"`).join(', ')}. Failures: ${result.failures.length}. Time: ${elapsedFormatted}${result.stopped ? ' (stopped early)' : ''}\n`,
+      `Rendered ${result.rendered}/${result.total} images with renderers ${result.rendererNames.map((name) => `"${name}"`).join(', ')}. Failures: ${result.failures.length}. Time: ${elapsedFormatted}${result.stopped ? ' (stopped early)' : ''}\n`,
     );
 
     if (result.failures.length > 0) {
       for (const failure of result.failures) {
-        process.stderr.write(`FAILED ${failure.adapterName} | ${failure.materialPath}: ${failure.error.message}\n`);
+        process.stderr.write(`FAILED ${failure.rendererName} | ${failure.materialPath}: ${failure.error.message}\n`);
       }
       process.exitCode = 1;
     }

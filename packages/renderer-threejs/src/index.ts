@@ -7,10 +7,10 @@ import react from '@vitejs/plugin-react';
 import {
   REFERENCE_IMAGE_HEIGHT,
   REFERENCE_IMAGE_WIDTH,
-  type AdapterContext,
-  type AdapterPrerequisiteCheckResult,
-  type FidelityAdapter,
+  type FidelityRenderer,
   type GenerateImageOptions,
+  type RendererContext,
+  type RendererPrerequisiteCheckResult,
 } from '@materialx-fidelity/core';
 
 interface RuntimeState {
@@ -98,18 +98,18 @@ async function launchGpuBrowser(): Promise<Browser> {
   }
 }
 
-class ThreeJsAdapter implements FidelityAdapter {
+class ThreeJsRenderer implements FidelityRenderer {
   public readonly name = 'threejs';
   public readonly version = '0.1.0';
   private readonly thirdPartyRoot: string;
   private prerequisitesValidated = false;
   private runtimeState: RuntimeState | undefined;
 
-  public constructor(context: AdapterContext) {
+  public constructor(context: RendererContext) {
     this.thirdPartyRoot = context.thirdPartyRoot;
   }
 
-  public async checkPrerequisites(): Promise<AdapterPrerequisiteCheckResult> {
+  public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
     if (this.prerequisitesValidated) {
       return { success: true };
     }
@@ -245,7 +245,7 @@ class ThreeJsAdapter implements FidelityAdapter {
 
   public async generateImage(options: GenerateImageOptions): Promise<void> {
     if (!this.runtimeState) {
-      throw new Error('Adapter has not been started. Call start() before generateImage().');
+      throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
     if (extname(options.outputPngPath).toLowerCase() !== '.png') {
@@ -288,10 +288,10 @@ class ThreeJsAdapter implements FidelityAdapter {
   }
 }
 
-export function createAdapter(context?: AdapterContext): FidelityAdapter {
+export function createRenderer(context?: RendererContext): FidelityRenderer {
   if (!context) {
-    throw new Error('ThreeJS adapter requires adapter context with thirdPartyRoot.');
+    throw new Error('ThreeJS renderer requires renderer context with thirdPartyRoot.');
   }
 
-  return new ThreeJsAdapter(context);
+  return new ThreeJsRenderer(context);
 }

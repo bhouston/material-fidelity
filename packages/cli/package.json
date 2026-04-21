@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@materialx-fidelity/core": "workspace:*",
+    "@materialx-fidelity/renderer-materialxview": "workspace:*",
+    "@materialx-fidelity/renderer-threejs": "workspace:*",
     "humanize-units": "^2.0.4",
     "ink": "^7.0.1",
     "react": "^19.2.5",

@@ -21,7 +21,7 @@ function App() {
           MaterialX Fidelity Reference Viewer
         </h1>
         <p className="mt-4 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          This viewer lists MaterialX sample materials and compares adapter reference renders side-by-side so you can
+          This viewer lists MaterialX sample materials and compares renderer reference renders side-by-side so you can
           quickly spot visual differences and missing captures. It follows the spirit of the{' '}
           <a
             className="underline underline-offset-2 hover:no-underline"
@@ -34,8 +34,7 @@ function App() {
           comparison format while focusing on MaterialX sample content.
         </p>
         <p className="mt-3 text-xs text-muted-foreground sm:text-sm">
-          Source materials: {data.resolvedThirdPartyRoot}/materialX-samples/materials | Adapters root:{' '}
-          {data.resolvedAdaptersRoot}
+          Source materials: {data.resolvedThirdPartyRoot}/materialX-samples/materials
         </p>
       </section>
 
@@ -70,13 +69,13 @@ function App() {
                 </div>
 
                 <div className="flex flex-wrap gap-4">
-                  {data.adapters.map((adapterName) => {
-                    const imageUrl = material.images[adapterName]
+                  {data.renderers.map((rendererName) => {
+                    const imageUrl = material.images[rendererName]
                     return (
-                      <figure key={adapterName} className="flex w-[170px] flex-col gap-2 sm:w-[200px]">
+                      <figure key={rendererName} className="flex w-[170px] flex-col gap-2 sm:w-[200px]">
                         {imageUrl ? (
                           <img
-                            alt={`${material.name} rendered by ${adapterName}`}
+                            alt={`${material.name} rendered by ${rendererName}`}
                             className="aspect-square w-full rounded-md border border-border object-cover"
                             loading="lazy"
                             src={imageUrl}
@@ -86,7 +85,7 @@ function App() {
                             missing
                           </div>
                         )}
-                        <figcaption className="text-center text-xs font-medium text-muted-foreground">{adapterName}</figcaption>
+                        <figcaption className="text-center text-xs font-medium text-muted-foreground">{rendererName}</figcaption>
                       </figure>
                     )
                   })}

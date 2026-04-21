@@ -7,8 +7,8 @@
   "include": [],
   "references": [
     { "path": "./packages/core" },
-    { "path": "./adapters/materialxview" },
-    { "path": "./adapters/threejs" },
-    { "path": "./packages/mtlx-fidelity-cli" }
+    { "path": "./packages/renderer-materialxview" },
+    { "path": "./packages/renderer-threejs" },
+    { "path": "./packages/cli" }
   ]
 }

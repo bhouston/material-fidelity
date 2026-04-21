@@ -1,9 +1,10 @@
 import { access, readdir } from 'node:fs/promises'
 import path from 'node:path'
+import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview'
+import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs'
 
 const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialX-samples/blob/main/materials'
 const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const
-
 interface MaterialDescriptor {
   type: string
   name: string
@@ -25,17 +26,15 @@ export interface MaterialTypeGroupViewModel {
 }
 
 export interface ViewerIndexViewModel {
-  adapters: string[]
+  renderers: string[]
   groups: MaterialTypeGroupViewModel[]
   errors: string[]
   resolvedThirdPartyRoot: string
-  resolvedAdaptersRoot: string
 }
 
 export interface ViewerRoots {
   repoRoot: string
   thirdPartyRoot: string
-  adaptersRoot: string
   materialsRoot: string
 }
 
@@ -58,13 +57,11 @@ export function resolveViewerRoots(): ViewerRoots {
   const invocationCwd = process.env.INIT_CWD ?? process.cwd()
   const repoRoot = inferRepoRoot(invocationCwd)
   const thirdPartyRoot = path.resolve(repoRoot, process.env.THIRD_PARTY_ROOT ?? '../')
-  const adaptersRoot = path.resolve(repoRoot, process.env.ADAPTERS_ROOT ?? './adapters')
   const materialsRoot = path.join(thirdPartyRoot, 'materialX-samples', 'materials')
 
   return {
     repoRoot,
     thirdPartyRoot,
-    adaptersRoot,
     materialsRoot,
   }
 }
@@ -76,6 +73,23 @@ async function directoryExists(directoryPath: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+async function resolveReferenceImageCandidatePath(
+  materialDirectory: string,
+  rendererName: string,
+): Promise<string | undefined> {
+  const webpPath = path.join(materialDirectory, `${rendererName}.webp`)
+  if (await directoryExists(webpPath)) {
+    return webpPath
+  }
+
+  const pngPath = path.join(materialDirectory, `${rendererName}.png`)
+  if (await directoryExists(pngPath)) {
+    return pngPath
+  }
+
+  return undefined
 }
 
 async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
@@ -97,12 +111,11 @@ async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
   return materialFiles
 }
 
-async function discoverAdapters(adaptersRoot: string): Promise<string[]> {
-  const entries = await readdir(adaptersRoot, { withFileTypes: true })
-  return entries
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-    .map((entry) => entry.name)
-    .toSorted((a, b) => a.localeCompare(b))
+function getBuiltInRendererNames(thirdPartyRoot: string): string[] {
+  return [
+    createMaterialXViewRenderer().name,
+    createThreeJsRenderer({ thirdPartyRoot }).name,
+  ].toSorted((a, b) => a.localeCompare(b))
 }
 
 function sortMaterialTypes(left: string, right: string): number {
@@ -148,34 +161,16 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
   if (!hasMaterialsRoot) {
     errors.push(`Materials directory not found: ${roots.materialsRoot}`)
     return {
-      adapters: [],
+      renderers: [],
       groups: [],
       errors,
       resolvedThirdPartyRoot: roots.thirdPartyRoot,
-      resolvedAdaptersRoot: roots.adaptersRoot,
     }
   }
-
-  const hasAdaptersRoot = await directoryExists(roots.adaptersRoot)
-  if (!hasAdaptersRoot) {
-    errors.push(`Adapters directory not found: ${roots.adaptersRoot}`)
-    return {
-      adapters: [],
-      groups: [],
-      errors,
-      resolvedThirdPartyRoot: roots.thirdPartyRoot,
-      resolvedAdaptersRoot: roots.adaptersRoot,
-    }
-  }
-
-  const [adapters, materialFiles] = await Promise.all([
-    discoverAdapters(roots.adaptersRoot),
+  const [renderers, materialFiles] = await Promise.all([
+    Promise.resolve(getBuiltInRendererNames(roots.thirdPartyRoot)),
     discoverMaterialFiles(roots.materialsRoot),
   ])
-
-  if (adapters.length === 0) {
-    errors.push(`No adapter directories found under: ${roots.adaptersRoot}`)
-  }
 
   if (materialFiles.length === 0) {
     errors.push(`No material.mtlx files found under: ${roots.materialsRoot}`)
@@ -187,13 +182,12 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     const descriptor = toMaterialDescriptor(materialFilePath, roots.materialsRoot)
     const images = Object.fromEntries(
       await Promise.all(
-        adapters.map(async (adapterName) => {
-          const referencePath = path.join(descriptor.absoluteDirectory, `${adapterName}.png`)
-          const exists = await directoryExists(referencePath)
-          const imageUrl = exists
-            ? `/api/reference-image/${encodeURIComponent(descriptor.type)}/${encodeURIComponent(descriptor.name)}/${encodeURIComponent(adapterName)}`
+        renderers.map(async (rendererName) => {
+          const referencePath = await resolveReferenceImageCandidatePath(descriptor.absoluteDirectory, rendererName)
+          const imageUrl = referencePath
+            ? `/api/reference-image/${encodeURIComponent(descriptor.type)}/${encodeURIComponent(descriptor.name)}/${encodeURIComponent(rendererName)}`
             : null
-          return [adapterName, imageUrl] as const
+          return [rendererName, imageUrl] as const
         }),
       ),
     )
@@ -217,11 +211,10 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     }))
 
   return {
-    adapters,
+    renderers,
     groups,
     errors,
     resolvedThirdPartyRoot: roots.thirdPartyRoot,
-    resolvedAdaptersRoot: roots.adaptersRoot,
   }
 }
 
@@ -231,21 +224,11 @@ export async function resolveReferenceImagePath(
   adapterName: string,
 ): Promise<string | undefined> {
   const roots = resolveViewerRoots()
-  const targetPath = path.resolve(
-    roots.materialsRoot,
-    materialType,
-    materialName,
-    `${adapterName}.png`,
-  )
+  const targetDirectory = path.resolve(roots.materialsRoot, materialType, materialName)
   const materialsRootPrefix = `${path.resolve(roots.materialsRoot)}${path.sep}`
-
-  if (!targetPath.startsWith(materialsRootPrefix)) {
+  if (!targetDirectory.startsWith(materialsRootPrefix)) {
     return undefined
   }
 
-  if (!(await directoryExists(targetPath))) {
-    return undefined
-  }
-
-  return targetPath
+  return resolveReferenceImageCandidatePath(targetDirectory, adapterName)
 }

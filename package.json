@@ -15,8 +15,8 @@
   "scripts": {
     "build": "tsgo -b && pnpm -r --if-present build",
     "dev": "pnpm -r --parallel --stream dev",
-    "clean": "rimraf dist packages/**/dist adapters/**/dist",
-    "clean:all": "pnpm clean && rimraf node_modules packages/**/node_modules adapters/**/node_modules",
+    "clean": "rimraf dist packages/**/dist",
+    "clean:all": "pnpm clean && rimraf node_modules packages/**/node_modules",
     "format": "oxfmt .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",

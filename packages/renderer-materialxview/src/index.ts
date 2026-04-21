@@ -4,9 +4,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import {
   REFERENCE_IMAGE_HEIGHT,
   REFERENCE_IMAGE_WIDTH,
-  type AdapterPrerequisiteCheckResult,
-  type FidelityAdapter,
+  type FidelityRenderer,
   type GenerateImageOptions,
+  type RendererPrerequisiteCheckResult,
 } from '@materialx-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
@@ -57,12 +57,12 @@ function execute(executable: string, args: string[]): Promise<void> {
   });
 }
 
-class MaterialXViewAdapter implements FidelityAdapter {
+class MaterialXViewRenderer implements FidelityRenderer {
   public readonly name = 'materialxview';
   public readonly version = '1.0.0';
   private executable: string | undefined;
 
-  public async checkPrerequisites(): Promise<AdapterPrerequisiteCheckResult> {
+  public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
     try {
       this.executable = resolveExecutable();
       return { success: true };
@@ -87,7 +87,7 @@ class MaterialXViewAdapter implements FidelityAdapter {
 
   public async generateImage(options: GenerateImageOptions): Promise<void> {
     if (!this.executable) {
-      throw new Error('Adapter has not been started. Call start() before generateImage().');
+      throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
     if (extname(options.outputPngPath).toLowerCase() !== '.png') {
@@ -123,6 +123,6 @@ class MaterialXViewAdapter implements FidelityAdapter {
   }
 }
 
-export function createAdapter(): FidelityAdapter {
-  return new MaterialXViewAdapter();
+export function createRenderer(): FidelityRenderer {
+  return new MaterialXViewRenderer();
 }

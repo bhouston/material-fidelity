@@ -10,11 +10,33 @@ vi.mock('@materialx-fidelity/core', () => ({
   createReferences: createReferencesMock,
 }));
 
+vi.mock('@materialx-fidelity/renderer-materialxview', () => ({
+  createRenderer: () => ({
+    name: 'materialxview',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+}));
+
+vi.mock('@materialx-fidelity/renderer-threejs', () => ({
+  createRenderer: () => ({
+    name: 'threejs',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+}));
+
 describe('create-references command', () => {
   beforeEach(() => {
     createReferencesMock.mockReset();
     createReferencesMock.mockResolvedValue({
-      adapterNames: ['materialxview'],
+      rendererNames: ['materialxview'],
       total: 6,
       attempted: 6,
       rendered: 6,
@@ -29,20 +51,18 @@ describe('create-references command', () => {
 
     try {
       await command.handler({
-        adapters: ['materialxview'],
+        renderers: ['materialxview'],
         materials: undefined,
         filter: undefined,
         'third-party-root': '../',
         thirdPartyRoot: '../',
-        'adapters-root': './adapters',
-        adaptersRoot: './adapters',
         concurrency: 2,
         _: [],
         $0: 'mtlx-fidelity',
       });
 
       expect(stdoutWriteSpy).toHaveBeenCalledWith(
-        'Rendered 6/6 images with adapters "materialxview". Failures: 0. Time: 1.23 s\n',
+        'Rendered 6/6 images with renderers "materialxview". Failures: 0. Time: 1.23 s\n',
       );
     } finally {
       dateNowSpy.mockRestore();
@@ -53,21 +73,20 @@ describe('create-references command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      adapterNames: ['materialxview'],
+      rendererNames: ['materialxview'],
       thirdPartyRoot: expect.any(String),
       concurrency: 2,
     });
+    expect(firstCall?.[0].renderers).toHaveLength(2);
   });
 
   it('passes materials selectors through to core createReferences', async () => {
     await command.handler({
-      adapters: ['materialxview,threejs'],
+      renderers: ['materialxview,threejs'],
       materials: ['standard_surface', '/gltf_pbr/i'],
       filter: 'stdlib',
       'third-party-root': '../',
       thirdPartyRoot: '../',
-      'adapters-root': './adapters',
-      adaptersRoot: './adapters',
       concurrency: 1,
       _: [],
       $0: 'mtlx-fidelity',
@@ -76,20 +95,18 @@ describe('create-references command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      adapterNames: ['materialxview', 'threejs'],
+      rendererNames: ['materialxview', 'threejs'],
       materialSelectors: ['standard_surface', '/gltf_pbr/i', 'stdlib'],
     });
   });
 
-  it('defaults to all adapters when --adapters is omitted', async () => {
+  it('defaults to all renderers when --renderers is omitted', async () => {
     await command.handler({
-      adapters: undefined,
+      renderers: undefined,
       materials: undefined,
       filter: undefined,
       'third-party-root': '../',
       thirdPartyRoot: '../',
-      'adapters-root': './adapters',
-      adaptersRoot: './adapters',
       concurrency: 1,
       _: [],
       $0: 'mtlx-fidelity',
@@ -98,7 +115,7 @@ describe('create-references command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      adapterNames: [],
+      rendererNames: [],
       materialSelectors: [],
     });
   });

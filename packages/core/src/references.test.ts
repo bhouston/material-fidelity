@@ -4,6 +4,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { PNG } from 'pngjs';
 import { createReferences } from './references.js';
+import type { FidelityRenderer } from './types.js';
 
 const tempDirs: string[] = [];
 
@@ -23,6 +24,34 @@ async function makeTempDir(prefix: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), prefix));
   tempDirs.push(dir);
   return dir;
+}
+
+function createPngWriterRenderer(base64Png: string, rendererName = 'fake'): FidelityRenderer {
+  return {
+    name: rendererName,
+    version: '0.0.1',
+    async checkPrerequisites() {
+      return { success: true };
+    },
+    async start() {},
+    async shutdown() {},
+    async generateImage(options) {
+      await writeFile(options.outputPngPath, Buffer.from(base64Png, 'base64'));
+    },
+  };
+}
+
+function createFailingPrerequisiteRenderer(rendererName = 'fake'): FidelityRenderer {
+  return {
+    name: rendererName,
+    version: '0.0.1',
+    async checkPrerequisites() {
+      return { success: false, message: 'Missing fake prerequisite.' };
+    },
+    async start() {},
+    async shutdown() {},
+    async generateImage() {},
+  };
 }
 
 function createAdapterModulePngWriter(base64Png: string, adapterName = 'fake'): string {
@@ -48,7 +77,7 @@ afterEach(async () => {
 });
 
 describe('createReferences', () => {
-  it('renders a png named after the adapter beside each material', async () => {
+  it('renders a webp named after the adapter beside each material', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
@@ -66,7 +95,7 @@ describe('createReferences', () => {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -76,15 +105,16 @@ describe('createReferences', () => {
     );
 
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake'],
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
       concurrency: 2,
     });
 
-    const outputPngPath = path.join(materialDir, 'fake.png');
-    await access(outputPngPath);
-    expect(result.adapterNames).toEqual(['fake']);
+    const outputWebpPath = path.join(materialDir, 'fake.webp');
+    await access(outputWebpPath);
+    await expect(access(path.join(materialDir, 'fake.png'))).rejects.toThrow();
+    expect(result.rendererNames).toEqual(['fake']);
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
     expect(result.rendered).toBe(1);
@@ -110,7 +140,7 @@ describe('createReferences', () => {
     await writeFile(path.join(viewerDir, 'other_mesh.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -132,9 +162,9 @@ export function createAdapter() {
 
     await expect(
       createReferences({
-        adaptersRoot,
         thirdPartyRoot,
-        adapterNames: ['fake'],
+        renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+        rendererNames: ['fake'],
         concurrency: 1,
       }),
     ).rejects.toThrow('Missing required viewer assets');
@@ -161,7 +191,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -171,9 +201,9 @@ export function createAdapter() {
     );
 
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake'],
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
       concurrency: 2,
       materialSelectors: ['included'],
     });
@@ -181,8 +211,8 @@ export function createAdapter() {
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
     expect(result.rendered).toBe(1);
-    await expect(access(path.join(includedDir, 'fake.png'))).resolves.toBeUndefined();
-    await expect(access(path.join(skippedDir, 'fake.png'))).rejects.toThrow();
+    await expect(access(path.join(includedDir, 'fake.webp'))).resolves.toBeUndefined();
+    await expect(access(path.join(skippedDir, 'fake.webp'))).rejects.toThrow();
   });
 
   it('supports regex material selectors', async () => {
@@ -206,7 +236,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -216,9 +246,9 @@ export function createAdapter() {
     );
 
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake'],
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
       concurrency: 2,
       materialSelectors: ['/gltf_pbr/i'],
     });
@@ -226,8 +256,8 @@ export function createAdapter() {
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
     expect(result.rendered).toBe(1);
-    await expect(access(path.join(includedDir, 'fake.png'))).resolves.toBeUndefined();
-    await expect(access(path.join(skippedDir, 'fake.png'))).rejects.toThrow();
+    await expect(access(path.join(includedDir, 'fake.webp'))).resolves.toBeUndefined();
+    await expect(access(path.join(skippedDir, 'fake.webp'))).rejects.toThrow();
   });
 
   it('emits progress events with adapter names for each render task', async () => {
@@ -251,7 +281,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -260,14 +290,14 @@ export function createAdapter() {
       'utf8',
     );
 
-    const events: Array<{ phase: string; adapterName: string }> = [];
+    const events: Array<{ phase: string; rendererName: string }> = [];
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake'],
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
       concurrency: 1,
       onProgress: (event) => {
-        events.push({ phase: event.phase, adapterName: event.adapterName });
+        events.push({ phase: event.phase, rendererName: event.rendererName });
       },
     });
 
@@ -275,10 +305,10 @@ export function createAdapter() {
     expect(events).toHaveLength(4);
     expect(events.filter((event) => event.phase === 'start')).toHaveLength(2);
     expect(events.filter((event) => event.phase === 'finish')).toHaveLength(2);
-    expect(events.every((event) => event.adapterName === 'fake')).toBe(true);
+    expect(events.every((event) => event.rendererName === 'fake')).toBe(true);
   });
 
-  it('defaults to all adapters when adapterNames is omitted', async () => {
+  it('defaults to all renderers when rendererNames is omitted', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
@@ -298,7 +328,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(fakeAdapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -308,7 +338,7 @@ export function createAdapter() {
     );
     await writeFile(
       path.join(altAdapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/alt-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-alt', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -318,14 +348,17 @@ export function createAdapter() {
     );
 
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
+      renderers: [
+        createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake'),
+        createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'alt'),
+      ],
       concurrency: 1,
     });
 
-    await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
-    await expect(access(path.join(materialDir, 'alt.png'))).resolves.toBeUndefined();
-    expect(result.adapterNames.toSorted()).toEqual(['alt', 'fake']);
+    await expect(access(path.join(materialDir, 'fake.webp'))).resolves.toBeUndefined();
+    await expect(access(path.join(materialDir, 'alt.webp'))).resolves.toBeUndefined();
+    expect(result.rendererNames.toSorted()).toEqual(['alt', 'fake']);
     expect(result.total).toBe(2);
     expect(result.rendered).toBe(2);
   });
@@ -353,7 +386,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(fakeAdapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -363,7 +396,7 @@ export function createAdapter() {
     );
     await writeFile(
       path.join(altAdapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/alt-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-alt', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -372,25 +405,28 @@ export function createAdapter() {
       'utf8',
     );
 
-    const startEvents: Array<{ materialPath: string; adapterName: string }> = [];
+    const startEvents: Array<{ materialPath: string; rendererName: string }> = [];
     await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake', 'alt'],
+      renderers: [
+        createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake'),
+        createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'alt'),
+      ],
+      rendererNames: ['fake', 'alt'],
       concurrency: 1,
       onProgress: (event) => {
         if (event.phase === 'start') {
-          startEvents.push({ materialPath: event.materialPath, adapterName: event.adapterName });
+          startEvents.push({ materialPath: event.materialPath, rendererName: event.rendererName });
         }
       },
     });
 
     expect(startEvents).toHaveLength(4);
-    expect(startEvents[0]?.adapterName).toBe('fake');
-    expect(startEvents[1]?.adapterName).toBe('alt');
+    expect(startEvents[0]?.rendererName).toBe('fake');
+    expect(startEvents[1]?.rendererName).toBe('alt');
     expect(startEvents[0]?.materialPath).toBe(startEvents[1]?.materialPath);
-    expect(startEvents[2]?.adapterName).toBe('fake');
-    expect(startEvents[3]?.adapterName).toBe('alt');
+    expect(startEvents[2]?.rendererName).toBe('fake');
+    expect(startEvents[3]?.rendererName).toBe('alt');
     expect(startEvents[2]?.materialPath).toBe(startEvents[3]?.materialPath);
     expect(startEvents[0]?.materialPath).not.toBe(startEvents[2]?.materialPath);
   });
@@ -413,23 +449,24 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(path.join(adapterDir, 'dist/index.js'), createAdapterModulePngWriter(BLACK_PIXEL_PNG_BASE64), 'utf8');
 
     const result = await createReferences({
-      adaptersRoot,
       thirdPartyRoot,
-      adapterNames: ['fake'],
+      renderers: [createPngWriterRenderer(BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
       concurrency: 1,
     });
 
     const outputPngPath = path.join(materialDir, 'fake.png');
     await expect(access(outputPngPath)).rejects.toThrow();
+    await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow();
     expect(result.rendered).toBe(0);
     expect(result.failures).toHaveLength(1);
-    expect(result.failures[0]?.adapterName).toBe('fake');
+    expect(result.failures[0]?.rendererName).toBe('fake');
     expect(result.failures[0]?.error.message).toContain('Render output is empty');
   });
 
@@ -442,8 +479,8 @@ export function createAdapter() {
 
     await expect(
       createReferences({
-        adaptersRoot,
         thirdPartyRoot,
+        renderers: [],
         concurrency: 1,
       }),
     ).rejects.toThrow('Missing required materialX-samples directory');
@@ -467,7 +504,7 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
     await writeFile(
       path.join(adapterDir, 'package.json'),
-      JSON.stringify({ name: '@test/fake-adapter', main: './dist/index.js' }, null, 2),
+      JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
     await writeFile(
@@ -491,11 +528,11 @@ export function createAdapter() {
 
     await expect(
       createReferences({
-        adaptersRoot,
         thirdPartyRoot,
-        adapterNames: ['fake'],
+        renderers: [createFailingPrerequisiteRenderer('fake')],
+        rendererNames: ['fake'],
         concurrency: 1,
       }),
-    ).rejects.toThrow('Adapter prerequisites are not met');
+    ).rejects.toThrow('Renderer prerequisites are not met');
   });
 });

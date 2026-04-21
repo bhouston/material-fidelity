@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/threejs-adapter",
+  "name": "@materialx-fidelity/renderer-threejs",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

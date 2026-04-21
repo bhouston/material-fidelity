@@ -6,37 +6,28 @@ export interface GenerateImageOptions {
   backgroundColor: string;
 }
 
-export interface AdapterPrerequisiteCheckResult {
+export interface RendererPrerequisiteCheckResult {
   success: boolean;
   message?: string;
 }
 
-export interface FidelityAdapter {
+export interface FidelityRenderer {
   name: string;
   version: string;
-  checkPrerequisites: () => Promise<AdapterPrerequisiteCheckResult> | AdapterPrerequisiteCheckResult;
+  checkPrerequisites: () => Promise<RendererPrerequisiteCheckResult> | RendererPrerequisiteCheckResult;
   start: () => Promise<void>;
   shutdown: () => Promise<void>;
   generateImage: (options: GenerateImageOptions) => Promise<void>;
 }
 
-export interface AdapterContext {
+export interface RendererContext {
   thirdPartyRoot: string;
-}
-
-export interface AdapterModule {
-  createAdapter: (context?: AdapterContext) => Promise<FidelityAdapter> | FidelityAdapter;
-}
-
-export interface LoadAdaptersOptions {
-  adaptersRoot: string;
-  context?: AdapterContext;
 }
 
 export interface CreateReferencesOptions {
-  adaptersRoot: string;
   thirdPartyRoot: string;
-  adapterNames?: string[];
+  renderers: FidelityRenderer[];
+  rendererNames?: string[];
   materialSelectors?: string[];
   concurrency: number;
   filter?: string;
@@ -46,14 +37,14 @@ export interface CreateReferencesOptions {
 }
 
 export interface RenderFailure {
-  adapterName: string;
+  rendererName: string;
   materialPath: string;
   outputPngPath: string;
   error: Error;
 }
 
 export interface CreateReferencesResult {
-  adapterNames: string[];
+  rendererNames: string[];
   total: number;
   attempted: number;
   rendered: number;
@@ -67,7 +58,7 @@ export interface CreateReferencesPlanEvent {
 
 export interface CreateReferencesProgressEvent {
   phase: 'start' | 'finish';
-  adapterName: string;
+  rendererName: string;
   materialPath: string;
   outputPngPath: string;
   total: number;

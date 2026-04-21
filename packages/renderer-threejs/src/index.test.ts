@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAdapter } from './index.js';
+import { createRenderer } from './index.js';
 
 const { createServerMock, launchMock } = vi.hoisted(() => ({
   createServerMock: vi.fn(),
@@ -45,7 +45,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map(async (directory) => rm(directory, { recursive: true, force: true })));
 });
 
-describe('threejs adapter', () => {
+describe('threejs renderer', () => {
   it('creates a new page for each render and closes it', async () => {
     const thirdPartyRoot = await makeTempDir('third-party-');
     const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
@@ -96,22 +96,22 @@ describe('threejs adapter', () => {
     };
     launchMock.mockResolvedValueOnce(probeBrowser).mockResolvedValueOnce(browser);
 
-    const adapter = createAdapter({ thirdPartyRoot });
-    await adapter.start();
+    const renderer = createRenderer({ thirdPartyRoot });
+    await renderer.start();
 
     const materialPath = path.join(samplesRoot, 'materials', 'example', 'material.mtlx');
     const outputOne = path.join(samplesRoot, 'materials', 'example', 'one.png');
     const outputTwo = path.join(samplesRoot, 'materials', 'example', 'two.png');
     await createFile(materialPath);
 
-    await adapter.generateImage({
+    await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputOne,
       modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
       environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
       backgroundColor: '0,0,0',
     });
-    await adapter.generateImage({
+    await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputTwo,
       modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
@@ -123,7 +123,7 @@ describe('threejs adapter', () => {
     expect(firstPage.close).toHaveBeenCalledTimes(1);
     expect(secondPage.close).toHaveBeenCalledTimes(1);
 
-    await adapter.shutdown();
+    await renderer.shutdown();
     expect(browserContext.close).toHaveBeenCalledTimes(1);
     expect(probeBrowser.close).toHaveBeenCalledTimes(1);
     expect(browser.close).toHaveBeenCalledTimes(1);
