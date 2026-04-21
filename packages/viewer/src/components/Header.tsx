@@ -5,6 +5,15 @@ export default function Header() {
   return (
     <header className="border-b border-border bg-card py-3 shadow-sm">
       <div className="mx-auto flex w-full max-w-[1120px] items-center gap-3 px-4 sm:px-6">
+        <a
+          aria-label="MaterialX project"
+          className="shrink-0"
+          href="https://materialx.org/"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <img alt="MaterialX logo" className="size-7" src="/materialx-logo.svg" />
+        </a>
         <Link className="text-xl font-semibold text-foreground no-underline" search={{}} to="/">
           MaterialX Fidelity Viewer
         </Link>

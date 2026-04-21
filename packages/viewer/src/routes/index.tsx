@@ -23,20 +23,87 @@ function App() {
     <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-4 py-8 sm:px-6">
       <section>
         <p className="max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          This viewer lists MaterialX sample materials and compares renderer reference renders side-by-side so you can
-          quickly spot visual differences and missing captures.
-        </p>
-        <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          Want to compare your own renderer? Contributions are welcome - see the{' '}
+          This viewer lists{' '}
           <a
             className="underline underline-offset-2 hover:no-underline"
-            href="https://github.com/bhouston/MaterialX-FidelityTesting"
+            href="https://materialx.org/"
             rel="noreferrer"
             target="_blank"
           >
-            GitHub repository
+            MaterialX
           </a>{' '}
-          for integration details.
+          sample materials and compares renderer reference renders side-by-side so you can quickly spot visual
+          differences and missing captures.
+        </p>
+        <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <p className="font-medium text-foreground">Supported renderers:</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            <li>
+              <a
+             
+            className="underline underline-offset-2 hover:no-underline"   href="https://github.com/bhouston/MaterialX-FidelityTesting/tree/main/packages/renderer-materialxview"
+                target="_blank"
+              >
+                @materialx-fidelity/renderer-materialxview
+              </a>{' '}
+              - Creates renders using the official <a  
+            className="underline underline-offset-2 hover:no-underline" href="https://github.com/AcademySoftwareFoundation/MaterialX/blob/main/documents/DeveloperGuide/Viewer.md"
+             target="_blank">MaterialX Viewer</a>.
+             
+            </li>
+            <li>
+              <a
+            
+            className="underline underline-offset-2 hover:no-underline"   href="https://github.com/bhouston/MaterialX-FidelityTesting/tree/main/packages/renderer-threejs"
+                target="_blank"
+              >
+                @materialx-fidelity/renderer-threejs
+              </a>{' '}
+              - Uses the MaterialXLoader from the <a
+              
+              className="underline underline-offset-2 hover:no-underline"  href="https://threejs.org/"
+                  target="_blank"
+                >Three.js project</a> with the WebGPU Renderer.
+            </li>
+          </ul>
+        </div>
+        <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <p>Want to contribute?</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            <li>
+              <a
+                className="underline underline-offset-2 hover:no-underline"
+                href="https://github.com/bhouston/materialx-fidelity"
+                target="_blank"
+              >
+                Add your own renderer here.
+              </a>
+            </li>
+            <li>
+              <a
+                className="underline underline-offset-2 hover:no-underline"
+                href="https://github.com/bhouston/materialx-samples"
+                target="_blank"
+              >
+                Add more reference samples here.
+              </a>
+            </li>
+          </ul>
+        </div>
+        <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+          This is an independent project maintained by{' '}
+          <a className="underline underline-offset-2 hover:no-underline" href="https://ben3d.ca" target="_blank">
+            Ben Houston
+          </a>
+          , and sponsored by{' '}
+          <a
+            className="underline underline-offset-2 hover:no-underline"
+            href="https://landofassets.com"
+            target="_blank"
+          >
+            Land of Assets
+          </a>
+          .
         </p>
       </section>
 
