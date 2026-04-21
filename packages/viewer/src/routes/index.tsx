@@ -195,18 +195,8 @@ function App() {
                           rel="noreferrer"
                           target="_blank"
                         >
-                          <span>Viewer</span>
-                          <ExternalLink aria-hidden="true" className="size-3.5" />
-                        </a>
-                             <a
-                          className="inline-flex items-center gap-1 rounded-none border border-border bg-muted/40 px-2.5 py-1.5 font-normal text-foreground transition-colors hover:border-primary/40 hover:bg-muted/60"
-                          href={material.sourceUrl}
-                          onClick={() => trackMaterialAction('open_source', material)}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          <span>Source</span>
-                          <ExternalLink aria-hidden="true" className="size-3.5" />
+                         
+                         <ExternalLink aria-hidden="true" className="size-3.5" /> <span>Viewer</span>
                         </a>
                       </div>
                     </div>
