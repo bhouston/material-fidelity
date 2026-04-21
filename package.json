@@ -1,5 +1,5 @@
 {
-  "name": "materialx-fidelity-testing",
+  "name": "materialx-fidelity",
   "version": "0.1.0",
   "private": true,
   "description": "MaterialX fidelity test system for reference image generation and comparison workflows.",
@@ -13,7 +13,7 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "build": "tsgo -b && pnpm -r build",
+    "build": "tsgo -b && pnpm -r --if-present build",
     "dev": "pnpm -r --parallel --stream dev",
     "clean": "rimraf dist packages/**/dist adapters/**/dist",
     "clean:all": "pnpm clean && rimraf node_modules packages/**/node_modules adapters/**/node_modules",
@@ -25,9 +25,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "cli": "pnpm --filter @mtlx-fidelity/cli start",
-    "viewer": "pnpm --filter @mtlx-fidelity/viewer dev",
-    "viewer:build": "pnpm --filter @mtlx-fidelity/viewer build"
+    "cli": "pnpm --filter @materialx-fidelity/cli start",
+    "viewer": "pnpm --filter @materialx-fidelity/viewer dev",
+    "viewer:build": "pnpm --filter @materialx-fidelity/viewer build"
   },
   "dependencies": {
     "rimraf": "^6.1.3"

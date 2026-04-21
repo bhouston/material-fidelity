@@ -1,5 +1,5 @@
 {
-  "name": "@mtlx-fidelity/cli",
+  "name": "@materialx-fidelity/cli",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,7 @@
     "mtlx-fidelity": "./dist/bin.js"
   },
   "dependencies": {
-    "@mtlx-fidelity/core": "workspace:*",
+    "@materialx-fidelity/core": "workspace:*",
     "humanize-units": "^2.0.4",
     "ink": "^7.0.1",
     "react": "^19.2.5",
@@ -20,7 +20,8 @@
     "yargs-file-commands": "^1.2.2"
   },
   "scripts": {
-    "build": "tsgo",
+    "tsc": "tsgo",
+    "tsgo": "tsgo",
     "dev": "tsgo -w --preserveWatchOutput",
     "start": "node ./dist/bin.js"
   },

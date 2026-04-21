@@ -16,8 +16,6 @@ const querySchema = z.object({
   modelPath: z.string().min(1),
   environmentHdrPath: z.string().min(1),
   environmentRotationDegrees: z.coerce.number().default(0),
-  screenWidth: z.coerce.number().int().positive(),
-  screenHeight: z.coerce.number().int().positive(),
   backgroundColor: z.string().transform((value, context) => {
     const pieces = value.split(',').map((piece) => Number(piece.trim()));
     if (pieces.length !== 3 || pieces.some((piece) => Number.isNaN(piece) || piece < 0 || piece > 1)) {
@@ -34,6 +32,8 @@ const querySchema = z.object({
 
 type ViewerQuery = z.infer<typeof querySchema>;
 const IDEAL_MESH_SPHERE_RADIUS = 2;
+const REFERENCE_IMAGE_WIDTH = 1024;
+const REFERENCE_IMAGE_HEIGHT = 1024;
 
 function parseQuery(search: string): ViewerQuery {
   const rawQuery = Object.fromEntries(new URLSearchParams(search).entries());
@@ -114,14 +114,14 @@ async function buildScene(): Promise<void> {
     forceWebGL: false,
   });
   renderer.setPixelRatio(1);
-  renderer.setSize(query.screenWidth, query.screenHeight, false);
+  renderer.setSize(REFERENCE_IMAGE_WIDTH, REFERENCE_IMAGE_HEIGHT, false);
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(new THREE.Color(backgroundR, backgroundG, backgroundB), 1);
   mount.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, query.screenWidth / query.screenHeight, 0.05, 1000);
+  const camera = new THREE.PerspectiveCamera(45, REFERENCE_IMAGE_WIDTH / REFERENCE_IMAGE_HEIGHT, 0.05, 1000);
   camera.position.set(0, 0, 5);
   camera.lookAt(0, 0, 0);
 

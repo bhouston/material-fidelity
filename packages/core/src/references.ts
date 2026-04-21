@@ -78,14 +78,14 @@ function materialMatchesSelector(materialPath: string, materialsRoot: string, se
 }
 
 export async function createReferences(options: CreateReferencesOptions): Promise<CreateReferencesResult> {
-  const samplesRoot = path.join(options.thirdPartyRoot, 'MaterialX-Samples');
+  const samplesRoot = path.join(options.thirdPartyRoot, 'materialX-samples');
   const materialsRoot = path.join(samplesRoot, 'materials');
   const viewerRoot = path.join(samplesRoot, 'viewer');
 
   try {
     await access(samplesRoot);
   } catch {
-    throw new Error(`Missing required MaterialX-Samples directory at ${samplesRoot}.`);
+    throw new Error(`Missing required materialX-samples directory at ${samplesRoot}.`);
   }
 
   try {
@@ -217,8 +217,6 @@ export async function createReferences(options: CreateReferencesOptions): Promis
               environmentHdrPath: hdrPath,
               modelPath,
               backgroundColor: DEFAULT_BACKGROUND_COLOR,
-              screenWidth: options.screenWidth,
-              screenHeight: options.screenHeight,
             });
             await assertRenderIsNotEmpty(outputPngPath);
           } catch (error) {

@@ -21,15 +21,15 @@ The initial scaffold focuses on reference-image generation:
 - Node.js 24+
 - pnpm 10+
 - `materialxview` (or `MaterialXView`) available on your `PATH`
-- third-party root at `../` containing `MaterialX-Samples` and `threejs` repositories
+- third-party root at `../` containing `materialX-samples` and `three.js` repositories
 
 Expected third-party layout:
 
-- `../MaterialX-Samples/materials/**/material.mtlx`
-- `../MaterialX-Samples/viewer/san_giuseppe_bridge_2k.hdr`
-- `../MaterialX-Samples/viewer/ShaderBall.glb`
-- `../threejs/build/three.module.js`
-- `../threejs/examples/jsm/loaders/MaterialXLoader.js`
+- `../materialX-samples/materials/**/material.mtlx`
+- `../materialX-samples/viewer/san_giuseppe_bridge_2k.hdr`
+- `../materialX-samples/viewer/ShaderBall.glb`
+- `../three.js/build/three.module.js`
+- `../three.js/examples/jsm/loaders/MaterialXLoader.js`
 
 ## Install
 
@@ -68,10 +68,9 @@ Optional flags:
 - `--adapters-root <path>` override default `./adapters`
 - `--adapters <name[,name...]>` optional adapter filter; supports repeated flags and comma-separated values
 - `--materials <selector[,selector...]>` optional material filter; supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
-- `--screen-width <number>` default `512`
-- `--screen-height <number>` default `512`
 - `--concurrency <number>` default `1`
 - all adapters render with a fixed black background (`0,0,0`)
+- all generated reference images are rendered at a fixed resolution of `1024x1024`
 - all generated images are validated; fully black images are treated as empty render failures and deleted
 
 ## Adapter Framing Source Of Truth
@@ -96,7 +95,7 @@ pnpm viewer
 
 The viewer scans MaterialX materials and adapter outputs using:
 
-- `THIRD_PARTY_ROOT` (optional, default `../`) - root containing `MaterialX-Samples`.
+- `THIRD_PARTY_ROOT` (optional, default `../`) - root containing `materialX-samples`.
 - `ADAPTERS_ROOT` (optional, default `./adapters`) - root containing adapter directories (`threejs`, `materialxview`, etc).
 
 Example:

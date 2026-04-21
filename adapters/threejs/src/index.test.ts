@@ -48,7 +48,7 @@ afterEach(async () => {
 describe('threejs adapter', () => {
   it('creates a new page for each render and closes it', async () => {
     const thirdPartyRoot = await makeTempDir('third-party-');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const viewerRoot = path.join(samplesRoot, 'viewer');
 
     await createFile(path.join(thirdPartyRoot, 'three.js', 'build', 'three.webgpu.js'));
@@ -110,8 +110,6 @@ describe('threejs adapter', () => {
       modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
       environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
       backgroundColor: '0,0,0',
-      screenWidth: 512,
-      screenHeight: 512,
     });
     await adapter.generateImage({
       mtlxPath: materialPath,
@@ -119,8 +117,6 @@ describe('threejs adapter', () => {
       modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
       environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
       backgroundColor: '0,0,0',
-      screenWidth: 512,
-      screenHeight: 512,
     });
 
     expect(browserContext.newPage).toHaveBeenCalledTimes(2);

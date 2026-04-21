@@ -34,7 +34,7 @@ function App() {
           comparison format while focusing on MaterialX sample content.
         </p>
         <p className="mt-3 text-xs text-muted-foreground sm:text-sm">
-          Source materials: {data.resolvedThirdPartyRoot}/MaterialX-Samples/materials | Adapters root:{' '}
+          Source materials: {data.resolvedThirdPartyRoot}/materialX-samples/materials | Adapters root:{' '}
           {data.resolvedAdaptersRoot}
         </p>
       </section>
@@ -65,7 +65,7 @@ function App() {
                     rel="noreferrer"
                     target="_blank"
                   >
-                    View in materialx-samples
+                    View in materialX-samples
                   </a>
                 </div>
 

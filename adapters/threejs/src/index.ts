@@ -4,7 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
-import type { AdapterContext, AdapterPrerequisiteCheckResult, FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
+import {
+  REFERENCE_IMAGE_HEIGHT,
+  REFERENCE_IMAGE_WIDTH,
+  type AdapterContext,
+  type AdapterPrerequisiteCheckResult,
+  type FidelityAdapter,
+  type GenerateImageOptions,
+} from '@materialx-fidelity/core';
 
 interface RuntimeState {
   baseUrl: string;
@@ -148,7 +155,7 @@ class ThreeJsAdapter implements FidelityAdapter {
     }
 
     const threeRoot = await resolveThreeRoot(this.thirdPartyRoot);
-    const samplesRoot = join(this.thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = join(this.thirdPartyRoot, 'materialX-samples');
     const viewerRoot = join(samplesRoot, 'viewer');
 
     const threeWebGpuPath = join(threeRoot, 'build', 'three.webgpu.js');
@@ -214,7 +221,7 @@ class ThreeJsAdapter implements FidelityAdapter {
 
     const browser = await launchGpuBrowser();
     const context = await browser.newContext({
-      viewport: { width: 512, height: 512 },
+      viewport: { width: REFERENCE_IMAGE_WIDTH, height: REFERENCE_IMAGE_HEIGHT },
       deviceScaleFactor: 1,
     });
 
@@ -250,8 +257,8 @@ class ThreeJsAdapter implements FidelityAdapter {
     const page = await this.runtimeState.context.newPage();
     try {
       await page.setViewportSize({
-        width: options.screenWidth,
-        height: options.screenHeight,
+        width: REFERENCE_IMAGE_WIDTH,
+        height: REFERENCE_IMAGE_HEIGHT,
       });
 
       const url = new URL('/index.html', this.runtimeState.baseUrl);
@@ -260,8 +267,6 @@ class ThreeJsAdapter implements FidelityAdapter {
       url.searchParams.set('environmentHdrPath', toFsUrlPath(options.environmentHdrPath));
       url.searchParams.set('environmentRotationDegrees', String(VIEWER_ENVIRONMENT_ROTATION_DEGREES));
       url.searchParams.set('backgroundColor', options.backgroundColor);
-      url.searchParams.set('screenWidth', String(options.screenWidth));
-      url.searchParams.set('screenHeight', String(options.screenHeight));
 
       await page.goto(url.toString(), { waitUntil: 'networkidle' });
       await page.waitForFunction(() => Reflect.get(globalThis, '__MTLX_CAPTURE_DONE__') === true, undefined, {

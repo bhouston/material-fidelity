@@ -1,5 +1,5 @@
 {
-  "name": "@mtlx-fidelity/viewer",
+  "name": "@materialx-fidelity/viewer",
   "private": true,
   "type": "module",
   "imports": {

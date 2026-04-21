@@ -1,7 +1,7 @@
 import { access, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
-const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/blob/main/materials'
+const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialX-samples/blob/main/materials'
 const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const
 
 interface MaterialDescriptor {
@@ -59,7 +59,7 @@ export function resolveViewerRoots(): ViewerRoots {
   const repoRoot = inferRepoRoot(invocationCwd)
   const thirdPartyRoot = path.resolve(repoRoot, process.env.THIRD_PARTY_ROOT ?? '../')
   const adaptersRoot = path.resolve(repoRoot, process.env.ADAPTERS_ROOT ?? './adapters')
-  const materialsRoot = path.join(thirdPartyRoot, 'MaterialX-Samples', 'materials')
+  const materialsRoot = path.join(thirdPartyRoot, 'materialX-samples', 'materials')
 
   return {
     repoRoot,

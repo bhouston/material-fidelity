@@ -15,7 +15,7 @@ Core flags for thumbnail generation:
 - `--material` input `.mtlx`
 - `--mesh` showcase geometry (`resources/Geometry/shaderball.glb`, `sphere.obj`, etc.)
 - `--envRad` HDRI environment (`resources/Lights/san_giuseppe_bridge_split.hdr`, etc.)
-- `--screenWidth` / `--screenHeight` output resolution
+- `--screenWidth` / `--screenHeight` output resolution (this repository's `mtlx-fidelity` wrapper fixes output at `1024x1024`)
 - `--captureFilename` output image path
 - Optional quality/look controls: `--envSampleCount`, `--lightRotation`, `--envLightIntensity`, `--cameraZoom`, `--shadowMap`, `--drawEnvironment`
 
@@ -35,8 +35,8 @@ Then render one image:
   --material resources/Materials/Examples/StandardSurface/standard_surface_carpaint.mtlx \
   --mesh resources/Geometry/shaderball.glb \
   --envRad resources/Lights/san_giuseppe_bridge_split.hdr \
-  --screenWidth 256 \
-  --screenHeight 256 \
+  --screenWidth 1024 \
+  --screenHeight 1024 \
   --cameraZoom 1.0 \
   --envSampleCount 16 \
   --captureFilename output/carpaint.png
@@ -54,8 +54,8 @@ for mtlx in resources/Materials/Examples/StandardSurface/*.mtlx; do
     --material "$mtlx" \
     --mesh resources/Geometry/shaderball.glb \
     --envRad resources/Lights/san_giuseppe_bridge_split.hdr \
-    --screenWidth 256 \
-    --screenHeight 256 \
+    --screenWidth 1024 \
+    --screenHeight 1024 \
     --envSampleCount 16 \
     --captureFilename "output/${base}.png"
 done

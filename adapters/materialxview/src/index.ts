@@ -1,7 +1,13 @@
 import { dirname, extname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
-import type { AdapterPrerequisiteCheckResult, FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
+import {
+  REFERENCE_IMAGE_HEIGHT,
+  REFERENCE_IMAGE_WIDTH,
+  type AdapterPrerequisiteCheckResult,
+  type FidelityAdapter,
+  type GenerateImageOptions,
+} from '@materialx-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
 
@@ -102,9 +108,9 @@ class MaterialXViewAdapter implements FidelityAdapter {
       '--screenColor',
       options.backgroundColor,
       '--screenWidth',
-      String(options.screenWidth),
+      String(REFERENCE_IMAGE_WIDTH),
       '--screenHeight',
-      String(options.screenHeight),
+      String(REFERENCE_IMAGE_HEIGHT),
       '--enableDirectLight',
       'false',
       '--shadowMap',

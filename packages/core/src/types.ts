@@ -4,8 +4,6 @@ export interface GenerateImageOptions {
   modelPath: string;
   environmentHdrPath: string;
   backgroundColor: string;
-  screenWidth: number;
-  screenHeight: number;
 }
 
 export interface AdapterPrerequisiteCheckResult {
@@ -41,8 +39,6 @@ export interface CreateReferencesOptions {
   adapterNames?: string[];
   materialSelectors?: string[];
   concurrency: number;
-  screenWidth: number;
-  screenHeight: number;
   filter?: string;
   shouldStop?: () => boolean;
   onPlan?: (event: CreateReferencesPlanEvent) => void | Promise<void>;

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { command } from './create-references.js';
-import type { createReferences } from '@mtlx-fidelity/core';
+import type { createReferences } from '@materialx-fidelity/core';
 
 const { createReferencesMock } = vi.hoisted(() => ({
   createReferencesMock: vi.fn<typeof createReferences>(),
 }));
 
-vi.mock('@mtlx-fidelity/core', () => ({
+vi.mock('@materialx-fidelity/core', () => ({
   createReferences: createReferencesMock,
 }));
 
@@ -36,10 +36,6 @@ describe('create-references command', () => {
         thirdPartyRoot: '../',
         'adapters-root': './adapters',
         adaptersRoot: './adapters',
-        'screen-width': 256,
-        screenWidth: 256,
-        'screen-height': 256,
-        screenHeight: 256,
         concurrency: 2,
         _: [],
         $0: 'mtlx-fidelity',
@@ -60,8 +56,6 @@ describe('create-references command', () => {
       adapterNames: ['materialxview'],
       thirdPartyRoot: expect.any(String),
       concurrency: 2,
-      screenWidth: 256,
-      screenHeight: 256,
     });
   });
 
@@ -74,10 +68,6 @@ describe('create-references command', () => {
       thirdPartyRoot: '../',
       'adapters-root': './adapters',
       adaptersRoot: './adapters',
-      'screen-width': 256,
-      screenWidth: 256,
-      'screen-height': 256,
-      screenHeight: 256,
       concurrency: 1,
       _: [],
       $0: 'mtlx-fidelity',
@@ -100,10 +90,6 @@ describe('create-references command', () => {
       thirdPartyRoot: '../',
       'adapters-root': './adapters',
       adaptersRoot: './adapters',
-      'screen-width': 256,
-      screenWidth: 256,
-      'screen-height': 256,
-      screenHeight: 256,
       concurrency: 1,
       _: [],
       $0: 'mtlx-fidelity',

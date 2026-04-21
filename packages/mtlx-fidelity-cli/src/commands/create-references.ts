@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
-import { createReferences } from '@mtlx-fidelity/core';
-import type { CreateReferencesProgressEvent, CreateReferencesResult } from '@mtlx-fidelity/core';
+import { createReferences } from '@materialx-fidelity/core';
+import type { CreateReferencesProgressEvent, CreateReferencesResult } from '@materialx-fidelity/core';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 
@@ -67,8 +67,6 @@ interface InkCreateReferencesAppProps {
     thirdPartyRoot: string;
     adapterNames: string[];
     concurrency: number;
-    screenWidth: number;
-    screenHeight: number;
     materialSelectors: string[];
     filter?: string;
   };
@@ -98,7 +96,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
 
   useEffect(() => {
     let active = true;
-    const materialsRoot = path.join(args.thirdPartyRoot, 'MaterialX-Samples', 'materials');
+    const materialsRoot = path.join(args.thirdPartyRoot, 'materialX-samples', 'materials');
 
     const applyProgress = (event: CreateReferencesProgressEvent) => {
       if (!active) {
@@ -147,8 +145,6 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
       thirdPartyRoot: args.thirdPartyRoot,
       adapterNames: args.adapterNames,
       concurrency: args.concurrency,
-      screenWidth: args.screenWidth,
-      screenHeight: args.screenHeight,
       materialSelectors: args.materialSelectors,
       filter: args.filter,
       shouldStop: () => stopRequestedRef.current,
@@ -243,22 +239,12 @@ export const command = defineCommand({
       .option('third-party-root', {
         type: 'string',
         default: '../',
-        describe: 'Path containing third-party repositories such as MaterialX-Samples and threejs.',
+        describe: 'Path containing third-party repositories such as materialX-samples and threejs.',
       })
       .option('adapters-root', {
         type: 'string',
         default: './adapters',
         describe: 'Path to the adapters directory.',
-      })
-      .option('screen-width', {
-        type: 'number',
-        default: 512,
-        describe: 'Reference image width in pixels.',
-      })
-      .option('screen-height', {
-        type: 'number',
-        default: 512,
-        describe: 'Reference image height in pixels.',
       })
       .option('concurrency', {
         type: 'number',
@@ -287,12 +273,10 @@ export const command = defineCommand({
       thirdPartyRoot,
       adapterNames: normalizeAdapterNames(argv.adapters),
       concurrency: Math.max(1, argv.concurrency),
-      screenWidth: argv['screen-width'],
-      screenHeight: argv['screen-height'],
       materialSelectors: [...new Set(materialSelectors)],
       filter: argv.filter,
     };
-    const materialsRoot = path.join(thirdPartyRoot, 'MaterialX-Samples', 'materials');
+    const materialsRoot = path.join(thirdPartyRoot, 'materialX-samples', 'materials');
     const isInteractive = process.stdout.isTTY && !process.env.CI;
     const result = isInteractive
       ? await runCreateReferencesWithInk(commandArgs)

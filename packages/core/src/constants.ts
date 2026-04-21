@@ -1,0 +1,2 @@
+export const REFERENCE_IMAGE_WIDTH = 1024;
+export const REFERENCE_IMAGE_HEIGHT = 1024;

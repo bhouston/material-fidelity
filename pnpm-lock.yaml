@@ -39,13 +39,13 @@ importers:
 
   adapters/materialxview:
     dependencies:
-      '@mtlx-fidelity/core':
+      '@materialx-fidelity/core':
         specifier: workspace:*
         version: link:../../packages/core
 
   adapters/threejs:
     dependencies:
-      '@mtlx-fidelity/core':
+      '@materialx-fidelity/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@vitejs/plugin-react':
@@ -82,7 +82,7 @@ importers:
 
   packages/mtlx-fidelity-cli:
     dependencies:
-      '@mtlx-fidelity/core':
+      '@materialx-fidelity/core':
         specifier: workspace:*
         version: link:../core
       humanize-units:

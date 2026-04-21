@@ -19,7 +19,7 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile --prefer-offline
 
-RUN pnpm --filter @mtlx-fidelity/viewer build
+RUN pnpm --filter @materialx-fidelity/viewer build
 
 EXPOSE 8080
 

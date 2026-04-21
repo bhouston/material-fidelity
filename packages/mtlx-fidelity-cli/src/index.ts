@@ -22,5 +22,5 @@ export async function runCli(argv = hideBin(process.argv)): Promise<void> {
 }
 
 export function defaultSamplesRoot(): string {
-  return path.resolve(process.cwd(), '../MaterialX-Samples');
+  return path.resolve(process.cwd(), '../materialX-samples');
 }

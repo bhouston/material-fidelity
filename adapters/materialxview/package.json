@@ -1,5 +1,5 @@
 {
-  "name": "@mtlx-fidelity/materialxview-adapter",
+  "name": "@materialx-fidelity/materialxview-adapter",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -9,10 +9,11 @@
     "dist"
   ],
   "dependencies": {
-    "@mtlx-fidelity/core": "workspace:*"
+    "@materialx-fidelity/core": "workspace:*"
   },
   "scripts": {
-    "build": "tsgo",
+    "tsc": "tsgo",
+    "tsgo": "tsgo",
     "dev": "tsgo -w --preserveWatchOutput"
   }
 }

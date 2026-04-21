@@ -51,7 +51,7 @@ describe('createReferences', () => {
   it('renders a png named after the adapter beside each material', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -80,8 +80,6 @@ describe('createReferences', () => {
       thirdPartyRoot,
       adapterNames: ['fake'],
       concurrency: 2,
-      screenWidth: 512,
-      screenHeight: 512,
     });
 
     const outputPngPath = path.join(materialDir, 'fake.png');
@@ -97,7 +95,7 @@ describe('createReferences', () => {
   it('requires the expected viewer hdr and mesh filenames', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -138,8 +136,6 @@ export function createAdapter() {
         thirdPartyRoot,
         adapterNames: ['fake'],
         concurrency: 1,
-        screenWidth: 512,
-        screenHeight: 512,
       }),
     ).rejects.toThrow('Missing required viewer assets');
   });
@@ -147,7 +143,7 @@ export function createAdapter() {
   it('applies materialSelectors to material paths', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(adaptersRoot, 'fake');
@@ -179,8 +175,6 @@ export function createAdapter() {
       thirdPartyRoot,
       adapterNames: ['fake'],
       concurrency: 2,
-      screenWidth: 512,
-      screenHeight: 512,
       materialSelectors: ['included'],
     });
 
@@ -194,7 +188,7 @@ export function createAdapter() {
   it('supports regex material selectors', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(adaptersRoot, 'fake');
@@ -226,8 +220,6 @@ export function createAdapter() {
       thirdPartyRoot,
       adapterNames: ['fake'],
       concurrency: 2,
-      screenWidth: 512,
-      screenHeight: 512,
       materialSelectors: ['/gltf_pbr/i'],
     });
 
@@ -241,7 +233,7 @@ export function createAdapter() {
   it('emits progress events with adapter names for each render task', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(adaptersRoot, 'fake');
@@ -274,8 +266,6 @@ export function createAdapter() {
       thirdPartyRoot,
       adapterNames: ['fake'],
       concurrency: 1,
-      screenWidth: 512,
-      screenHeight: 512,
       onProgress: (event) => {
         events.push({ phase: event.phase, adapterName: event.adapterName });
       },
@@ -291,7 +281,7 @@ export function createAdapter() {
   it('defaults to all adapters when adapterNames is omitted', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -331,8 +321,6 @@ export function createAdapter() {
       adaptersRoot,
       thirdPartyRoot,
       concurrency: 1,
-      screenWidth: 512,
-      screenHeight: 512,
     });
 
     await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
@@ -345,7 +333,7 @@ export function createAdapter() {
   it('queues renders in material-first then adapter order', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const firstMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-one');
@@ -390,8 +378,6 @@ export function createAdapter() {
       thirdPartyRoot,
       adapterNames: ['fake', 'alt'],
       concurrency: 1,
-      screenWidth: 512,
-      screenHeight: 512,
       onProgress: (event) => {
         if (event.phase === 'start') {
           startEvents.push({ materialPath: event.materialPath, adapterName: event.adapterName });
@@ -412,7 +398,7 @@ export function createAdapter() {
   it('deletes all-black renders and marks them as empty failures', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -437,8 +423,6 @@ export function createAdapter() {
       thirdPartyRoot,
       adapterNames: ['fake'],
       concurrency: 1,
-      screenWidth: 512,
-      screenHeight: 512,
     });
 
     const outputPngPath = path.join(materialDir, 'fake.png');
@@ -449,7 +433,7 @@ export function createAdapter() {
     expect(result.failures[0]?.error.message).toContain('Render output is empty');
   });
 
-  it('fails early when MaterialX-Samples directory is missing', async () => {
+  it('fails early when materialX-samples directory is missing', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const adaptersRoot = path.join(root, 'adapters');
@@ -461,16 +445,14 @@ export function createAdapter() {
         adaptersRoot,
         thirdPartyRoot,
         concurrency: 1,
-        screenWidth: 512,
-        screenHeight: 512,
       }),
-    ).rejects.toThrow('Missing required MaterialX-Samples directory');
+    ).rejects.toThrow('Missing required materialX-samples directory');
   });
 
   it('fails early when an adapter prerequisite check fails', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'MaterialX-Samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialX-samples');
     const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -513,8 +495,6 @@ export function createAdapter() {
         thirdPartyRoot,
         adapterNames: ['fake'],
         concurrency: 1,
-        screenWidth: 512,
-        screenHeight: 512,
       }),
     ).rejects.toThrow('Adapter prerequisites are not met');
   });
