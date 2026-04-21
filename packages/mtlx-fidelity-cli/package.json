@@ -1,0 +1,25 @@
+{
+  "name": "@mtlx-fidelity/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "source": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "mtlx-fidelity": "./dist/bin.js"
+  },
+  "dependencies": {
+    "@mtlx-fidelity/core": "workspace:*",
+    "humanize-units": "^2.0.4",
+    "yargs": "^17.7.2",
+    "yargs-file-commands": "^1.2.2"
+  },
+  "scripts": {
+    "build": "tsgo",
+    "dev": "tsgo -w --preserveWatchOutput",
+    "start": "node ./dist/bin.js"
+  }
+}

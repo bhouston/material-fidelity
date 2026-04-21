@@ -1,0 +1,105 @@
+import { dirname, extname } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import type { FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
+
+const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
+
+function commandExists(command: string): boolean {
+  const result = spawnSync(command, ['--help'], {
+    stdio: 'ignore',
+    timeout: 3000,
+    shell: false,
+  });
+
+  return !result.error;
+}
+
+function resolveExecutable(): string {
+  const match = EXECUTABLE_CANDIDATES.find((candidate) => commandExists(candidate));
+  if (!match) {
+    throw new Error(
+      `Unable to locate materialx viewer executable on PATH. Tried: ${EXECUTABLE_CANDIDATES.join(', ')}.`,
+    );
+  }
+
+  return match;
+}
+
+function execute(executable: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const processHandle = spawn(executable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+
+    processHandle.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    processHandle.on('error', (error) => {
+      reject(error);
+    });
+
+    processHandle.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const message = stderr.trim() || `Process exited with code ${String(code)}.`;
+      reject(new Error(message));
+    });
+  });
+}
+
+class MaterialXViewAdapter implements FidelityAdapter {
+  public readonly name = 'materialxview';
+  public readonly version = '1.0.0';
+  private executable: string | undefined;
+
+  public async start(): Promise<void> {
+    this.executable = resolveExecutable();
+  }
+
+  public async shutdown(): Promise<void> {}
+
+  public async generateImage(options: GenerateImageOptions): Promise<void> {
+    if (!this.executable) {
+      throw new Error('Adapter has not been started. Call start() before generateImage().');
+    }
+
+    if (extname(options.outputPngPath).toLowerCase() !== '.png') {
+      throw new Error(`Output image must be .png: ${options.outputPngPath}`);
+    }
+
+    await mkdir(dirname(options.outputPngPath), { recursive: true });
+
+    const args = [
+      '--material',
+      options.mtlxPath,
+      '--mesh',
+      options.modelPath,
+      '--envRad',
+      options.environmentHdrPath,
+      '--drawEnvironment',
+      'false',
+      '--screenColor',
+      options.backgroundColor,
+      '--screenWidth',
+      String(options.screenWidth),
+      '--screenHeight',
+      String(options.screenHeight),
+      '--enableDirectLight',
+      'false',
+      '--shadowMap',
+      'false',
+      '--captureFilename',
+      options.outputPngPath,
+    ];
+
+    await execute(this.executable, args);
+  }
+}
+
+export function createAdapter(): FidelityAdapter {
+  return new MaterialXViewAdapter();
+}
