@@ -1,0 +1,17 @@
+name: Deploy viewer to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy viewer to Cloud Run
+    uses: ./.github/workflows/deploy-service.yml
+    with:
+      service_name: materialx-fidelity-viewer
+      dockerfile: packages/viewer/Dockerfile
+      context: .
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

@@ -1,24 +1,234 @@
 import path from 'node:path';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Text, render, useApp, useInput } from 'ink';
 import { createReferences } from '@mtlx-fidelity/core';
+import type { CreateReferencesProgressEvent, CreateReferencesResult } from '@mtlx-fidelity/core';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 
-function resolveBackgroundColor(backgroundColor: string): string {
-  const components = backgroundColor.split(',').map((component) => component.trim());
-  if (components.length !== 3) {
-    throw new Error('Invalid --background-color. Expected format "r,g,b" with three numbers in [0,1].');
-  }
+function formatElapsed(ms: number): string {
+  const elapsedSeconds = Math.max(0, ms / 1000);
+  return humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
+}
 
-  const numericComponents = components.map((component) => Number(component));
-  if (
-    numericComponents.some(
-      (component) => Number.isNaN(component) || !Number.isFinite(component) || component < 0 || component > 1,
-    )
-  ) {
-    throw new Error('Invalid --background-color. Expected format "r,g,b" with three numbers in [0,1].');
-  }
+function formatMaterialLabel(materialPath: string, materialsRoot: string): string {
+  const materialDirectory = path.dirname(materialPath);
+  const relativePath = path.relative(materialsRoot, materialDirectory);
+  return relativePath.length > 0 ? relativePath : materialDirectory;
+}
 
-  return numericComponents.join(',');
+function renderProgressBar(completed: number, total: number, width = 28): string {
+  if (total <= 0) {
+    return `[${' '.repeat(width)}] 0.0%`;
+  }
+  const ratio = Math.min(1, Math.max(0, completed / total));
+  const filled = Math.round(ratio * width);
+  return `[${'='.repeat(filled)}${'-'.repeat(Math.max(0, width - filled))}] ${(ratio * 100).toFixed(1)}%`;
+}
+
+interface RenderLogLine {
+  key: string;
+  adapterName: string;
+  materialLabel: string;
+  status: 'IN PROGRESS' | 'SUCCESS' | 'FAILED';
+  durationText?: string;
+  errorMessage?: string;
+}
+
+function renderLogLineText(entry: RenderLogLine): string {
+  const durationPart = entry.durationText ? ` (${entry.durationText})` : '';
+  const errorPart = entry.errorMessage ? ` - ${entry.errorMessage}` : '';
+  return `${entry.adapterName} | ${entry.materialLabel} | ${entry.status}${durationPart}${errorPart}`;
+}
+
+function normalizeAdapterNames(rawAdapters: unknown): string[] {
+  const adapterValues = rawAdapters == null ? [] : Array.isArray(rawAdapters) ? rawAdapters : [rawAdapters];
+  return [...new Set(adapterValues.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
+}
+
+function normalizeStringList(rawValues: unknown): string[] {
+  const values = rawValues == null ? [] : Array.isArray(rawValues) ? rawValues : [rawValues];
+  return [...new Set(values.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
+}
+
+function renderLogLineColor(entry: RenderLogLine): string {
+  if (entry.status === 'SUCCESS') {
+    return 'green';
+  }
+  if (entry.status === 'FAILED') {
+    return 'red';
+  }
+  return 'white';
+}
+
+interface InkCreateReferencesAppProps {
+  args: {
+    adaptersRoot: string;
+    thirdPartyRoot: string;
+    adapterNames: string[];
+    concurrency: number;
+    screenWidth: number;
+    screenHeight: number;
+    materialSelectors: string[];
+    filter?: string;
+  };
+  onComplete: (result: CreateReferencesResult) => void;
+  onError: (error: Error) => void;
+}
+
+function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferencesAppProps) {
+  const { exit } = useApp();
+  const [total, setTotal] = useState(0);
+  const [started, setStarted] = useState(0);
+  const [completed, setCompleted] = useState(0);
+  const [startedAt] = useState(() => Date.now());
+  const [durationTotalMs, setDurationTotalMs] = useState(0);
+  const [renderLogs, setRenderLogs] = useState<RenderLogLine[]>([]);
+  const [stopping, setStopping] = useState(false);
+  const [statusLine, setStatusLine] = useState('Preparing render plan...');
+  const stopRequestedRef = useRef(false);
+
+  useInput((input, key) => {
+    if (key.ctrl && input.toLowerCase() === 'c') {
+      stopRequestedRef.current = true;
+      setStopping(true);
+      setStatusLine('Stopping after in-flight renders complete...');
+    }
+  });
+
+  useEffect(() => {
+    let active = true;
+    const materialsRoot = path.join(args.thirdPartyRoot, 'MaterialX-Samples', 'materials');
+
+    const applyProgress = (event: CreateReferencesProgressEvent) => {
+      if (!active) {
+        return;
+      }
+
+      if (event.phase === 'start') {
+        const label = formatMaterialLabel(event.materialPath, materialsRoot);
+        const logEntryKey = `${event.adapterName}:${event.materialPath}`;
+        setTotal(event.total);
+        setStarted(event.started);
+        setCompleted(event.completed);
+        setStatusLine(`Rendering ${event.adapterName} | ${label}`);
+        setRenderLogs((previous) => [
+          ...previous,
+          {
+            key: logEntryKey,
+            adapterName: event.adapterName,
+            materialLabel: label,
+            status: 'IN PROGRESS',
+          },
+        ]);
+        return;
+      }
+
+      const elapsed = formatElapsed(event.durationMs ?? 0);
+      setTotal(event.total);
+      setCompleted(event.completed);
+      setDurationTotalMs((value) => value + (event.durationMs ?? 0));
+      setRenderLogs((previous) =>
+        previous.map((entry) =>
+          entry.key === `${event.adapterName}:${event.materialPath}`
+            ? {
+                ...entry,
+                status: event.success ? 'SUCCESS' : 'FAILED',
+                durationText: elapsed,
+                errorMessage: event.success ? undefined : (event.error?.message ?? 'Unknown error'),
+              }
+            : entry,
+        ),
+      );
+    };
+
+    void createReferences({
+      adaptersRoot: args.adaptersRoot,
+      thirdPartyRoot: args.thirdPartyRoot,
+      adapterNames: args.adapterNames,
+      concurrency: args.concurrency,
+      screenWidth: args.screenWidth,
+      screenHeight: args.screenHeight,
+      materialSelectors: args.materialSelectors,
+      filter: args.filter,
+      shouldStop: () => stopRequestedRef.current,
+      onPlan: (event) => {
+        if (!active) {
+          return;
+        }
+        setTotal(event.materialPaths.length);
+        setStatusLine(`Queued ${event.materialPaths.length} materials`);
+      },
+      onProgress: applyProgress,
+    })
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+        onComplete(result);
+        exit();
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        onError(error instanceof Error ? error : new Error(String(error)));
+        exit();
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [args, exit, onComplete, onError]);
+
+  const elapsedMs = Math.max(0, Date.now() - startedAt);
+  const etaMs = useMemo(() => {
+    if (completed === 0 || total <= completed) {
+      return 0;
+    }
+    const averageMs = durationTotalMs / completed;
+    return Math.max(0, averageMs * (total - completed));
+  }, [completed, durationTotalMs, total]);
+
+  return createElement(
+    Box,
+    { flexDirection: 'column' },
+    createElement(
+      Text,
+      { color: 'cyan' },
+      `Adapters: ${args.adapterNames.length > 0 ? args.adapterNames.join(', ') : 'all (auto-discovered)'}`,
+    ),
+    createElement(Text, { color: 'gray' }, statusLine),
+    createElement(Text, { color: 'white' }, ''),
+    ...renderLogs.map((entry) =>
+      createElement(Text, { key: entry.key, color: renderLogLineColor(entry) }, renderLogLineText(entry)),
+    ),
+    createElement(Text, { color: 'white' }, ''),
+    createElement(
+      Text,
+      undefined,
+      `${renderProgressBar(completed, total)}  ${completed}/${total} complete, ${started - completed} active`,
+    ),
+    createElement(
+      Text,
+      { color: stopping ? 'yellow' : 'gray' },
+      `Elapsed: ${formatElapsed(elapsedMs)} | ETA: ${formatElapsed(etaMs)} | Ctrl-C to stop`,
+    ),
+  );
+}
+
+async function runCreateReferencesWithInk(args: InkCreateReferencesAppProps['args']): Promise<CreateReferencesResult> {
+  return new Promise<CreateReferencesResult>((resolve, reject) => {
+    const app = render(
+      createElement(InkCreateReferencesApp, {
+        args,
+        onComplete: resolve,
+        onError: reject,
+      }),
+    );
+
+    void app.waitUntilExit();
+  });
 }
 
 export const command = defineCommand({
@@ -26,10 +236,9 @@ export const command = defineCommand({
   describe: 'Generate reference PNG images for each MaterialX sample material.',
   builder: (yargs) =>
     yargs
-      .option('adapter', {
-        type: 'string',
-        demandOption: true,
-        describe: 'Adapter name to use for rendering.',
+      .option('adapters', {
+        type: 'array',
+        describe: 'Adapter names to use. Supports repeated values and comma-separated lists.',
       })
       .option('third-party-root', {
         type: 'string',
@@ -56,36 +265,61 @@ export const command = defineCommand({
         default: 1,
         describe: 'Number of materials to render in parallel.',
       })
-      .option('background-color', {
+      .option('materials', {
+        type: 'array',
+        describe: 'Material selectors. Supports repeated values, comma-separated values, or regex (`re:...` or `/.../flags`).',
+      })
+      .option('filter', {
         type: 'string',
-        default: '0,0,0',
-        describe: 'Background color as "r,g,b" where each number is in [0,1].',
+        describe: 'Deprecated alias for --materials with a single substring selector.',
       }),
   handler: async (argv) => {
     const invocationCwd = process.env.INIT_CWD ?? process.cwd();
     const thirdPartyRoot = path.resolve(invocationCwd, argv['third-party-root']);
     const adaptersRoot = path.resolve(invocationCwd, argv['adapters-root']);
     const startedAt = Date.now();
-
-    const result = await createReferences({
+    const materialSelectors = normalizeStringList(argv.materials);
+    if (argv.filter && argv.filter.trim().length > 0) {
+      materialSelectors.push(argv.filter);
+    }
+    const commandArgs = {
       adaptersRoot,
       thirdPartyRoot,
-      adapterName: argv.adapter,
+      adapterNames: normalizeAdapterNames(argv.adapters),
       concurrency: Math.max(1, argv.concurrency),
-      backgroundColor: resolveBackgroundColor(argv['background-color']),
       screenWidth: argv['screen-width'],
       screenHeight: argv['screen-height'],
-    });
+      materialSelectors: [...new Set(materialSelectors)],
+      filter: argv.filter,
+    };
+    const materialsRoot = path.join(thirdPartyRoot, 'MaterialX-Samples', 'materials');
+    const isInteractive = process.stdout.isTTY && !process.env.CI;
+    const result = isInteractive
+      ? await runCreateReferencesWithInk(commandArgs)
+      : await createReferences({
+          ...commandArgs,
+          onProgress: (event) => {
+            if (event.phase !== 'finish') {
+              return;
+            }
+            const elapsed = formatElapsed(event.durationMs ?? 0);
+            const status = event.success ? 'SUCCESS' : 'FAILED';
+            const materialLabel = formatMaterialLabel(event.materialPath, materialsRoot);
+            process.stdout.write(
+              `${event.adapterName} | ${materialLabel} | ${status} (${elapsed}) ${event.completed}/${event.total}\n`,
+            );
+          },
+        });
     const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
     const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
 
     process.stdout.write(
-      `Rendered ${result.rendered} images with adapter "${result.adapterName}". Failures: ${result.failures.length}. Time: ${elapsedFormatted}\n`,
+      `Rendered ${result.rendered}/${result.total} images with adapters ${result.adapterNames.map((name) => `"${name}"`).join(', ')}. Failures: ${result.failures.length}. Time: ${elapsedFormatted}${result.stopped ? ' (stopped early)' : ''}\n`,
     );
 
     if (result.failures.length > 0) {
       for (const failure of result.failures) {
-        process.stderr.write(`FAILED ${failure.materialPath}: ${failure.error.message}\n`);
+        process.stderr.write(`FAILED ${failure.adapterName} | ${failure.materialPath}: ${failure.error.message}\n`);
       }
       process.exitCode = 1;
     }

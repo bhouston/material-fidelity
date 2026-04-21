@@ -14,9 +14,12 @@ describe('create-references command', () => {
   beforeEach(() => {
     createReferencesMock.mockReset();
     createReferencesMock.mockResolvedValue({
-      adapterName: 'materialxview',
-      rendered: 3,
+      adapterNames: ['materialxview'],
+      total: 6,
+      attempted: 6,
+      rendered: 6,
       failures: [],
+      stopped: false,
     });
   });
 
@@ -26,7 +29,9 @@ describe('create-references command', () => {
 
     try {
       await command.handler({
-        adapter: 'materialxview',
+        adapters: ['materialxview'],
+        materials: undefined,
+        filter: undefined,
         'third-party-root': '../',
         thirdPartyRoot: '../',
         'adapters-root': './adapters',
@@ -36,14 +41,12 @@ describe('create-references command', () => {
         'screen-height': 256,
         screenHeight: 256,
         concurrency: 2,
-        'background-color': '0,0,0',
-        backgroundColor: '0,0,0',
         _: [],
         $0: 'mtlx-fidelity',
       });
 
       expect(stdoutWriteSpy).toHaveBeenCalledWith(
-        'Rendered 3 images with adapter "materialxview". Failures: 0. Time: 1.23 s\n',
+        'Rendered 6/6 images with adapters "materialxview". Failures: 0. Time: 1.23 s\n',
       );
     } finally {
       dateNowSpy.mockRestore();
@@ -54,18 +57,19 @@ describe('create-references command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      adapterName: 'materialxview',
+      adapterNames: ['materialxview'],
       thirdPartyRoot: expect.any(String),
       concurrency: 2,
-      backgroundColor: '0,0,0',
       screenWidth: 256,
       screenHeight: 256,
     });
   });
 
-  it('accepts a normalized rgb background value', async () => {
+  it('passes materials selectors through to core createReferences', async () => {
     await command.handler({
-      adapter: 'materialxview',
+      adapters: ['materialxview,threejs'],
+      materials: ['standard_surface', '/gltf_pbr/i'],
+      filter: 'stdlib',
       'third-party-root': '../',
       thirdPartyRoot: '../',
       'adapters-root': './adapters',
@@ -75,8 +79,6 @@ describe('create-references command', () => {
       'screen-height': 256,
       screenHeight: 256,
       concurrency: 1,
-      'background-color': '0.1, 0.2,0.3',
-      backgroundColor: '0.1, 0.2,0.3',
       _: [],
       $0: 'mtlx-fidelity',
     });
@@ -84,46 +86,34 @@ describe('create-references command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      backgroundColor: '0.1,0.2,0.3',
+      adapterNames: ['materialxview', 'threejs'],
+      materialSelectors: ['standard_surface', '/gltf_pbr/i', 'stdlib'],
     });
   });
 
-  it('rejects invalid background values', async () => {
-    await expect(
-      command.handler({
-        adapter: 'materialxview',
-        'third-party-root': '../',
-        thirdPartyRoot: '../',
-        'adapters-root': './adapters',
-        adaptersRoot: './adapters',
-        'screen-width': 256,
-        screenWidth: 256,
-        'screen-height': 256,
-        screenHeight: 256,
-        concurrency: 1,
-        'background-color': '1,2',
-        backgroundColor: '1,2',
-        _: [],
-        $0: 'mtlx-fidelity',
-      }),
-    ).rejects.toThrow('Invalid --background-color');
-    await expect(
-      command.handler({
-        adapter: 'materialxview',
-        'third-party-root': '../',
-        thirdPartyRoot: '../',
-        'adapters-root': './adapters',
-        adaptersRoot: './adapters',
-        'screen-width': 256,
-        screenWidth: 256,
-        'screen-height': 256,
-        screenHeight: 256,
-        concurrency: 1,
-        'background-color': '0.2,1.1,0.4',
-        backgroundColor: '0.2,1.1,0.4',
-        _: [],
-        $0: 'mtlx-fidelity',
-      }),
-    ).rejects.toThrow('Invalid --background-color');
+  it('defaults to all adapters when --adapters is omitted', async () => {
+    await command.handler({
+      adapters: undefined,
+      materials: undefined,
+      filter: undefined,
+      'third-party-root': '../',
+      thirdPartyRoot: '../',
+      'adapters-root': './adapters',
+      adaptersRoot: './adapters',
+      'screen-width': 256,
+      screenWidth: 256,
+      'screen-height': 256,
+      screenHeight: 256,
+      concurrency: 1,
+      _: [],
+      $0: 'mtlx-fidelity',
+    });
+
+    const [firstCall] = createReferencesMock.mock.calls;
+    expect(firstCall).toBeDefined();
+    expect(firstCall?.[0]).toMatchObject({
+      adapterNames: [],
+      materialSelectors: [],
+    });
   });
 });

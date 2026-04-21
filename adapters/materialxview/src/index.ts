@@ -1,7 +1,7 @@
 import { dirname, extname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
-import type { FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
+import type { AdapterPrerequisiteCheckResult, FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
 
@@ -56,8 +56,25 @@ class MaterialXViewAdapter implements FidelityAdapter {
   public readonly version = '1.0.0';
   private executable: string | undefined;
 
+  public async checkPrerequisites(): Promise<AdapterPrerequisiteCheckResult> {
+    try {
+      this.executable = resolveExecutable();
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, message };
+    }
+  }
+
   public async start(): Promise<void> {
-    this.executable = resolveExecutable();
+    if (this.executable) {
+      return;
+    }
+
+    const checkResult = await this.checkPrerequisites();
+    if (!checkResult.success) {
+      throw new Error(checkResult.message ?? 'MaterialXView prerequisites are not satisfied.');
+    }
   }
 
   public async shutdown(): Promise<void> {}

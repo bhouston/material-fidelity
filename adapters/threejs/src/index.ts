@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
-import type { AdapterContext, FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
+import type { AdapterContext, AdapterPrerequisiteCheckResult, FidelityAdapter, GenerateImageOptions } from '@mtlx-fidelity/core';
 
 interface RuntimeState {
   baseUrl: string;
@@ -15,6 +15,13 @@ interface RuntimeState {
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
+const VIEWER_ENVIRONMENT_ROTATION_DEGREES = -90;
+const GPU_BROWSER_ARGS = [
+  '--enable-gpu',
+  '--ignore-gpu-blocklist',
+  '--enable-webgpu',
+  '--enable-unsafe-webgpu',
+];
 
 function toFsUrlPath(absolutePath: string): string {
   return `/@fs/${absolutePath.replaceAll('\\', '/')}`;
@@ -22,6 +29,18 @@ function toFsUrlPath(absolutePath: string): string {
 
 async function assertFileExists(filePath: string): Promise<void> {
   await access(filePath);
+}
+
+async function findMissingFiles(filePaths: string[]): Promise<string[]> {
+  const missing: string[] = [];
+  for (const filePath of filePaths) {
+    try {
+      await access(filePath);
+    } catch {
+      missing.push(filePath);
+    }
+  }
+  return missing;
 }
 
 async function resolveThreeRoot(thirdPartyRoot: string): Promise<string> {
@@ -45,19 +64,87 @@ function readGlobalError(page: Page): Promise<string | undefined> {
   });
 }
 
+function buildGpuBrowserArgs(): string[] {
+  if (process.platform === 'darwin') {
+    return [...GPU_BROWSER_ARGS, '--use-angle=metal'];
+  }
+
+  return GPU_BROWSER_ARGS;
+}
+
+async function launchGpuBrowser(): Promise<Browser> {
+  const args = buildGpuBrowserArgs();
+
+  try {
+    // Prefer the system Chrome channel for better hardware acceleration support.
+    return await chromium.launch({
+      channel: 'chrome',
+      headless: true,
+      args,
+    });
+  } catch {
+    // Fallback to bundled Chromium if Chrome channel is not available.
+    return chromium.launch({
+      headless: true,
+      args,
+    });
+  }
+}
+
 class ThreeJsAdapter implements FidelityAdapter {
   public readonly name = 'threejs';
   public readonly version = '0.1.0';
   private readonly thirdPartyRoot: string;
+  private prerequisitesValidated = false;
   private runtimeState: RuntimeState | undefined;
 
   public constructor(context: AdapterContext) {
     this.thirdPartyRoot = context.thirdPartyRoot;
   }
 
+  public async checkPrerequisites(): Promise<AdapterPrerequisiteCheckResult> {
+    if (this.prerequisitesValidated) {
+      return { success: true };
+    }
+
+    try {
+      const threeRoot = await resolveThreeRoot(this.thirdPartyRoot);
+      const requiredThreeFiles = [
+        join(threeRoot, 'build', 'three.webgpu.js'),
+        join(threeRoot, 'build', 'three.tsl.js'),
+        join(threeRoot, 'examples', 'jsm', 'loaders', 'MaterialXLoader.js'),
+        join(threeRoot, 'examples', 'jsm', 'loaders', 'GLTFLoader.js'),
+        join(threeRoot, 'examples', 'jsm', 'loaders', 'HDRLoader.js'),
+      ];
+      const missingFiles = await findMissingFiles(requiredThreeFiles);
+      if (missingFiles.length > 0) {
+        return {
+          success: false,
+          message: `Missing required Three.js files: ${missingFiles.join(', ')}`,
+        };
+      }
+
+      const browser = await launchGpuBrowser();
+      await browser.close();
+      this.prerequisitesValidated = true;
+      return { success: true };
+    } catch (error) {
+      this.prerequisitesValidated = false;
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, message };
+    }
+  }
+
   public async start(): Promise<void> {
     if (this.runtimeState) {
       return;
+    }
+
+    if (!this.prerequisitesValidated) {
+      const checkResult = await this.checkPrerequisites();
+      if (!checkResult.success) {
+        throw new Error(checkResult.message ?? 'Three.js prerequisites are not satisfied.');
+      }
     }
 
     const threeRoot = await resolveThreeRoot(this.thirdPartyRoot);
@@ -125,7 +212,7 @@ class ThreeJsAdapter implements FidelityAdapter {
       throw new Error('Unable to resolve the Three.js viewer server URL.');
     }
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await launchGpuBrowser();
     const context = await browser.newContext({
       viewport: { width: 512, height: 512 },
       deviceScaleFactor: 1,
@@ -171,6 +258,7 @@ class ThreeJsAdapter implements FidelityAdapter {
       url.searchParams.set('mtlxPath', toFsUrlPath(options.mtlxPath));
       url.searchParams.set('modelPath', toFsUrlPath(options.modelPath));
       url.searchParams.set('environmentHdrPath', toFsUrlPath(options.environmentHdrPath));
+      url.searchParams.set('environmentRotationDegrees', String(VIEWER_ENVIRONMENT_ROTATION_DEGREES));
       url.searchParams.set('backgroundColor', options.backgroundColor);
       url.searchParams.set('screenWidth', String(options.screenWidth));
       url.searchParams.set('screenHeight', String(options.screenHeight));

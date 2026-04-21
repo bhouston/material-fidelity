@@ -87,11 +87,14 @@ describe('threejs adapter', () => {
       newPage: vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage),
       close: vi.fn(async () => undefined),
     };
+    const probeBrowser = {
+      close: vi.fn(async () => undefined),
+    };
     const browser = {
       newContext: vi.fn(async () => browserContext),
       close: vi.fn(async () => undefined),
     };
-    launchMock.mockResolvedValue(browser);
+    launchMock.mockResolvedValueOnce(probeBrowser).mockResolvedValueOnce(browser);
 
     const adapter = createAdapter({ thirdPartyRoot });
     await adapter.start();
@@ -126,6 +129,7 @@ describe('threejs adapter', () => {
 
     await adapter.shutdown();
     expect(browserContext.close).toHaveBeenCalledTimes(1);
+    expect(probeBrowser.close).toHaveBeenCalledTimes(1);
     expect(browser.close).toHaveBeenCalledTimes(1);
     expect(server.close).toHaveBeenCalledTimes(1);
   });

@@ -11,5 +11,12 @@
   "scripts": {
     "build": "tsgo",
     "dev": "tsgo -w --preserveWatchOutput"
+  },
+  "dependencies": {
+    "p-limit": "^7.3.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5"
   }
 }

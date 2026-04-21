@@ -14,6 +14,8 @@
   "dependencies": {
     "@mtlx-fidelity/core": "workspace:*",
     "humanize-units": "^2.0.4",
+    "ink": "^7.0.1",
+    "react": "^19.2.5",
     "yargs": "^17.7.2",
     "yargs-file-commands": "^1.2.2"
   },
@@ -21,5 +23,8 @@
     "build": "tsgo",
     "dev": "tsgo -w --preserveWatchOutput",
     "start": "node ./dist/bin.js"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
   }
 }

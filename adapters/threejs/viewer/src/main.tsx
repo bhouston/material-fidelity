@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { z } from 'zod';
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -14,6 +15,7 @@ const querySchema = z.object({
   mtlxPath: z.string().min(1),
   modelPath: z.string().min(1),
   environmentHdrPath: z.string().min(1),
+  environmentRotationDegrees: z.coerce.number().default(0),
   screenWidth: z.coerce.number().int().positive(),
   screenHeight: z.coerce.number().int().positive(),
   backgroundColor: z.string().transform((value, context) => {
@@ -31,6 +33,7 @@ const querySchema = z.object({
 });
 
 type ViewerQuery = z.infer<typeof querySchema>;
+const IDEAL_MESH_SPHERE_RADIUS = 2;
 
 function parseQuery(search: string): ViewerQuery {
   const rawQuery = Object.fromEntries(new URLSearchParams(search).entries());
@@ -77,11 +80,23 @@ function splitPath(path: string): { basePath: string; fileName: string } {
   };
 }
 
-function recenterModel(model: THREE.Object3D): void {
+function recenterAndNormalizeModel(model: THREE.Object3D): void {
   model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model);
+  if (box.isEmpty()) {
+    return;
+  }
+
+  const size = box.getSize(new THREE.Vector3());
+  const sphereRadius = size.length() * 0.5;
+  if (sphereRadius <= 0) {
+    return;
+  }
+
   const center = box.getCenter(new THREE.Vector3());
   model.position.sub(center);
+  const scale = IDEAL_MESH_SPHERE_RADIUS / sphereRadius;
+  model.scale.multiplyScalar(scale);
   model.updateMatrixWorld(true);
 }
 
@@ -114,11 +129,12 @@ async function buildScene(): Promise<void> {
   const environmentTexture = await hdrLoader.loadAsync(query.environmentHdrPath);
   environmentTexture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = environmentTexture;
+  scene.environmentRotation.set(0, THREE.MathUtils.degToRad(query.environmentRotationDegrees), 0);
   scene.background = null;
 
   const gltfLoader = new GLTFLoader();
   const gltf = await gltfLoader.loadAsync(query.modelPath);
-  recenterModel(gltf.scene);
+  recenterAndNormalizeModel(gltf.scene);
   scene.add(gltf.scene);
 
   const materialXPath = splitPath(query.mtlxPath);
@@ -179,17 +195,20 @@ if (!rootElement) {
   throw new Error('Root element not found.');
 }
 
-createRoot(rootElement).render(
-  <div
-    id="capture-root"
-    style={{
-      width: '100%',
-      height: '100%',
-      margin: 0,
-      padding: 0,
-      overflow: 'hidden',
-    }}
-  />,
-);
+const root = createRoot(rootElement);
+flushSync(() => {
+  root.render(
+    <div
+      id="capture-root"
+      style={{
+        width: '100%',
+        height: '100%',
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
+      }}
+    />,
+  );
+});
 
 void initialize();

@@ -14,7 +14,12 @@ function assertAdapterShape(adapter: FidelityAdapter, adapterDir: string): void 
     throw new Error(`Adapter from ${adapterDir} is missing required name/version metadata.`);
   }
 
-  if (typeof adapter.start !== 'function' || typeof adapter.shutdown !== 'function' || typeof adapter.generateImage !== 'function') {
+  if (
+    typeof adapter.checkPrerequisites !== 'function' ||
+    typeof adapter.start !== 'function' ||
+    typeof adapter.shutdown !== 'function' ||
+    typeof adapter.generateImage !== 'function'
+  ) {
     throw new Error(`Adapter "${adapter.name}" from ${adapterDir} does not implement required methods.`);
   }
 }

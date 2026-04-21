@@ -39,6 +39,7 @@ describe('loadAdapters', () => {
     await writeFile(path.join(adapterRoot, 'dist/index.js'), `export function createAdapter() { return {
   name: 'fake',
   version: '0.0.1',
+  async checkPrerequisites() { return { success: true }; },
   async start() {},
   async shutdown() {},
   async generateImage() {},
@@ -75,6 +76,7 @@ export function createAdapter(context) {
   return {
     name: 'fake',
     version: '0.0.1',
+    async checkPrerequisites() { return { success: true }; },
     async start() {},
     async shutdown() {},
     async generateImage() {},
