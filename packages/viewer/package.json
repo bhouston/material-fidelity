@@ -16,6 +16,7 @@
     "@materialx-fidelity/renderer-materialxview": "workspace:*",
     "@materialx-fidelity/renderer-threejs": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/devtools-vite": "^0.6.0",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",

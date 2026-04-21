@@ -81,10 +81,9 @@ describe('createReferences', () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
 
     await mkdir(materialDir, { recursive: true });
     await mkdir(viewerDir, { recursive: true });
@@ -126,10 +125,9 @@ describe('createReferences', () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
 
     await mkdir(materialDir, { recursive: true });
     await mkdir(viewerDir, { recursive: true });
@@ -174,9 +172,8 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
     const includedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'included');
     const skippedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'skipped');
 
@@ -219,9 +216,8 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
     const includedDir = path.join(samplesRoot, 'materials', 'gltf_pbr', 'included');
     const skippedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'skipped');
 
@@ -264,9 +260,8 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
     const materialOneDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-one');
     const materialTwoDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-two');
 
@@ -312,11 +307,10 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const fakeAdapterDir = path.join(adaptersRoot, 'fake');
-    const altAdapterDir = path.join(adaptersRoot, 'alt');
+    const fakeAdapterDir = path.join(root, 'adapters', 'fake');
+    const altAdapterDir = path.join(root, 'adapters', 'alt');
 
     await mkdir(materialDir, { recursive: true });
     await mkdir(viewerDir, { recursive: true });
@@ -367,12 +361,11 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const firstMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-one');
     const secondMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-two');
-    const fakeAdapterDir = path.join(adaptersRoot, 'fake');
-    const altAdapterDir = path.join(adaptersRoot, 'alt');
+    const fakeAdapterDir = path.join(root, 'adapters', 'fake');
+    const altAdapterDir = path.join(root, 'adapters', 'alt');
 
     await mkdir(firstMaterialDir, { recursive: true });
     await mkdir(secondMaterialDir, { recursive: true });
@@ -435,10 +428,9 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
 
     await mkdir(materialDir, { recursive: true });
     await mkdir(viewerDir, { recursive: true });
@@ -473,9 +465,8 @@ export function createAdapter() {
   it('fails early when materialx-samples directory is missing', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const adaptersRoot = path.join(root, 'adapters');
 
-    await mkdir(adaptersRoot, { recursive: true });
+    await mkdir(path.join(root, 'adapters'), { recursive: true });
 
     await expect(
       createReferences({
@@ -490,10 +481,9 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const adaptersRoot = path.join(root, 'adapters');
     const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const adapterDir = path.join(adaptersRoot, 'fake');
+    const adapterDir = path.join(root, 'adapters', 'fake');
 
     await mkdir(materialDir, { recursive: true });
     await mkdir(viewerDir, { recursive: true });
