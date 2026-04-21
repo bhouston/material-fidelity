@@ -2,50 +2,25 @@
 
 MaterialX Fidelity Testing is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes.
 
-The initial scaffold focuses on reference-image generation:
-
-- discover MaterialX materials in a samples repository,
-- run built-in renderers from the CLI,
-- generate deterministic WebP reference images beside each `material.mtlx`.
-
 ## Repository Layout
 
 - `packages/core` - renderer interfaces and reference-generation orchestration.
-- `packages/cli` - `mtlx-fidelity` command line tool.
-- `packages/viewer` - TanStack Start website for browsing fidelity reference images.
-- `packages/renderer-materialxview` - renderer package `@materialx-fidelity/renderer-materialxview` wrapping `materialxview` / `MaterialXView`.
-- `packages/renderer-threejs` - renderer package `@materialx-fidelity/renderer-threejs` serving a Three.js capture viewer and rendering via Playwright.
+- `packages/cli` - command line tool for running renders.
+- `packages/viewer` - TanStack Start website for browsing fidelity images.
+- `packages/renderer-*` - renderer packages
 
 ## Requirements
 
 - Node.js 24+
 - pnpm 10+
 - `materialxview` (or `MaterialXView`) available on your `PATH`
-- `third_party/materialx-samples` initialized as a git submodule
-
-Expected third-party layout:
-
-- `third_party/materialx-samples/materials/**/material.mtlx`
-- `third_party/materialx-samples/viewer/san_giuseppe_bridge_2k.hdr`
-- `third_party/materialx-samples/viewer/ShaderBall.glb`
-
-### Initialize Submodules
-
-Fresh clone:
-
-```bash
-git clone --recurse-submodules <repo-url>
-```
-
-Existing clone:
-
-```bash
-git submodule update --init --recursive
-```
-
-This repo intentionally does not include a `three.js` submodule. The Three.js renderer uses the npm `three` package plus vendored MaterialX loader files under `packages/renderer-threejs/viewer/src/vendor`.
 
 ## Install
+
+```bash
+# pull in samples repository
+git submodule update --init --recursive
+```
 
 ```bash
 pnpm install
@@ -63,18 +38,19 @@ pnpm test
 
 ## CLI
 
-Generate renderer-specific reference images:
+Generatereference images:
 
 ```bash
-pnpm cli create-references --renderers materialxview
+# all renderers, all materials
+pnpm cli create-references 
 ```
 
 ```bash
-pnpm cli create-references --renderers threejs
+# only generate three.js renders of open_pbr materials
+pnpm cli create-references --renderers threejs --materials open_pbr
 ```
 
 This command writes `<renderer-name>.webp` in each directory containing a `material.mtlx`.
-If `--renderers` is omitted, all built-in renderers are used.
 
 Currently supported renderers:
 
@@ -87,9 +63,7 @@ Optional flags:
 - `--materials <selector[,selector...]>` optional material filter; supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
 - `--concurrency <number>` default `1`
 
-All renderers render with a fixed black background (`0,0,0`) at a fixed resolution of `1024x1024`.  Fully black renders are treated as failures and deleted.
-
-## Renderer Setup
+## Reference Renderer Setup
 
 To keep reference renders visually comparable between `materialxview` and `threejs`, both renderers should follow this framing setup:
 
@@ -98,6 +72,8 @@ To keep reference renders visually comparable between `materialxview` and `three
 - lighting for capture: IBL from `san_giuseppe_bridge_2k.hdr`, environment background disabled, direct light disabled, shadow map disabled
 - environment orientation parity: apply a Y rotation offset of `-90` degrees in the Three.js viewer (`scene.environmentRotation.y`) to match MaterialXView lighting orientation
 - color/output: no tone mapping, sRGB output encoding
+- fixed black background (`0,0,0`)
+- fixed resolution of `1024x1024`
 
 These values are intentionally aligned with `MaterialXView` defaults and its scene normalization behavior in `source/MaterialXView/Viewer.cpp`.
 
