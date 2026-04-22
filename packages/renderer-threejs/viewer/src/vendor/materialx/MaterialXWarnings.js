@@ -94,8 +94,12 @@ class MaterialXIssueCollector {
 
   throwIfNeeded() {
     if (this.unsupportedPolicy !== 'error') return;
-    if (this.issues.length === 0) return;
-    throw new Error(`THREE.MaterialXLoader: MaterialX translation reported ${this.issues.length} issue(s).`);
+    const unsupportedNodes = this.issues.filter((issue) => issue.code === ISSUE_CODES.UNSUPPORTED_NODE);
+    if (unsupportedNodes.length === 0) return;
+    const categoryList = [...new Set(unsupportedNodes.map((issue) => issue.category).filter(Boolean))].sort().join(', ');
+    throw new Error(
+      `THREE.MaterialXLoader: Unsupported MaterialX node category detected${categoryList ? `: ${categoryList}` : '.'}`,
+    );
   }
 }
 

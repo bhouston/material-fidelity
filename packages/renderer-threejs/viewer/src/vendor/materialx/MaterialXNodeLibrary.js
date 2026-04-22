@@ -59,8 +59,6 @@ import {
   mx_ifequal,
   mx_atan2,
   positionLocal,
-  mx_rotate2d,
-  mx_rotate3d,
   mx_heighttonormal,
   float,
   int,
@@ -97,18 +95,61 @@ const mx_and = (in1, in2) => clamp(mul(in1, in2), float(0), float(1));
 const mx_or = (in1, in2) => clamp(add(in1, in2), float(0), float(1));
 const mx_xor = (in1, in2) => abs(sub(in1, in2));
 const mx_not = (inNode) => sub(float(1), inNode);
+// TSL conditional helpers currently pick the opposite branch ordering relative to MaterialX.
+// Normalize here so all MaterialX nodes keep "condition ? in1 : in2" semantics.
+const mx_ifgreater_materialx = (value1, value2, in1, in2) => mx_ifgreater(value1, value2, in2, in1);
+const mx_ifgreatereq_materialx = (value1, value2, in1, in2) => mx_ifgreatereq(value1, value2, in2, in1);
+const mx_ifequal_materialx = (value1, value2, in1, in2) => mx_ifequal(value1, value2, in2, in1);
 const mx_checkerboard = (color1, color2, texcoord) => mix(color1, color2, clamp(checker(texcoord), 0, 1));
 
 const mx_circle = (texcoord, center, radius) => {
   const delta = sub(texcoord, center);
   const distanceSquared = dot(delta, delta);
   const radiusSquared = mul(radius, radius);
-  return mx_ifgreater(distanceSquared, radiusSquared, 0, 1);
+  return mx_ifgreater_materialx(distanceSquared, radiusSquared, 0, 1);
 };
 
 const mx_bump = (height, scale = 1) => normalMap(mx_heighttonormal(height, 1), scale);
 const mx_dot = (inNode) => inNode;
 const getRGBChannels = (input) => vec3(element(input, 0), element(input, 1), element(input, 2));
+const mx_blackbody = (temperature = 5000) => {
+  const temperatureKelvin = clamp(temperature, float(800), float(25000));
+  const t = div(float(1000), temperatureKelvin);
+  const t2 = mul(t, t);
+  const t3 = mul(t2, t);
+  const lowX = add(add(mul(float(-0.2661239), t3), mul(float(-0.234358), t2)), add(mul(float(0.8776956), t), float(0.17991)));
+  const highX = add(
+    add(mul(float(-3.0258469), t3), mul(float(2.1070379), t2)),
+    add(mul(float(0.2226347), t), float(0.24039)),
+  );
+  const xc = mx_ifgreatereq_materialx(temperatureKelvin, float(4000), highX, lowX);
+  const xc2 = mul(xc, xc);
+  const xc3 = mul(xc2, xc);
+  const ycLow = add(
+    add(mul(float(-1.1063814), xc3), mul(float(-1.3481102), xc2)),
+    add(mul(float(2.18555832), xc), float(-0.20219683)),
+  );
+  const ycMid = add(
+    add(mul(float(-0.9549476), xc3), mul(float(-1.37418593), xc2)),
+    add(mul(float(2.09137015), xc), float(-0.16748867)),
+  );
+  const ycHigh = add(
+    add(mul(float(3.081758), xc3), mul(float(-5.8733867), xc2)),
+    add(mul(float(3.75112997), xc), float(-0.37001483)),
+  );
+  const ycLowMid = mx_ifgreatereq_materialx(temperatureKelvin, float(2222), ycMid, ycLow);
+  const yc = mx_ifgreatereq_materialx(temperatureKelvin, float(4000), ycHigh, ycLowMid);
+  const safeYc = max(yc, float(1e-6));
+  const xyz = vec3(div(xc, safeYc), float(1), div(sub(sub(float(1), xc), yc), safeYc));
+  const rgb = vec3(
+    add(add(mul(float(3.2406), element(xyz, 0)), mul(float(-1.5372), element(xyz, 1))), mul(float(-0.4986), element(xyz, 2))),
+    add(add(mul(float(-0.9689), element(xyz, 0)), mul(float(1.8758), element(xyz, 1))), mul(float(0.0415), element(xyz, 2))),
+    add(add(mul(float(0.0557), element(xyz, 0)), mul(float(-0.204), element(xyz, 1))), mul(float(1.057), element(xyz, 2))),
+  );
+  const clampedRgb = max(rgb, vec3(0, 0, 0));
+  const validYcMask = step(float(1e-6), yc);
+  return mix(vec3(1, 1, 1), clampedRgb, validYcMask);
+};
 
 const mx_unpremult = (input) => {
   const alpha = element(input, 3);
@@ -208,6 +249,48 @@ const mx_ramp4 = (valuetl, valuetr, valuebl, valuebr, texcoord = vec2(0, 0)) => 
   const topMix = mix(valuetl, valuetr, s);
   const bottomMix = mix(valuebl, valuebr, s);
   return mix(bottomMix, topMix, t);
+};
+
+const mx_rotate2d_materialx = (inNode, amount = 0) => {
+  const rotationRadians = mul(amount, Math.PI / 180.0);
+  const sa = sin(rotationRadians);
+  const ca = cos(rotationRadians);
+  const x = element(inNode, 0);
+  const y = element(inNode, 1);
+  return vec2(add(mul(ca, x), mul(sa, y)), sub(mul(ca, y), mul(sa, x)));
+};
+
+const mx_rotate3d_materialx = (inNode, amount = 0, axis = vec3(0, 1, 0)) => {
+  const normalizedAxis = normalize(axis);
+  const rotationRadians = mul(amount, Math.PI / 180.0);
+  const s = sin(rotationRadians);
+  const c = cos(rotationRadians);
+  const oc = sub(1, c);
+
+  const x = element(inNode, 0);
+  const y = element(inNode, 1);
+  const z = element(inNode, 2);
+  const ax = element(normalizedAxis, 0);
+  const ay = element(normalizedAxis, 1);
+  const az = element(normalizedAxis, 2);
+
+  const m00 = add(mul(mul(oc, ax), ax), c);
+  const m01 = sub(mul(mul(oc, ax), ay), mul(az, s));
+  const m02 = add(mul(mul(oc, az), ax), mul(ay, s));
+
+  const m10 = add(mul(mul(oc, ax), ay), mul(az, s));
+  const m11 = add(mul(mul(oc, ay), ay), c);
+  const m12 = sub(mul(mul(oc, ay), az), mul(ax, s));
+
+  const m20 = sub(mul(mul(oc, az), ax), mul(ay, s));
+  const m21 = add(mul(mul(oc, ay), az), mul(ax, s));
+  const m22 = add(mul(mul(oc, az), az), c);
+
+  return vec3(
+    add(add(mul(m00, x), mul(m01, y)), mul(m02, z)),
+    add(add(mul(m10, x), mul(m11, y)), mul(m12, z)),
+    add(add(mul(m20, x), mul(m21, y)), mul(m22, z)),
+  );
 };
 
 const mx_ramp_gradient = (
@@ -523,26 +606,26 @@ const MXElements = [
   new MXElement('refract', refract, ['in', 'normal', 'ior'], { in: defaultVec3(1, 0, 0), ior: defaultFloat(1) }),
   new MXElement('time', mx_timer),
   new MXElement('frame', mx_frame),
-  new MXElement('ifgreater', mx_ifgreater, ['value1', 'value2', 'in1', 'in2'], {
+  new MXElement('ifgreater', mx_ifgreater_materialx, ['value1', 'value2', 'in1', 'in2'], {
     value1: defaultFloat(1),
     value2: defaultFloat(0),
     in1: defaultFloat(0),
     in2: defaultFloat(0),
   }),
-  new MXElement('ifgreatereq', mx_ifgreatereq, ['value1', 'value2', 'in1', 'in2'], {
+  new MXElement('ifgreatereq', mx_ifgreatereq_materialx, ['value1', 'value2', 'in1', 'in2'], {
     value1: defaultFloat(1),
     value2: defaultFloat(0),
     in1: defaultFloat(0),
     in2: defaultFloat(0),
   }),
-  new MXElement('ifequal', mx_ifequal, ['value1', 'value2', 'in1', 'in2'], {
+  new MXElement('ifequal', mx_ifequal_materialx, ['value1', 'value2', 'in1', 'in2'], {
     value1: defaultFloat(0),
     value2: defaultFloat(0),
     in1: defaultFloat(0),
     in2: defaultFloat(0),
   }),
-  new MXElement('rotate2d', mx_rotate2d, ['in', 'amount'], { in: defaultVec2(0, 0), amount: defaultFloat(0) }),
-  new MXElement('rotate3d', mx_rotate3d, ['in', 'amount', 'axis'], {
+  new MXElement('rotate2d', mx_rotate2d_materialx, ['in', 'amount'], { in: defaultVec2(0, 0), amount: defaultFloat(0) }),
+  new MXElement('rotate3d', mx_rotate3d_materialx, ['in', 'amount', 'axis'], {
     in: defaultVec3(0, 0, 0),
     amount: defaultFloat(0),
     axis: defaultVec3(0, 1, 0),
@@ -565,11 +648,12 @@ const MXElements = [
     radius: defaultFloat(0.5),
   }),
   new MXElement('bump', mx_bump, ['height', 'scale'], { height: defaultFloat(0), scale: defaultFloat(1) }),
+  new MXElement('blackbody', mx_blackbody, ['temperature'], { temperature: defaultFloat(5000) }),
 ];
 
 const MtlXLibrary = {};
-for (const element of MXElements) {
-  MtlXLibrary[element.name] = element;
+for (const entry of MXElements) {
+  MtlXLibrary[entry.name] = entry;
 }
 
 const SUPPORTED_NODE_CATEGORIES = new Set(MXElements.map((entry) => entry.name));

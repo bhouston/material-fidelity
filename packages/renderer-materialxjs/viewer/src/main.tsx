@@ -36,6 +36,7 @@ type ViewerQuery = z.infer<typeof querySchema>;
 const IDEAL_MESH_SPHERE_RADIUS = 2;
 const REFERENCE_IMAGE_WIDTH = 1024;
 const REFERENCE_IMAGE_HEIGHT = 1024;
+const DISABLED_NODE_CATEGORIES = new Set(['artistic_ior']);
 
 function parseQuery(search: string): ViewerQuery {
   const rawQuery = Object.fromEntries(new URLSearchParams(search).entries());
@@ -149,6 +150,22 @@ function applyMaterialToScene(scene: THREE.Object3D, material: THREE.Material): 
   });
 }
 
+function getCoveredNodeCategories(document: {
+  nodes?: Array<{ category?: string }>;
+  nodeGraphs?: Array<{ nodes?: Array<{ category?: string }> }>;
+}): Set<string> {
+  const categories = new Set<string>();
+  for (const node of document.nodes ?? []) {
+    if (node.category) categories.add(node.category);
+  }
+  for (const graph of document.nodeGraphs ?? []) {
+    for (const node of graph.nodes ?? []) {
+      if (node.category) categories.add(node.category);
+    }
+  }
+  return categories;
+}
+
 async function buildScene(): Promise<void> {
   const query = parseQuery(window.location.search);
   const [backgroundR, backgroundG, backgroundB] = query.backgroundColor;
@@ -197,6 +214,17 @@ async function buildScene(): Promise<void> {
   const { material, result } = createThreeMaterialFromDocument(materialxDocument, {
     textureResolver: createBrowserTextureResolver(query.mtlxPath),
   });
+  const coveredCategories = getCoveredNodeCategories(materialxDocument);
+  const unsupportedCategories = new Set(result.unsupportedCategories);
+  for (const category of DISABLED_NODE_CATEGORIES) {
+    if (coveredCategories.has(category)) {
+      unsupportedCategories.add(category);
+    }
+  }
+  if (unsupportedCategories.size > 0) {
+    const categoryList = [...unsupportedCategories].sort().join(', ');
+    throw new Error(`Unsupported MaterialX node categories in materialxjs renderer: ${categoryList}`);
+  }
   if (result.warnings.length > 0) {
     const warningText = result.warnings.map((warning) => warning.message).join(' | ');
     console.warn(`MaterialX JS compile warnings: ${warningText}`);

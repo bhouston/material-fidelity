@@ -1,5 +1,5 @@
 import { DoubleSide } from 'three/webgpu';
-import { float, color, mul, clamp, vec2, cos, sin } from 'three/tsl';
+import { float, color, mul, clamp, step, vec2, cos, sin } from 'three/tsl';
 
 const mappedStandardSurfaceInputs = new Set([
   'base',
@@ -132,6 +132,13 @@ function toAttenuationDistance(distanceNode, hasAttenuationColorInput) {
   return hasAttenuationColorInput ? float(1) : undefined;
 }
 
+function buildGltfOpacityNode(alphaNode, alphaModeNode, alphaCutoffNode) {
+  if (typeof alphaModeNode === 'number' && Math.round(alphaModeNode) === 1) {
+    return step(alphaCutoffNode ?? float(0.5), alphaNode ?? float(1));
+  }
+  return alphaNode;
+}
+
 function applyStandardSurface(material, inputs, issueCollector, nodeName) {
   let colorNode = null;
   if (inputs.base && inputs.base_color) colorNode = mul(inputs.base, inputs.base_color);
@@ -187,6 +194,8 @@ function applyStandardSurface(material, inputs, issueCollector, nodeName) {
 }
 
 function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
+  const opacityNode = buildGltfOpacityNode(inputs.alpha, inputs.alpha_mode, inputs.alpha_cutoff);
+
   material.colorNode = inputs.base_color || color(1, 1, 1);
   if (hasNodeValue(inputs.occlusion)) material.aoNode = inputs.occlusion;
   material.roughnessNode = inputs.roughness || float(1);
@@ -194,7 +203,7 @@ function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
   material.specularIntensityNode = inputs.specular || float(1);
   material.specularColorNode = inputs.specular_color || color(1, 1, 1);
   material.iorNode = inputs.ior || float(1.5);
-  material.opacityNode = inputs.alpha || float(1);
+  material.opacityNode = opacityNode ?? float(1);
   material.transmissionNode = inputs.transmission || float(0);
   material.clearcoatNode = inputs.clearcoat || float(0);
   material.clearcoatRoughnessNode = inputs.clearcoat_roughness || float(0);
@@ -225,7 +234,7 @@ function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
     material.emissiveNode = mul(inputs.emissive, inputs.emissive_strength);
   else if (hasNodeValue(inputs.emissive)) material.emissiveNode = inputs.emissive;
 
-  setTransmissionFlags(material, inputs.transmission, inputs.alpha);
+  setTransmissionFlags(material, inputs.transmission, opacityNode);
   warnIgnoredInputs(inputs, mappedGltfPbrInputs, issueCollector, 'gltf_pbr', nodeName);
 }
 

@@ -137,7 +137,7 @@ async function buildScene(): Promise<void> {
   scene.add(gltf.scene);
 
   const materialXPath = splitPath(query.mtlxPath);
-  const materialXLoader = new MaterialXLoader().setPath(materialXPath.basePath).setUnsupportedPolicy('warn');
+  const materialXLoader = new MaterialXLoader().setPath(materialXPath.basePath).setUnsupportedPolicy('error');
   const materialXResult =
     typeof materialXLoader.loadAsync === 'function'
       ? await materialXLoader.loadAsync(materialXPath.fileName)
