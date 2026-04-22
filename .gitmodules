@@ -3,4 +3,4 @@
 	url = https://github.com/bhouston/materialx-samples.git
 [submodule "third_party/materialx.js"]
 	path = third_party/materialx.js
-	url = git@github.com:bhouston/materialx.js.git
+	url = https://github.com/bhouston/materialx.js.git
