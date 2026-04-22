@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { access, mkdir, readFile, rm } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { readMaterialX, validateDocument } from '@materialx-js/materialx';
 import pLimit from 'p-limit';
 import { PNG } from 'pngjs';
@@ -49,6 +49,10 @@ function createOutputPath(materialPath: string, rendererName: string): string {
 function toWebpPath(outputPngPath: string): string {
   const parsedPath = path.parse(outputPngPath);
   return path.join(parsedPath.dir, `${parsedPath.name}.webp`);
+}
+
+function createFailureJsonPath(materialPath: string, rendererName: string): string {
+  return path.join(path.dirname(materialPath), `${rendererName}.json`);
 }
 
 function normalizeFilePrefix(filePrefix: string | undefined): string {
@@ -131,59 +135,52 @@ async function validateTextureInputsForNodes(
   return { fatalIssues, warningIssues };
 }
 
-async function preflightMaterialValidation(materialPaths: string[]): Promise<PreflightResult> {
+async function validateMaterial(materialPath: string): Promise<PreflightResult> {
   const fatalIssues: PreflightIssue[] = [];
   const warningIssues: PreflightIssue[] = [];
 
-  for (const materialPath of materialPaths) {
-    let document: MaterialXDocument;
-    try {
-      document = await readMaterialX(materialPath);
-    } catch (error) {
-      fatalIssues.push({
-        materialPath,
-        level: 'error',
-        location: 'materialx',
-        message: error instanceof Error ? error.message : String(error),
-      });
-      continue;
-    }
-
-    for (const issue of validateDocument(document)) {
-      const issueRecord: PreflightIssue = {
-        materialPath,
-        level: issue.level,
-        location: issue.location,
-        message: issue.message,
-      };
-      if (issue.level === 'error' || issue.message.startsWith(UNKNOWN_NODE_CATEGORY_PREFIX)) {
-        fatalIssues.push(issueRecord);
-      } else {
-        warningIssues.push(issueRecord);
-      }
-    }
-
-    const documentPrefix = normalizeFilePrefix(document.attributes.fileprefix);
-    const documentTextureIssues = await validateTextureInputsForNodes(
+  let document: MaterialXDocument;
+  try {
+    document = await readMaterialX(materialPath);
+  } catch (error) {
+    fatalIssues.push({
       materialPath,
-      document.nodes,
-      'materialx',
-      documentPrefix,
-    );
-    fatalIssues.push(...documentTextureIssues.fatalIssues);
-    warningIssues.push(...documentTextureIssues.warningIssues);
-    for (const nodeGraph of document.nodeGraphs) {
-      const nodeGraphPrefix = combineFilePrefix(documentPrefix, normalizeFilePrefix(nodeGraph.attributes.fileprefix));
-      const nodeGraphScope = `materialx/nodegraph:${nodeGraph.name ?? 'unnamed'}`;
-      const nodeGraphTextureIssues = await validateTextureInputsForNodes(
-        materialPath,
-        nodeGraph.nodes,
-        nodeGraphScope,
-        nodeGraphPrefix,
-      );
-      fatalIssues.push(...nodeGraphTextureIssues.fatalIssues);
-      warningIssues.push(...nodeGraphTextureIssues.warningIssues);
+      level: 'error',
+      location: 'materialx',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return { fatalIssues, warningIssues };
+  }
+
+  for (const issue of validateDocument(document)) {
+    const issueRecord: PreflightIssue = {
+      materialPath,
+      level: issue.level,
+      location: issue.location,
+      message: issue.message,
+    };
+    if (issue.level === 'error' || issue.message.startsWith(UNKNOWN_NODE_CATEGORY_PREFIX)) {
+      fatalIssues.push(issueRecord);
+    } else {
+      warningIssues.push(issueRecord);
     }
+  }
+
+  const documentPrefix = normalizeFilePrefix(document.attributes.fileprefix);
+  const documentTextureIssues = await validateTextureInputsForNodes(materialPath, document.nodes, 'materialx', documentPrefix);
+  fatalIssues.push(...documentTextureIssues.fatalIssues);
+  warningIssues.push(...documentTextureIssues.warningIssues);
+  for (const nodeGraph of document.nodeGraphs) {
+    const nodeGraphPrefix = combineFilePrefix(documentPrefix, normalizeFilePrefix(nodeGraph.attributes.fileprefix));
+    const nodeGraphScope = `materialx/nodegraph:${nodeGraph.name ?? 'unnamed'}`;
+    const nodeGraphTextureIssues = await validateTextureInputsForNodes(
+      materialPath,
+      nodeGraph.nodes,
+      nodeGraphScope,
+      nodeGraphPrefix,
+    );
+    fatalIssues.push(...nodeGraphTextureIssues.fatalIssues);
+    warningIssues.push(...nodeGraphTextureIssues.warningIssues);
   }
 
   return { fatalIssues, warningIssues };
@@ -195,11 +192,30 @@ function writeValidationWarnings(warnings: PreflightIssue[]): void {
   }
 }
 
-function formatFatalValidationIssues(issues: PreflightIssue[]): string {
-  return [
-    `MaterialX pre-render validation failed for ${new Set(issues.map((issue) => issue.materialPath)).size} material(s):`,
-    ...issues.map((issue) => `- ${issue.materialPath} | ${issue.location}: ${issue.message}`),
-  ].join('\n');
+function formatFatalValidationIssues(materialPath: string, issues: PreflightIssue[]): string {
+  return [`MaterialX validation failed for ${materialPath}:`, ...issues.map((issue) => `- ${issue.location}: ${issue.message}`)].join(
+    '\n',
+  );
+}
+
+async function writeValidationFailureReport(
+  materialPath: string,
+  rendererName: string,
+  issues: PreflightIssue[],
+): Promise<string> {
+  const reportPath = createFailureJsonPath(materialPath, rendererName);
+  const report = {
+    rendererName,
+    materialPath,
+    status: 'validation_failed',
+    issues: issues.map((issue) => ({
+      level: issue.level,
+      location: issue.location,
+      message: issue.message,
+    })),
+  };
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  return reportPath;
 }
 
 function parseMaterialSelectorAsRegex(selector: string): RegExp | undefined {
@@ -343,14 +359,6 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   if (failedRendererChecks.length > 0) {
     throw new Error(`Renderer prerequisites are not met:\n- ${failedRendererChecks.join('\n- ')}`);
   }
-  const preflightResult = await preflightMaterialValidation(selectedMaterialFiles);
-  if (preflightResult.warningIssues.length > 0) {
-    writeValidationWarnings(preflightResult.warningIssues);
-  }
-  if (preflightResult.fatalIssues.length > 0) {
-    throw new Error(formatFatalValidationIssues(preflightResult.fatalIssues));
-  }
-
   const failures: RenderFailure[] = [];
   let started = 0;
   let completed = 0;
@@ -360,6 +368,22 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   const renderQueue = selectedMaterialFiles.flatMap((materialPath) =>
     selectedRenderers.map((renderer) => ({ materialPath, renderer })),
   );
+  const materialValidationCache = new Map<string, Promise<PreflightResult>>();
+  const getMaterialValidation = (materialPath: string): Promise<PreflightResult> => {
+    const existing = materialValidationCache.get(materialPath);
+    if (existing) {
+      return existing;
+    }
+
+    const validationPromise = validateMaterial(materialPath).then((result) => {
+      if (result.warningIssues.length > 0) {
+        writeValidationWarnings(result.warningIssues);
+      }
+      return result;
+    });
+    materialValidationCache.set(materialPath, validationPromise);
+    return validationPromise;
+  };
   const startedRenderers: FidelityRenderer[] = [];
   let renderPipelineError: Error | undefined;
   let shutdownError: Error | undefined;
@@ -394,6 +418,11 @@ export async function createReferences(options: CreateReferencesOptions): Promis
           let renderError: Error | undefined;
           const startedAt = Date.now();
           try {
+            const validationResult = await getMaterialValidation(materialPath);
+            if (validationResult.fatalIssues.length > 0) {
+              const reportPath = await writeValidationFailureReport(materialPath, renderer.name, validationResult.fatalIssues);
+              throw new Error(`${formatFatalValidationIssues(materialPath, validationResult.fatalIssues)}\nReport: ${reportPath}`);
+            }
             await renderer.generateImage({
               mtlxPath: materialPath,
               outputPngPath,

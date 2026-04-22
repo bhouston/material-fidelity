@@ -38,7 +38,7 @@ pnpm test
 
 ## CLI
 
-Generatereference images:
+Generate reference images:
 
 ```bash
 # all renderers, all materials
@@ -46,14 +46,15 @@ pnpm cli create-references
 ```
 
 ```bash
-# only generate three.js renders of open_pbr materials
-pnpm cli create-references --renderers threejs --materials open_pbr
+# only generate MaterialX JavaScript renders of open_pbr materials
+pnpm cli create-references --renderers materialxjs --materials open_pbr
 ```
 
 This command writes `<renderer-name>.webp` in each directory containing a `material.mtlx`.
 
 Currently supported renderers:
 
+- `materialxjs` (`@materialx-fidelity/renderer-materialxjs`)
 - `materialxview` (`@materialx-fidelity/renderer-materialxview`)
 - `threejs` (`@materialx-fidelity/renderer-threejs`)
 
@@ -62,6 +63,52 @@ Optional flags:
 - `--renderers <name[,name...]>` optional renderer filter; supports repeated flags and comma-separated values
 - `--materials <selector[,selector...]>` optional material filter; supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
 - `--concurrency <number>` default `1`
+
+## Node Isolation Suite
+
+The non-surface node isolation materials live under:
+
+- `third_party/materialx-samples/materials/gltf_pbr/node_isolation`
+
+Each node gets its own directory and `material.mtlx`, with phase planning documented in:
+
+- `third_party/materialx-samples/materials/gltf_pbr/node_isolation/PHASES.md`
+
+### Validate Node Isolation Materials
+
+```bash
+# single material (run from repo root)
+pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/materialx-samples/materials/gltf_pbr/node_isolation/add/material.mtlx"
+```
+
+```bash
+# validate all node-isolation materials
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+
+root = Path.cwd()
+files = sorted((root / "third_party/materialx-samples/materials/gltf_pbr/node_isolation").glob("*/material.mtlx"))
+for file in files:
+    subprocess.run(
+        ["pnpm", "--filter", "@materialx-js/materialx-cli", "start", "validate", str(file)],
+        check=True,
+    )
+print(f"Validated {len(files)} materials.")
+PY
+```
+
+### Regenerate Node Isolation References
+
+```bash
+# all node-isolation materials
+pnpm cli create-references --materials node_isolation
+```
+
+```bash
+# targeted node subset by regex
+pnpm cli create-references --materials "re:gltf_pbr/node_isolation/(image|tiledimage|transformmatrix)$"
+```
 
 ## Reference Renderer Setup
 
@@ -85,7 +132,7 @@ Run the MaterialX Fidelity Viewer:
 pnpm viewer
 ```
 
-The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `threejs`).
+The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxjs`, `materialxview`, `threejs`).
 
 The page groups materials by type (`open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.webp`) side by side. Missing images render as a placeholder tile.
 

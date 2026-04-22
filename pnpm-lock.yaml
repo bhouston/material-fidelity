@@ -42,6 +42,9 @@ importers:
       '@materialx-fidelity/core':
         specifier: workspace:*
         version: link:../core
+      '@materialx-fidelity/renderer-materialxjs':
+        specifier: workspace:*
+        version: link:../renderer-materialxjs
       '@materialx-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview
@@ -87,6 +90,39 @@ importers:
         specifier: ^6.0.5
         version: 6.0.5
 
+  packages/renderer-materialxjs:
+    dependencies:
+      '@materialx-fidelity/core':
+        specifier: workspace:*
+        version: link:../core
+      '@materialx-js/materialx':
+        specifier: workspace:*
+        version: link:../../third_party/materialx.js/packages/materialx
+      '@materialx-js/materialx-three':
+        specifier: workspace:*
+        version: link:../../third_party/materialx.js/packages/materialx-three
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
+      playwright:
+        specifier: ^1.59.1
+        version: 1.59.1
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
+      three:
+        specifier: ^0.184.0
+        version: 0.184.0
+      vite:
+        specifier: ^8.0.9
+        version: 8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+
   packages/renderer-materialxview:
     dependencies:
       '@materialx-fidelity/core':
@@ -125,6 +161,9 @@ importers:
 
   packages/viewer:
     dependencies:
+      '@materialx-fidelity/renderer-materialxjs':
+        specifier: workspace:*
+        version: link:../renderer-materialxjs
       '@materialx-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview

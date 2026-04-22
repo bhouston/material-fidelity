@@ -1,5 +1,6 @@
 import { access, readdir } from 'node:fs/promises'
 import path from 'node:path'
+import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs'
 import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview'
 import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs'
 
@@ -141,6 +142,7 @@ async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
 
 function getBuiltInRendererNames(thirdPartyRoot: string): string[] {
   return [
+    createMaterialXJsRenderer({ thirdPartyRoot }).name,
     createMaterialXViewRenderer().name,
     createThreeJsRenderer({ thirdPartyRoot }).name,
   ].toSorted((a, b) => a.localeCompare(b))

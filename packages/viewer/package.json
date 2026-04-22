@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@materialx-fidelity/renderer-materialxjs": "workspace:*",
     "@materialx-fidelity/renderer-materialxview": "workspace:*",
     "@materialx-fidelity/renderer-threejs": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",

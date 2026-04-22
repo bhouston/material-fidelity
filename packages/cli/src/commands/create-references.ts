@@ -3,6 +3,7 @@ import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
 import { createReferences } from '@materialx-fidelity/core';
 import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@materialx-fidelity/core';
+import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs';
 import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
 import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
 import { humanizeTime } from 'humanize-units';
@@ -268,6 +269,7 @@ export const command = defineCommand({
     const invocationCwd = process.env.INIT_CWD ?? process.cwd();
     const thirdPartyRoot = resolveThirdPartyRoot(invocationCwd);
     const renderers: FidelityRenderer[] = [
+      createMaterialXJsRenderer({ thirdPartyRoot }),
       createMaterialXViewRenderer(),
       createThreeJsRenderer({ thirdPartyRoot }),
     ];

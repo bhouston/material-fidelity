@@ -550,7 +550,7 @@ export function createAdapter() {
     ).rejects.toThrow('Renderer prerequisites are not met');
   });
 
-  it('fails before renderer start when material xml is malformed', async () => {
+  it('marks malformed material xml as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
@@ -564,19 +564,23 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
 
-    await expect(
-      createReferences({
-        thirdPartyRoot,
-        renderers: [renderer],
-        rendererNames: ['fake'],
-        concurrency: 1,
-      }),
-    ).rejects.toThrow('MaterialX pre-render validation failed');
-    expect(state.startCalls).toBe(0);
-    expect(state.started).toBe(false);
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [renderer],
+      rendererNames: ['fake'],
+      concurrency: 1,
+    });
+    expect(result.total).toBe(1);
+    expect(result.attempted).toBe(1);
+    expect(result.rendered).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.error.message).toContain('MaterialX validation failed');
+    await expect(access(path.join(materialDir, 'fake.json'))).resolves.toBeUndefined();
+    expect(state.startCalls).toBe(1);
+    expect(state.started).toBe(true);
   });
 
-  it('fails before renderer start when unsupported nodes are present', async () => {
+  it('marks unsupported node categories as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
@@ -594,19 +598,23 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
 
-    await expect(
-      createReferences({
-        thirdPartyRoot,
-        renderers: [renderer],
-        rendererNames: ['fake'],
-        concurrency: 1,
-      }),
-    ).rejects.toThrow('Unknown node category');
-    expect(state.startCalls).toBe(0);
-    expect(state.started).toBe(false);
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [renderer],
+      rendererNames: ['fake'],
+      concurrency: 1,
+    });
+    expect(result.total).toBe(1);
+    expect(result.attempted).toBe(1);
+    expect(result.rendered).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.error.message).toContain('Unknown node category');
+    await expect(access(path.join(materialDir, 'fake.json'))).resolves.toBeUndefined();
+    expect(state.startCalls).toBe(1);
+    expect(state.started).toBe(true);
   });
 
-  it('fails before renderer start when a referenced texture file is missing', async () => {
+  it('marks missing texture references as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
@@ -630,16 +638,54 @@ export function createAdapter() {
     await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
     await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
 
-    await expect(
-      createReferences({
-        thirdPartyRoot,
-        renderers: [renderer],
-        rendererNames: ['fake'],
-        concurrency: 1,
-      }),
-    ).rejects.toThrow('Missing texture file');
-    expect(state.startCalls).toBe(0);
-    expect(state.started).toBe(false);
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [renderer],
+      rendererNames: ['fake'],
+      concurrency: 1,
+    });
+    expect(result.total).toBe(1);
+    expect(result.attempted).toBe(1);
+    expect(result.rendered).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.error.message).toContain('Missing texture file');
+    await expect(access(path.join(materialDir, 'fake.json'))).resolves.toBeUndefined();
+    expect(state.startCalls).toBe(1);
+    expect(state.started).toBe(true);
+  });
+
+  it('renders valid materials even when another material fails validation', async () => {
+    const root = await makeTempDir('fidelity-');
+    const thirdPartyRoot = path.join(root, 'third-party');
+    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const invalidMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'invalid-one');
+    const validMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'valid-one');
+    const viewerDir = path.join(samplesRoot, 'viewer');
+
+    await mkdir(invalidMaterialDir, { recursive: true });
+    await mkdir(validMaterialDir, { recursive: true });
+    await mkdir(viewerDir, { recursive: true });
+    await writeFile(path.join(invalidMaterialDir, 'material.mtlx'), '<materialx version="1.39">', 'utf8');
+    await writeFile(path.join(validMaterialDir, 'material.mtlx'), VALID_MTLX_DOCUMENT, 'utf8');
+    await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
+    await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
+
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
+      concurrency: 2,
+    });
+
+    expect(result.total).toBe(2);
+    expect(result.attempted).toBe(2);
+    expect(result.rendered).toBe(1);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.materialPath).toBe(path.join(invalidMaterialDir, 'material.mtlx'));
+    await expect(access(path.join(validMaterialDir, 'fake.webp'))).resolves.toBeUndefined();
+    await expect(access(path.join(invalidMaterialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(invalidMaterialDir, 'fake.json'))).resolves.toBeUndefined();
+    await expect(access(path.join(validMaterialDir, 'fake.json'))).rejects.toThrow('ENOENT');
   });
 
   it('continues rendering and writes warnings for URI texture references', async () => {
