@@ -22,6 +22,8 @@ RUN test -d /app/third_party/materialx.js/packages/materialx/src
 
 RUN pnpm install --frozen-lockfile --prefer-offline
 
+RUN pnpm --filter @materialx-js/materialx build
+
 RUN pnpm build
 
 EXPOSE 8080
