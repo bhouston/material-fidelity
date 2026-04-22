@@ -6,18 +6,32 @@ export interface GenerateImageOptions {
   backgroundColor: string;
 }
 
+export interface RenderLogEntry {
+  level: 'debug' | 'info' | 'warning' | 'error';
+  source: 'browser' | 'renderer';
+  message: string;
+}
+
+export interface GenerateImageResult {
+  logs: RenderLogEntry[];
+}
+
 export interface RendererPrerequisiteCheckResult {
   success: boolean;
   message?: string;
 }
 
+export type RendererCategory = 'pathtracer' | 'raytracer' | 'rasterizer';
+
 export interface FidelityRenderer {
   name: string;
   version: string;
+  category: RendererCategory;
+  emptyReferenceImagePath: string;
   checkPrerequisites: () => Promise<RendererPrerequisiteCheckResult> | RendererPrerequisiteCheckResult;
   start: () => Promise<void>;
   shutdown: () => Promise<void>;
-  generateImage: (options: GenerateImageOptions) => Promise<void>;
+  generateImage: (options: GenerateImageOptions) => Promise<GenerateImageResult>;
 }
 
 export interface RendererContext {
@@ -41,6 +55,7 @@ export interface RenderFailure {
   materialPath: string;
   outputPngPath: string;
   error: Error;
+  logs?: RenderLogEntry[];
 }
 
 export interface CreateReferencesResult {
@@ -67,4 +82,5 @@ export interface CreateReferencesProgressEvent {
   success?: boolean;
   durationMs?: number;
   error?: Error;
+  logs?: RenderLogEntry[];
 }

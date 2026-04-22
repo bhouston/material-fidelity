@@ -1,13 +1,13 @@
 {
   "name": "@materialx-fidelity/core",
   "version": "0.1.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "source": "./src/index.ts",
   "files": [
     "dist"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "tsc": "tsgo",
     "tsgo": "tsgo",

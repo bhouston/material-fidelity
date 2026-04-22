@@ -1,46 +1,28 @@
 import path from 'node:path';
-import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { readMaterialX, validateDocument } from '@materialx-js/materialx';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import pLimit from 'p-limit';
-import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { findFilesByName } from './fs-utils.js';
-import type { CreateReferencesOptions, CreateReferencesResult, FidelityRenderer, RenderFailure } from './types.js';
-import type { MaterialXDocument, MaterialXInput, MaterialXNode } from '@materialx-js/materialx';
+import { assertRenderIsNotEmpty } from './image-empty-check.js';
+import {
+  formatFatalValidationIssues,
+  validateMaterial,
+  writeValidationWarnings,
+  type PreflightIssue,
+  type PreflightResult,
+} from './material-validation.js';
+import { materialMatchesSelector } from './material-selectors.js';
+import type {
+  CreateReferencesOptions,
+  CreateReferencesResult,
+  FidelityRenderer,
+  RenderFailure,
+  RenderLogEntry,
+} from './types.js';
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
 const DEFAULT_BACKGROUND_COLOR = '0,0,0';
-const UNKNOWN_NODE_CATEGORY_PREFIX = 'Unknown node category "';
-
-interface PreflightIssue {
-  materialPath: string;
-  level: 'error' | 'warning';
-  location: string;
-  message: string;
-}
-
-interface PreflightResult {
-  fatalIssues: PreflightIssue[];
-  warningIssues: PreflightIssue[];
-}
-
-async function assertRenderIsNotEmpty(outputPngPath: string): Promise<void> {
-  const pngBytes = await readFile(outputPngPath);
-  const png = PNG.sync.read(pngBytes);
-
-  for (let pixelOffset = 0; pixelOffset < png.data.length; pixelOffset += 4) {
-    const red = png.data[pixelOffset];
-    const green = png.data[pixelOffset + 1];
-    const blue = png.data[pixelOffset + 2];
-    if (red !== 0 || green !== 0 || blue !== 0) {
-      return;
-    }
-  }
-
-  await rm(outputPngPath, { force: true });
-  throw new Error('Render output is empty (all pixels are black).');
-}
 
 function createOutputPath(materialPath: string, rendererName: string): string {
   return path.join(path.dirname(materialPath), `${rendererName}.png`);
@@ -51,217 +33,69 @@ function toWebpPath(outputPngPath: string): string {
   return path.join(parsedPath.dir, `${parsedPath.name}.webp`);
 }
 
-function createFailureJsonPath(materialPath: string, rendererName: string): string {
-  return path.join(path.dirname(materialPath), `${rendererName}.json`);
+function toJsonPath(outputPngPath: string): string {
+  const parsedPath = path.parse(outputPngPath);
+  return path.join(parsedPath.dir, `${parsedPath.name}.json`);
 }
 
-function normalizeFilePrefix(filePrefix: string | undefined): string {
-  if (!filePrefix) {
-    return '';
-  }
-  return filePrefix.trim();
+interface RenderResultReportOptions {
+  rendererName: string;
+  materialPath: string;
+  outputPngPath: string;
+  outputWebpPath: string;
+  startedAt: number;
+  completedAt: number;
+  success: boolean;
+  error?: Error;
+  validationIssues?: PreflightIssue[];
+  logs?: RenderLogEntry[];
 }
 
-function hasUriScheme(value: string): boolean {
-  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value);
-}
-
-function combineFilePrefix(parentPrefix: string, childPrefix: string): string {
-  if (!childPrefix) {
-    return parentPrefix;
+function readRendererLogs(value: unknown): RenderLogEntry[] {
+  if (!value || typeof value !== 'object') {
+    return [];
   }
-  if (!parentPrefix || path.isAbsolute(childPrefix) || hasUriScheme(childPrefix)) {
-    return childPrefix;
+  const candidate = value as { rendererLogs?: unknown };
+  if (!Array.isArray(candidate.rendererLogs)) {
+    return [];
   }
-  return `${parentPrefix}${childPrefix}`;
-}
-
-function extractFilenameInputValue(input: MaterialXInput): string {
-  const inputValue = input.value ?? input.attributes.value ?? '';
-  return inputValue.trim();
-}
-
-async function validateTextureInputsForNodes(
-  materialPath: string,
-  nodes: MaterialXNode[],
-  scope: string,
-  inheritedFilePrefix: string,
-): Promise<PreflightResult> {
-  const fatalIssues: PreflightIssue[] = [];
-  const warningIssues: PreflightIssue[] = [];
-  const materialDirectory = path.dirname(materialPath);
-
-  for (const node of nodes) {
-    const nodePrefix = combineFilePrefix(inheritedFilePrefix, normalizeFilePrefix(node.attributes.fileprefix));
-    const nodeLocation = `${scope}/${node.category}:${node.name ?? 'unnamed'}`;
-
-    for (const input of node.inputs) {
-      if (input.type !== 'filename') {
-        continue;
-      }
-
-      const filenameValue = extractFilenameInputValue(input);
-      if (filenameValue.length === 0) {
-        continue;
-      }
-      const location = `${nodeLocation}/input:${input.name || 'unnamed'}`;
-      if (hasUriScheme(filenameValue)) {
-        warningIssues.push({
-          materialPath,
-          level: 'warning',
-          location,
-          message: `Skipping texture existence check for URI "${filenameValue}".`,
-        });
-        continue;
-      }
-
-      const inputPrefix = combineFilePrefix(nodePrefix, normalizeFilePrefix(input.attributes.fileprefix));
-      const sourcePath = `${inputPrefix}${filenameValue}`;
-      const resolvedPath = path.isAbsolute(sourcePath) ? sourcePath : path.resolve(materialDirectory, sourcePath);
-
-      try {
-        await access(resolvedPath);
-      } catch {
-        fatalIssues.push({
-          materialPath,
-          level: 'error',
-          location,
-          message: `Missing texture file "${sourcePath}" resolved to "${resolvedPath}".`,
-        });
-      }
-    }
-  }
-
-  return { fatalIssues, warningIssues };
-}
-
-async function validateMaterial(materialPath: string): Promise<PreflightResult> {
-  const fatalIssues: PreflightIssue[] = [];
-  const warningIssues: PreflightIssue[] = [];
-
-  let document: MaterialXDocument;
-  try {
-    document = await readMaterialX(materialPath);
-  } catch (error) {
-    fatalIssues.push({
-      materialPath,
-      level: 'error',
-      location: 'materialx',
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return { fatalIssues, warningIssues };
-  }
-
-  for (const issue of validateDocument(document)) {
-    const issueRecord: PreflightIssue = {
-      materialPath,
-      level: issue.level,
-      location: issue.location,
-      message: issue.message,
-    };
-    if (issue.level === 'error' || issue.message.startsWith(UNKNOWN_NODE_CATEGORY_PREFIX)) {
-      fatalIssues.push(issueRecord);
-    } else {
-      warningIssues.push(issueRecord);
-    }
-  }
-
-  const documentPrefix = normalizeFilePrefix(document.attributes.fileprefix);
-  const documentTextureIssues = await validateTextureInputsForNodes(materialPath, document.nodes, 'materialx', documentPrefix);
-  fatalIssues.push(...documentTextureIssues.fatalIssues);
-  warningIssues.push(...documentTextureIssues.warningIssues);
-  for (const nodeGraph of document.nodeGraphs) {
-    const nodeGraphPrefix = combineFilePrefix(documentPrefix, normalizeFilePrefix(nodeGraph.attributes.fileprefix));
-    const nodeGraphScope = `materialx/nodegraph:${nodeGraph.name ?? 'unnamed'}`;
-    const nodeGraphTextureIssues = await validateTextureInputsForNodes(
-      materialPath,
-      nodeGraph.nodes,
-      nodeGraphScope,
-      nodeGraphPrefix,
-    );
-    fatalIssues.push(...nodeGraphTextureIssues.fatalIssues);
-    warningIssues.push(...nodeGraphTextureIssues.warningIssues);
-  }
-
-  return { fatalIssues, warningIssues };
-}
-
-function writeValidationWarnings(warnings: PreflightIssue[]): void {
-  for (const warning of warnings) {
-    process.stderr.write(`WARN ${warning.materialPath} | ${warning.location}: ${warning.message}\n`);
-  }
-}
-
-function formatFatalValidationIssues(materialPath: string, issues: PreflightIssue[]): string {
-  return [`MaterialX validation failed for ${materialPath}:`, ...issues.map((issue) => `- ${issue.location}: ${issue.message}`)].join(
-    '\n',
+  return candidate.rendererLogs.filter(
+    (entry): entry is RenderLogEntry =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as { level?: unknown }).level === 'string' &&
+      typeof (entry as { source?: unknown }).source === 'string' &&
+      typeof (entry as { message?: unknown }).message === 'string',
   );
 }
 
-async function writeValidationFailureReport(
-  materialPath: string,
-  rendererName: string,
-  issues: PreflightIssue[],
-): Promise<string> {
-  const reportPath = createFailureJsonPath(materialPath, rendererName);
+async function writeRenderResultReport(options: RenderResultReportOptions): Promise<void> {
+  const reportPath = toJsonPath(options.outputPngPath);
   const report = {
-    rendererName,
-    materialPath,
-    status: 'validation_failed',
-    issues: issues.map((issue) => ({
+    rendererName: options.rendererName,
+    materialPath: options.materialPath,
+    outputPngPath: options.outputPngPath,
+    outputWebpPath: options.outputWebpPath,
+    status: options.success ? 'success' : 'failed',
+    success: options.success,
+    startedAt: new Date(options.startedAt).toISOString(),
+    completedAt: new Date(options.completedAt).toISOString(),
+    durationMs: Math.max(0, options.completedAt - options.startedAt),
+    error: options.error
+      ? {
+          name: options.error.name,
+          message: options.error.message,
+          stack: options.error.stack,
+        }
+      : null,
+    validationIssues: options.validationIssues?.map((issue) => ({
       level: issue.level,
       location: issue.location,
       message: issue.message,
     })),
+    logs: options.logs ?? [],
   };
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  return reportPath;
-}
-
-function parseMaterialSelectorAsRegex(selector: string): RegExp | undefined {
-  const trimmedSelector = selector.trim();
-  if (trimmedSelector.length === 0) {
-    return undefined;
-  }
-
-  if (trimmedSelector.startsWith('re:')) {
-    return new RegExp(trimmedSelector.slice(3), 'i');
-  }
-
-  const regexLiteralMatch = /^\/(.+)\/([dgimsuvy]*)$/.exec(trimmedSelector);
-  if (regexLiteralMatch) {
-    const expression = regexLiteralMatch[1];
-    const flags = regexLiteralMatch[2] ?? '';
-    if (!expression) {
-      return undefined;
-    }
-    return new RegExp(expression, flags);
-  }
-
-  return undefined;
-}
-
-function materialMatchesSelector(materialPath: string, materialsRoot: string, selector: string): boolean {
-  const regex = parseMaterialSelectorAsRegex(selector);
-  const materialDirectory = path.dirname(materialPath);
-  const relativeMaterialPath = path.relative(materialsRoot, materialPath);
-  const relativeMaterialDirectory = path.relative(materialsRoot, materialDirectory);
-  const matchTargets = [materialPath, materialDirectory, relativeMaterialPath, relativeMaterialDirectory].map((target) =>
-    target.replaceAll('\\', '/'),
-  );
-
-  if (regex) {
-    return matchTargets.some((target) => {
-      regex.lastIndex = 0;
-      return regex.test(target);
-    });
-  }
-
-  const normalizedSelector = selector.trim().toLowerCase();
-  if (normalizedSelector.length === 0) {
-    return false;
-  }
-  return matchTargets.some((target) => target.toLowerCase().includes(normalizedSelector));
 }
 
 export async function createReferences(options: CreateReferencesOptions): Promise<CreateReferencesResult> {
@@ -291,7 +125,9 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   if (materialFiles.length === 0) {
     throw new Error(`No material.mtlx files found under ${materialsRoot}.`);
   }
-  const materialSelectors = [...new Set((options.materialSelectors ?? []).map((selector) => selector.trim()).filter(Boolean))];
+  const materialSelectors = [
+    ...new Set((options.materialSelectors ?? []).map((selector) => selector.trim()).filter(Boolean)),
+  ];
   const selectedMaterialFiles =
     materialSelectors.length > 0
       ? materialFiles.filter((materialPath) =>
@@ -319,9 +155,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     missingViewerAssets.push(VIEWER_MODEL_FILENAME);
   }
   if (missingViewerAssets.length > 0) {
-    throw new Error(
-      `Missing required viewer assets under ${viewerRoot}: ${missingViewerAssets.join(', ')}.`,
-    );
+    throw new Error(`Missing required viewer assets under ${viewerRoot}: ${missingViewerAssets.join(', ')}.`);
   }
 
   const rendererMap = new Map<string, FidelityRenderer>();
@@ -332,7 +166,9 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     rendererMap.set(renderer.name, renderer);
   }
 
-  const normalizedRequestedRenderers = [...new Set((options.rendererNames ?? []).map((name) => name.trim()).filter(Boolean))];
+  const normalizedRequestedRenderers = [
+    ...new Set((options.rendererNames ?? []).map((name) => name.trim()).filter(Boolean)),
+  ];
   const selectedRendererNames =
     normalizedRequestedRenderers.length > 0 ? normalizedRequestedRenderers : [...rendererMap.keys()];
   if (selectedRendererNames.length === 0) {
@@ -346,13 +182,22 @@ export async function createReferences(options: CreateReferencesOptions): Promis
       `Renderer(s) "${missingRendererNames.join(', ')}" not found. Available renderers: ${available || '(none)'}.`,
     );
   }
-  const selectedRenderers = selectedRendererNames.map((rendererName) => rendererMap.get(rendererName) as FidelityRenderer);
+  const selectedRenderers = selectedRendererNames.map(
+    (rendererName) => rendererMap.get(rendererName) as FidelityRenderer,
+  );
   const failedRendererChecks: string[] = [];
   for (const renderer of selectedRenderers) {
     const checkResult = await renderer.checkPrerequisites();
     if (!checkResult.success) {
       failedRendererChecks.push(
         `${renderer.name}: ${checkResult.message?.trim() || 'Renderer prerequisites are not satisfied.'}`,
+      );
+    }
+    try {
+      await access(renderer.emptyReferenceImagePath);
+    } catch {
+      failedRendererChecks.push(
+        `${renderer.name}: Missing empty reference image at ${renderer.emptyReferenceImagePath}.`,
       );
     }
   }
@@ -416,31 +261,60 @@ export async function createReferences(options: CreateReferencesOptions): Promis
           await mkdir(path.dirname(outputPngPath), { recursive: true });
 
           let renderError: Error | undefined;
+          let validationIssues: PreflightIssue[] | undefined;
+          let logs: RenderLogEntry[] = [];
           const startedAt = Date.now();
+          const outputWebpPath = toWebpPath(outputPngPath);
           try {
             const validationResult = await getMaterialValidation(materialPath);
             if (validationResult.fatalIssues.length > 0) {
-              const reportPath = await writeValidationFailureReport(materialPath, renderer.name, validationResult.fatalIssues);
-              throw new Error(`${formatFatalValidationIssues(materialPath, validationResult.fatalIssues)}\nReport: ${reportPath}`);
+              validationIssues = validationResult.fatalIssues;
+              throw new Error(formatFatalValidationIssues(materialPath, validationResult.fatalIssues));
             }
-            await renderer.generateImage({
+            const renderResult = await renderer.generateImage({
               mtlxPath: materialPath,
               outputPngPath,
               environmentHdrPath: hdrPath,
               modelPath,
               backgroundColor: DEFAULT_BACKGROUND_COLOR,
             });
-            await assertRenderIsNotEmpty(outputPngPath);
-            const outputWebpPath = toWebpPath(outputPngPath);
+            logs = [...renderResult.logs];
+            await assertRenderIsNotEmpty(outputPngPath, renderer.emptyReferenceImagePath);
             await sharp(outputPngPath).webp({ quality: 99 }).toFile(outputWebpPath);
             await rm(outputPngPath, { force: true });
           } catch (error) {
             renderError = error instanceof Error ? error : new Error(String(error));
-            failures.push({ rendererName: renderer.name, materialPath, outputPngPath, error: renderError });
-          } finally {
-            attempted += 1;
-            completed += 1;
+            logs = [...logs, ...readRendererLogs(error)];
           }
+
+          if (renderError) {
+            await rm(outputWebpPath, { force: true });
+            await rm(outputPngPath, { force: true });
+          }
+
+          const completedAt = Date.now();
+          try {
+            await writeRenderResultReport({
+              rendererName: renderer.name,
+              materialPath,
+              outputPngPath,
+              outputWebpPath,
+              startedAt,
+              completedAt,
+              success: !renderError,
+              error: renderError,
+              validationIssues,
+              logs,
+            });
+          } catch (reportError) {
+            renderError ??= reportError instanceof Error ? reportError : new Error(String(reportError));
+          }
+
+          if (renderError) {
+            failures.push({ rendererName: renderer.name, materialPath, outputPngPath, error: renderError, logs });
+          }
+          attempted += 1;
+          completed += 1;
 
           await options.onProgress?.({
             phase: 'finish',
@@ -451,8 +325,9 @@ export async function createReferences(options: CreateReferencesOptions): Promis
             started,
             completed,
             success: !renderError,
-            durationMs: Math.max(0, Date.now() - startedAt),
+            durationMs: Math.max(0, completedAt - startedAt),
             error: renderError,
+            logs,
           });
         }),
       ),

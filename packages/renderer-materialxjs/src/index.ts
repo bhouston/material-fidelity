@@ -1,7 +1,7 @@
 import { access, mkdir } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Page, type ConsoleMessage } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import {
@@ -9,6 +9,8 @@ import {
   REFERENCE_IMAGE_WIDTH,
   type FidelityRenderer,
   type GenerateImageOptions,
+  type GenerateImageResult,
+  type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
 } from '@materialx-fidelity/core';
@@ -21,12 +23,7 @@ interface RuntimeState {
 }
 
 const VIEWER_ENVIRONMENT_ROTATION_DEGREES = -90;
-const GPU_BROWSER_ARGS = [
-  '--enable-gpu',
-  '--ignore-gpu-blocklist',
-  '--enable-webgpu',
-  '--enable-unsafe-webgpu',
-];
+const GPU_BROWSER_ARGS = ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgpu', '--enable-unsafe-webgpu'];
 
 function toFsUrlPath(absolutePath: string): string {
   return `/@fs/${absolutePath.replaceAll('\\', '/')}`;
@@ -49,6 +46,19 @@ function readGlobalError(page: Page): Promise<string | undefined> {
     const value = Reflect.get(globalThis, '__MTLX_CAPTURE_ERROR__');
     return typeof value === 'string' ? value : undefined;
   });
+}
+
+function toLogLevel(type: string): RenderLogEntry['level'] {
+  if (type === 'error') return 'error';
+  if (type === 'warning') return 'warning';
+  if (type === 'debug') return 'debug';
+  return 'info';
+}
+
+function createRenderError(message: string, logs: RenderLogEntry[]): Error & { rendererLogs: RenderLogEntry[] } {
+  const error = new Error(message) as Error & { rendererLogs: RenderLogEntry[] };
+  error.rendererLogs = logs;
+  return error;
 }
 
 function buildGpuBrowserArgs(): string[] {
@@ -77,12 +87,16 @@ async function launchGpuBrowser(): Promise<Browser> {
 class MaterialXJsRenderer implements FidelityRenderer {
   public readonly name = 'materialxjs';
   public readonly version = '0.1.0';
+  public readonly category = 'rasterizer';
+  public readonly emptyReferenceImagePath: string;
   private readonly thirdPartyRoot: string;
   private prerequisitesValidated = false;
   private runtimeState: RuntimeState | undefined;
 
   public constructor(context: RendererContext) {
     this.thirdPartyRoot = context.thirdPartyRoot;
+    const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+    this.emptyReferenceImagePath = join(packageRoot, 'materialxjs-empty.png');
   }
 
   public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
@@ -120,7 +134,10 @@ class MaterialXJsRenderer implements FidelityRenderer {
       }
     }
 
-    const viewerAppRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'viewer');
+    const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+    const workspaceRoot = join(packageRoot, '..', '..');
+    const viewerAppRoot = join(packageRoot, 'viewer');
+    const threeRoot = join(workspaceRoot, 'node_modules', 'three');
     const materialxThreePackageEntry = join(
       this.thirdPartyRoot,
       'materialx.js',
@@ -135,9 +152,14 @@ class MaterialXJsRenderer implements FidelityRenderer {
       logLevel: 'error',
       plugins: [react()],
       resolve: {
-        alias: {
-          '@materialx-js/materialx-three': materialxThreePackageEntry,
-        },
+        alias: [
+          { find: '@materialx-js/materialx-three', replacement: materialxThreePackageEntry },
+          // Force a single Three.js runtime to avoid mixed TSL node instances.
+          { find: /^three$/, replacement: join(threeRoot, 'build', 'three.module.js') },
+          { find: /^three\/webgpu$/, replacement: join(threeRoot, 'build', 'three.webgpu.js') },
+          { find: /^three\/tsl$/, replacement: join(threeRoot, 'build', 'three.tsl.js') },
+          { find: /^three\/addons\//, replacement: `${join(threeRoot, 'examples', 'jsm')}/` },
+        ],
       },
       server: {
         host: '127.0.0.1',
@@ -180,7 +202,7 @@ class MaterialXJsRenderer implements FidelityRenderer {
     await Promise.allSettled([context.close(), browser.close(), server.close()]);
   }
 
-  public async generateImage(options: GenerateImageOptions): Promise<void> {
+  public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
     if (!this.runtimeState) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
@@ -192,7 +214,42 @@ class MaterialXJsRenderer implements FidelityRenderer {
     await mkdir(dirname(options.outputPngPath), { recursive: true });
 
     const page = await this.runtimeState.context.newPage();
+    const logs: RenderLogEntry[] = [];
+    let browserError: Error | undefined;
+    let resolveBrowserError: (() => void) | undefined;
+    const browserErrorSignal = new Promise<void>((resolve) => {
+      resolveBrowserError = resolve;
+    });
+    const recordBrowserError = (message: string): void => {
+      if (browserError) {
+        return;
+      }
+      browserError = createRenderError(message, logs);
+      resolveBrowserError?.();
+    };
+    const onConsole = (message: ConsoleMessage): void => {
+      const level = toLogLevel(message.type());
+      logs.push({
+        level,
+        source: 'browser',
+        message: message.text(),
+      });
+      if (level === 'error') {
+        recordBrowserError(`Browser console error: ${message.text()}`);
+      }
+    };
+    const onPageError = (error: Error): void => {
+      logs.push({
+        level: 'error',
+        source: 'browser',
+        message: error.message,
+      });
+      recordBrowserError(`Browser page error: ${error.message}`);
+    };
+    page.on('console', onConsole);
+    page.on('pageerror', onPageError);
     try {
+      await page.route('**/favicon.ico', (route) => route.fulfill({ status: 204, body: '' }));
       await page.setViewportSize({
         width: REFERENCE_IMAGE_WIDTH,
         height: REFERENCE_IMAGE_HEIGHT,
@@ -206,20 +263,35 @@ class MaterialXJsRenderer implements FidelityRenderer {
       url.searchParams.set('backgroundColor', options.backgroundColor);
 
       await page.goto(url.toString(), { waitUntil: 'networkidle' });
-      await page.waitForFunction(() => Reflect.get(globalThis, '__MTLX_CAPTURE_DONE__') === true, undefined, {
-        timeout: 60_000,
-      });
+      await Promise.race([
+        page.waitForFunction(() => Reflect.get(globalThis, '__MTLX_CAPTURE_DONE__') === true, undefined, {
+          timeout: 60_000,
+        }),
+        browserErrorSignal,
+      ]);
 
       const renderError = await readGlobalError(page);
       if (renderError) {
-        throw new Error(renderError);
+        throw createRenderError(renderError, logs);
+      }
+      if (browserError) {
+        throw browserError;
       }
 
       await page.screenshot({
         path: options.outputPngPath,
         type: 'png',
       });
+      return { logs };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'rendererLogs' in error) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw createRenderError(message, logs);
     } finally {
+      page.off('console', onConsole);
+      page.off('pageerror', onPageError);
       await page.close();
     }
   }

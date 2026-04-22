@@ -1,15 +1,18 @@
 import { dirname, extname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   REFERENCE_IMAGE_HEIGHT,
   REFERENCE_IMAGE_WIDTH,
   type FidelityRenderer,
   type GenerateImageOptions,
+  type GenerateImageResult,
   type RendererPrerequisiteCheckResult,
 } from '@materialx-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
+const MATERIALXVIEW_SEARCH_PATH_ENV = 'MATERIALXVIEW_SEARCH_PATH';
 
 function commandExists(command: string): boolean {
   const result = spawnSync(command, ['--help'], {
@@ -60,6 +63,8 @@ function execute(executable: string, args: string[]): Promise<void> {
 class MaterialXViewRenderer implements FidelityRenderer {
   public readonly name = 'materialxview';
   public readonly version = '1.0.0';
+  public readonly category = 'raytracer';
+  public readonly emptyReferenceImagePath = fileURLToPath(new URL('../materialxview-empty.png', import.meta.url));
   private executable: string | undefined;
 
   public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
@@ -85,7 +90,7 @@ class MaterialXViewRenderer implements FidelityRenderer {
 
   public async shutdown(): Promise<void> {}
 
-  public async generateImage(options: GenerateImageOptions): Promise<void> {
+  public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
     if (!this.executable) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
@@ -119,7 +124,13 @@ class MaterialXViewRenderer implements FidelityRenderer {
       options.outputPngPath,
     ];
 
+    const additionalSearchPath = process.env[MATERIALXVIEW_SEARCH_PATH_ENV]?.trim();
+    if (additionalSearchPath) {
+      args.push('--path', additionalSearchPath);
+    }
+
     await execute(this.executable, args);
+    return { logs: [] };
   }
 }
 

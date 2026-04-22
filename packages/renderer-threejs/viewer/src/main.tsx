@@ -56,11 +56,7 @@ function firstMaterial(candidate: unknown): THREE.Material | undefined {
   }
 
   const directMaterial = value.material;
-  if (
-    directMaterial &&
-    typeof directMaterial === 'object' &&
-    (directMaterial as { isMaterial?: boolean }).isMaterial
-  ) {
+  if (directMaterial && typeof directMaterial === 'object' && (directMaterial as { isMaterial?: boolean }).isMaterial) {
     return directMaterial as THREE.Material;
   }
 

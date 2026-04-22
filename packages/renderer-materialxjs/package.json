@@ -1,14 +1,19 @@
 {
   "name": "@materialx-fidelity/renderer-materialxjs",
   "version": "0.1.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "source": "./src/index.ts",
   "files": [
     "dist",
     "viewer"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "tsc": "tsgo",
+    "tsgo": "tsgo",
+    "dev": "tsgo -w --preserveWatchOutput"
+  },
   "dependencies": {
     "@materialx-fidelity/core": "workspace:*",
     "@materialx-js/materialx": "workspace:*",
@@ -17,13 +22,8 @@
     "playwright": "^1.59.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "three": "^0.184.0",
+    "three": "0.184.0",
     "vite": "^8.0.9",
     "zod": "^4.3.6"
-  },
-  "scripts": {
-    "tsc": "tsgo",
-    "tsgo": "tsgo",
-    "dev": "tsgo -w --preserveWatchOutput"
   }
 }

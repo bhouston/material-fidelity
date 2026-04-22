@@ -42,7 +42,7 @@ Generate reference images:
 
 ```bash
 # all renderers, all materials
-pnpm cli create-references 
+pnpm cli create-references
 ```
 
 ```bash

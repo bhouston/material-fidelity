@@ -8,6 +8,9 @@ export type {
   CreateReferencesProgressEvent,
   CreateReferencesResult,
   FidelityRenderer,
+  GenerateImageResult,
   GenerateImageOptions,
+  RendererCategory,
+  RenderLogEntry,
   RenderFailure,
 } from './types.js';

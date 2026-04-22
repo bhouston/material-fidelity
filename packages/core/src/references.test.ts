@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { access, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { PNG } from 'pngjs';
@@ -28,16 +28,22 @@ async function makeTempDir(prefix: string): Promise<string> {
 }
 
 function createPngWriterRenderer(base64Png: string, rendererName = 'fake'): FidelityRenderer {
+  const emptyReferenceImagePath = path.join(tmpdir(), `fidelity-empty-reference-${rendererName}.png`);
   return {
     name: rendererName,
     version: '0.0.1',
+    category: 'rasterizer',
+    emptyReferenceImagePath,
     async checkPrerequisites() {
       return { success: true };
     },
-    async start() {},
+    async start() {
+      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
+    },
     async shutdown() {},
     async generateImage(options) {
       await writeFile(options.outputPngPath, Buffer.from(base64Png, 'base64'));
+      return { logs: [] };
     },
   };
 }
@@ -46,12 +52,16 @@ function createFailingPrerequisiteRenderer(rendererName = 'fake'): FidelityRende
   return {
     name: rendererName,
     version: '0.0.1',
+    category: 'rasterizer',
+    emptyReferenceImagePath: path.join(tmpdir(), `fidelity-empty-reference-${rendererName}.png`),
     async checkPrerequisites() {
       return { success: false, message: 'Missing fake prerequisite.' };
     },
     async start() {},
     async shutdown() {},
-    async generateImage() {},
+    async generateImage() {
+      return { logs: [] };
+    },
   };
 }
 
@@ -60,19 +70,24 @@ function createTrackingRenderer(base64Png: string, rendererName = 'fake') {
     started: false,
     startCalls: 0,
   };
+  const emptyReferenceImagePath = path.join(tmpdir(), `fidelity-empty-reference-${rendererName}.png`);
   const renderer: FidelityRenderer = {
     name: rendererName,
     version: '0.0.1',
+    category: 'rasterizer',
+    emptyReferenceImagePath,
     async checkPrerequisites() {
       return { success: true };
     },
     async start() {
+      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
       state.started = true;
       state.startCalls += 1;
     },
     async shutdown() {},
     async generateImage(options) {
       await writeFile(options.outputPngPath, Buffer.from(base64Png, 'base64'));
+      return { logs: [] };
     },
   };
   return { renderer, state };
@@ -85,11 +100,13 @@ export function createAdapter() {
   return {
     name: '${adapterName}',
     version: '0.0.1',
+    emptyReferenceImagePath: '/tmp/unused-empty-reference.png',
     async checkPrerequisites() { return { success: true }; },
     async start() {},
     async shutdown() {},
     async generateImage(options) {
       await writeFile(options.outputPngPath, Buffer.from('${base64Png}', 'base64'));
+      return { logs: [] };
     },
   };
 }
@@ -135,8 +152,14 @@ describe('createReferences', () => {
     });
 
     const outputWebpPath = path.join(materialDir, 'fake.webp');
+    const outputJsonPath = path.join(materialDir, 'fake.json');
     await access(outputWebpPath);
-    await expect(access(path.join(materialDir, 'fake.png'))).rejects.toThrow('ENOENT');
+    await access(outputJsonPath);
+    await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
+    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as { success: boolean; status: string; error: unknown };
+    expect(report.success).toBe(true);
+    expect(report.status).toBe('success');
+    expect(report.error).toBeNull();
     expect(result.rendererNames).toEqual(['fake']);
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
@@ -175,7 +198,7 @@ export function createAdapter() {
     async checkPrerequisites() { return { success: true }; },
     async start() {},
     async shutdown() {},
-    async generateImage() {},
+    async generateImage() { return { logs: [] }; },
   };
 }
 `,
@@ -448,7 +471,7 @@ export function createAdapter() {
     expect(startEvents[0]?.materialPath).not.toBe(startEvents[2]?.materialPath);
   });
 
-  it('deletes all-black renders and marks them as empty failures', async () => {
+  it('marks blank-reference-similar renders as empty failures', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
@@ -468,7 +491,13 @@ export function createAdapter() {
       JSON.stringify({ name: '@test/adapter-fake', main: './dist/index.js' }, null, 2),
       'utf8',
     );
-    await writeFile(path.join(adapterDir, 'dist/index.js'), createAdapterModulePngWriter(BLACK_PIXEL_PNG_BASE64), 'utf8');
+    await writeFile(
+      path.join(adapterDir, 'dist/index.js'),
+      createAdapterModulePngWriter(BLACK_PIXEL_PNG_BASE64),
+      'utf8',
+    );
+    await writeFile(path.join(materialDir, 'fake.webp'), 'stale webp from previous run', 'utf8');
+    await writeFile(path.join(materialDir, 'fake.png'), 'stale png from previous run', 'utf8');
 
     const result = await createReferences({
       thirdPartyRoot,
@@ -478,8 +507,19 @@ export function createAdapter() {
     });
 
     const outputPngPath = path.join(materialDir, 'fake.png');
+    const outputJsonPath = path.join(materialDir, 'fake.json');
     await expect(access(outputPngPath)).rejects.toThrow('ENOENT');
     await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await access(outputJsonPath);
+    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
+      success: boolean;
+      status: string;
+      error: { message: string; stack?: string };
+    };
+    expect(report.success).toBe(false);
+    expect(report.status).toBe('failed');
+    expect(report.error.message).toContain('Render output is empty');
+    expect(report.error.stack).toBeTypeOf('string');
     expect(result.rendered).toBe(0);
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0]?.rendererName).toBe('fake');
@@ -533,7 +573,7 @@ export function createAdapter() {
     },
     async start() {},
     async shutdown() {},
-    async generateImage() {},
+    async generateImage() { return { logs: [] }; },
   };
 }
 `,

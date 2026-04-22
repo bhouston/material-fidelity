@@ -1,15 +1,21 @@
 {
   "name": "@materialx-fidelity/cli",
   "version": "0.1.0",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "bin": {
+    "mtlx-fidelity": "./dist/bin.js"
+  },
   "source": "./src/index.ts",
   "files": [
     "dist"
   ],
-  "bin": {
-    "mtlx-fidelity": "./dist/bin.js"
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "tsc": "tsgo",
+    "tsgo": "tsgo",
+    "dev": "tsgo -w --preserveWatchOutput",
+    "start": "node ./dist/bin.js"
   },
   "dependencies": {
     "@materialx-fidelity/core": "workspace:*",
@@ -21,12 +27,6 @@
     "react": "^19.2.5",
     "yargs": "^17.7.2",
     "yargs-file-commands": "^1.2.2"
-  },
-  "scripts": {
-    "tsc": "tsgo",
-    "tsgo": "tsgo",
-    "dev": "tsgo -w --preserveWatchOutput",
-    "start": "node ./dist/bin.js"
   },
   "devDependencies": {
     "@types/react": "^19.2.14"

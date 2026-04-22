@@ -2,68 +2,71 @@ import { unzipSync } from 'fflate';
 
 const _textDecoder = new TextDecoder();
 
-function normalizePath( path ) {
-	return path.replaceAll( '\\', '/' ).replace( /^\.?\//, '' ).replace( /^\/+/, '' );
+function normalizePath(path) {
+  return path
+    .replaceAll('\\', '/')
+    .replace(/^\.?\//, '')
+    .replace(/^\/+/, '');
 }
 
-function isZipBuffer( buffer ) {
-	const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array( buffer );
-	return bytes.length >= 4 && bytes[ 0 ] === 0x50 && bytes[ 1 ] === 0x4B;
+function isZipBuffer(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b;
 }
 
-function readMtlxArchive( buffer ) {
-	const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array( buffer );
-	const archive = unzipSync( bytes );
+function readMtlxArchive(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  const archive = unzipSync(bytes);
 
-	const fileMap = new Map();
-	let mtlxPath = null;
+  const fileMap = new Map();
+  let mtlxPath = null;
 
-	for ( const path in archive ) {
-		const normalizedPath = normalizePath( path );
-		fileMap.set( normalizedPath, archive[ path ] );
+  for (const path in archive) {
+    const normalizedPath = normalizePath(path);
+    fileMap.set(normalizedPath, archive[path]);
 
-		if ( normalizedPath.toLowerCase().endsWith( '.mtlx' ) ) {
-			if ( mtlxPath !== null ) {
-				throw new Error( 'THREE.MaterialXLoader: Invalid .mtlx.zip package. Exactly one .mtlx file is required.' );
-			}
+    if (normalizedPath.toLowerCase().endsWith('.mtlx')) {
+      if (mtlxPath !== null) {
+        throw new Error('THREE.MaterialXLoader: Invalid .mtlx.zip package. Exactly one .mtlx file is required.');
+      }
 
-			mtlxPath = normalizedPath;
-		}
-	}
+      mtlxPath = normalizedPath;
+    }
+  }
 
-	if ( mtlxPath === null ) {
-		throw new Error( 'THREE.MaterialXLoader: Invalid .mtlx.zip package. Missing .mtlx file.' );
-	}
+  if (mtlxPath === null) {
+    throw new Error('THREE.MaterialXLoader: Invalid .mtlx.zip package. Missing .mtlx file.');
+  }
 
-	const text = _textDecoder.decode( fileMap.get( mtlxPath ) );
-	return { text, mtlxPath, files: fileMap };
+  const text = _textDecoder.decode(fileMap.get(mtlxPath));
+  return { text, mtlxPath, files: fileMap };
 }
 
-function createArchiveResolver( files ) {
-	const objectUrlCache = new Map();
+function createArchiveResolver(files) {
+  const objectUrlCache = new Map();
 
-	const getFile = ( uri ) => {
-		const normalized = normalizePath( decodeURI( uri ) );
-		if ( files.has( normalized ) ) return files.get( normalized );
+  const getFile = (uri) => {
+    const normalized = normalizePath(decodeURI(uri));
+    if (files.has(normalized)) return files.get(normalized);
 
-		for ( const [ path, bytes ] of files ) {
-			if ( path.endsWith( normalized ) ) return bytes;
-		}
+    for (const [path, bytes] of files) {
+      if (path.endsWith(normalized)) return bytes;
+    }
 
-		return null;
-	};
+    return null;
+  };
 
-	return ( uri ) => {
-		if ( objectUrlCache.has( uri ) ) return objectUrlCache.get( uri );
+  return (uri) => {
+    if (objectUrlCache.has(uri)) return objectUrlCache.get(uri);
 
-		const bytes = getFile( uri );
-		if ( ! bytes ) return null;
+    const bytes = getFile(uri);
+    if (!bytes) return null;
 
-		const blob = new Blob( [ bytes ], { type: 'application/octet-stream' } );
-		const objectUrl = URL.createObjectURL( blob );
-		objectUrlCache.set( uri, objectUrl );
-		return objectUrl;
-	};
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const objectUrl = URL.createObjectURL(blob);
+    objectUrlCache.set(uri, objectUrl);
+    return objectUrl;
+  };
 }
 
 export { isZipBuffer, readMtlxArchive, createArchiveResolver };

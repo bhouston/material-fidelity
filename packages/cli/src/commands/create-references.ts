@@ -59,12 +59,26 @@ function renderLogLineText(entry: RenderLogLine): string {
 
 function normalizeRendererNames(rawRenderers: unknown): string[] {
   const rendererValues = rawRenderers == null ? [] : Array.isArray(rawRenderers) ? rawRenderers : [rawRenderers];
-  return [...new Set(rendererValues.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      rendererValues
+        .flatMap((value) => String(value).split(','))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function normalizeStringList(rawValues: unknown): string[] {
   const values = rawValues == null ? [] : Array.isArray(rawValues) ? rawValues : [rawValues];
-  return [...new Set(values.flatMap((value) => String(value).split(',')).map((value) => value.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      values
+        .flatMap((value) => String(value).split(','))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function renderLogLineColor(entry: RenderLogLine): string {
@@ -75,6 +89,13 @@ function renderLogLineColor(entry: RenderLogLine): string {
     return 'red';
   }
   return 'white';
+}
+
+function renderDiagnosticLogs(logs: { level: string; source: string; message: string }[] | undefined): string[] {
+  if (!logs || logs.length === 0) {
+    return [];
+  }
+  return logs.map((entry) => `  [${entry.source}:${entry.level}] ${entry.message}`);
 }
 
 interface InkCreateReferencesAppProps {
@@ -259,7 +280,8 @@ export const command = defineCommand({
       })
       .option('materials', {
         type: 'array',
-        describe: 'Material selectors. Supports repeated values, comma-separated values, or regex (`re:...` or `/.../flags`).',
+        describe:
+          'Material selectors. Supports repeated values, comma-separated values, or regex (`re:...` or `/.../flags`).',
       })
       .option('filter', {
         type: 'string',
@@ -302,6 +324,11 @@ export const command = defineCommand({
             process.stdout.write(
               `${event.rendererName} | ${materialLabel} | ${status} (${elapsed}) ${event.completed}/${event.total}\n`,
             );
+            if (!event.success) {
+              for (const line of renderDiagnosticLogs(event.logs)) {
+                process.stderr.write(`${line}\n`);
+              }
+            }
           },
         });
     const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
@@ -314,6 +341,9 @@ export const command = defineCommand({
     if (result.failures.length > 0) {
       for (const failure of result.failures) {
         process.stderr.write(`FAILED ${failure.rendererName} | ${failure.materialPath}: ${failure.error.message}\n`);
+        for (const line of renderDiagnosticLogs(failure.logs)) {
+          process.stderr.write(`${line}\n`);
+        }
       }
       process.exitCode = 1;
     }

@@ -1,106 +1,122 @@
-import { access, readdir } from 'node:fs/promises'
-import path from 'node:path'
-import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs'
-import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview'
-import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs'
+import { access, readdir } from 'node:fs/promises';
+import path from 'node:path';
+import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs';
+import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
+import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
 
-const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/tree/main/materials'
-const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca'
-const DEFAULT_LOCAL_HOST = 'localhost:3000'
-const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca'
-const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const
+const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/tree/main/materials';
+const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
+const DEFAULT_LOCAL_HOST = 'localhost:3000';
+const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca';
+const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
+const RENDERER_CATEGORY_ORDER = ['pathtracer', 'raytracer', 'rasterizer'] as const;
+type RendererCategory = (typeof RENDERER_CATEGORY_ORDER)[number];
+const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
+  pathtracer: 'Pathtracers',
+  raytracer: 'Raytracers',
+  rasterizer: 'Rasterizers',
+};
 interface MaterialDescriptor {
-  type: string
-  name: string
-  absoluteDirectory: string
-  relativeDirectory: string
-  sourceUrl: string
+  type: string;
+  name: string;
+  absoluteDirectory: string;
+  relativeDirectory: string;
+  sourceUrl: string;
+}
+
+interface BuiltInRendererDescriptor {
+  name: string;
+  category: RendererCategory;
 }
 
 export interface MaterialViewModel {
-  type: string
-  name: string
-  sourceUrl: string
-  liveViewerUrl: string
-  downloadMtlxZipUrl: string
-  images: Record<string, string | null>
+  type: string;
+  name: string;
+  sourceUrl: string;
+  liveViewerUrl: string;
+  downloadMtlxZipUrl: string;
+  images: Record<string, string | null>;
 }
 
 export interface MaterialTypeGroupViewModel {
-  type: string
-  materials: MaterialViewModel[]
+  type: string;
+  materials: MaterialViewModel[];
+}
+
+export interface RendererCategoryGroupViewModel {
+  category: RendererCategory;
+  label: string;
+  renderers: string[];
 }
 
 export interface ViewerIndexViewModel {
-  renderers: string[]
-  groups: MaterialTypeGroupViewModel[]
-  errors: string[]
-  resolvedThirdPartyRoot: string
+  renderers: string[];
+  rendererGroups: RendererCategoryGroupViewModel[];
+  groups: MaterialTypeGroupViewModel[];
+  errors: string[];
+  resolvedThirdPartyRoot: string;
 }
 
 export interface ViewerRoots {
-  repoRoot: string
-  thirdPartyRoot: string
-  materialsRoot: string
+  repoRoot: string;
+  thirdPartyRoot: string;
+  materialsRoot: string;
 }
 
 function toGithubSourceUrl(relativeDirectory: string): string {
-  return `${MATERIAL_SOURCE_BASE_URL}/${relativeDirectory.replaceAll(path.sep, '/')}`
+  return `${MATERIAL_SOURCE_BASE_URL}/${relativeDirectory.replaceAll(path.sep, '/')}`;
 }
 
 function resolveViewerHostName(): string {
-  const configuredHostName = process.env.HOST_NAME?.trim()
+  const configuredHostName = process.env.HOST_NAME?.trim();
   if (configuredHostName) {
-    return configuredHostName
+    return configuredHostName;
   }
 
-  return process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_HOST : DEFAULT_LOCAL_HOST
+  return process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_HOST : DEFAULT_LOCAL_HOST;
 }
 
 function toViewerOrigin(hostName: string): string {
-  const protocol = hostName.startsWith('localhost') || hostName.startsWith('127.0.0.1') ? 'http' : 'https'
-  return `${protocol}://${hostName}`
+  const protocol = hostName.startsWith('localhost') || hostName.startsWith('127.0.0.1') ? 'http' : 'https';
+  return `${protocol}://${hostName}`;
 }
 
 function toMaterialZipUrl(materialType: string, materialName: string): string {
-  return `${toViewerOrigin(resolveViewerHostName())}/api/asset/${encodeURIComponent(materialType)}/${encodeURIComponent(materialName)}.mtlx.zip`
+  return `${toViewerOrigin(resolveViewerHostName())}/api/asset/${encodeURIComponent(materialType)}/${encodeURIComponent(materialName)}.mtlx.zip`;
 }
 
 function toLiveViewerUrl(materialType: string, materialName: string): string {
-  const materialUrl = toMaterialZipUrl(materialType, materialName)
-  return `${HOMAGE_VIEWER_BASE_URL}/?sourceUrl=${encodeURIComponent(materialUrl)}`
+  const materialUrl = toMaterialZipUrl(materialType, materialName);
+  return `${HOMAGE_VIEWER_BASE_URL}/?sourceUrl=${encodeURIComponent(materialUrl)}`;
 }
 
 function inferRepoRoot(invocationCwd: string): string {
-  if (
-    path.basename(invocationCwd) === 'viewer' &&
-    path.basename(path.dirname(invocationCwd)) === 'packages'
-  ) {
-    return path.dirname(path.dirname(invocationCwd))
+  if (path.basename(invocationCwd) === 'viewer' && path.basename(path.dirname(invocationCwd)) === 'packages') {
+    return path.dirname(path.dirname(invocationCwd));
   }
 
-  return invocationCwd
+  return invocationCwd;
 }
 
 export function resolveViewerRoots(): ViewerRoots {
-  const invocationCwd = process.env.INIT_CWD ?? process.cwd()
-  const repoRoot = inferRepoRoot(invocationCwd)
-  const thirdPartyRoot = path.join(repoRoot, 'third_party')
-  const materialsRoot = path.join(thirdPartyRoot, 'materialx-samples', 'materials')
+  const invocationCwd = process.env.INIT_CWD ?? process.cwd();
+  const repoRoot = inferRepoRoot(invocationCwd);
+  const thirdPartyRoot = path.join(repoRoot, 'third_party');
+  const materialsRoot = path.join(thirdPartyRoot, 'materialx-samples', 'materials');
 
   return {
     repoRoot,
     thirdPartyRoot,
     materialsRoot,
-  }
+  };
 }
 
 async function directoryExists(directoryPath: string): Promise<boolean> {
   try {
-    await access(directoryPath)
-    return true
+    await access(directoryPath);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -108,71 +124,95 @@ async function resolveReferenceImageCandidatePath(
   materialDirectory: string,
   rendererName: string,
 ): Promise<string | undefined> {
-  const webpPath = path.join(materialDirectory, `${rendererName}.webp`)
+  const webpPath = path.join(materialDirectory, `${rendererName}.webp`);
   if (await directoryExists(webpPath)) {
-    return webpPath
+    return webpPath;
   }
 
-  const pngPath = path.join(materialDirectory, `${rendererName}.png`)
+  const pngPath = path.join(materialDirectory, `${rendererName}.png`);
   if (await directoryExists(pngPath)) {
-    return pngPath
+    return pngPath;
   }
 
-  return undefined
+  return undefined;
 }
 
 async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
-  const materialFiles: string[] = []
-  const entries = await readdir(rootDir, { withFileTypes: true })
+  const materialFiles: string[] = [];
+  const entries = await readdir(rootDir, { withFileTypes: true });
 
   for (const entry of entries) {
-    const entryPath = path.join(rootDir, entry.name)
+    const entryPath = path.join(rootDir, entry.name);
     if (entry.isDirectory()) {
-      materialFiles.push(...(await discoverMaterialFiles(entryPath)))
-      continue
+      materialFiles.push(...(await discoverMaterialFiles(entryPath)));
+      continue;
     }
 
     if (entry.isFile() && entry.name === 'material.mtlx') {
-      materialFiles.push(entryPath)
+      materialFiles.push(entryPath);
     }
   }
 
-  return materialFiles
+  return materialFiles;
 }
 
-function getBuiltInRendererNames(thirdPartyRoot: string): string[] {
-  return [
-    createMaterialXJsRenderer({ thirdPartyRoot }).name,
-    createMaterialXViewRenderer().name,
-    createThreeJsRenderer({ thirdPartyRoot }).name,
-  ].toSorted((a, b) => a.localeCompare(b))
+function getBuiltInRenderers(thirdPartyRoot: string): BuiltInRendererDescriptor[] {
+  const renderers = [
+    createMaterialXJsRenderer({ thirdPartyRoot }),
+    createMaterialXViewRenderer(),
+    createThreeJsRenderer({ thirdPartyRoot }),
+  ];
+  return renderers
+    .map((renderer) => ({ name: renderer.name, category: renderer.category }))
+    .toSorted((left, right) => {
+      const leftIndex = RENDERER_CATEGORY_ORDER.indexOf(left.category);
+      const rightIndex = RENDERER_CATEGORY_ORDER.indexOf(right.category);
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+      return left.name.localeCompare(right.name);
+    });
+}
+
+function toRendererGroups(renderers: BuiltInRendererDescriptor[]): RendererCategoryGroupViewModel[] {
+  return RENDERER_CATEGORY_ORDER.map((category) => {
+    const rendererNames = renderers
+      .filter((renderer) => renderer.category === category)
+      .map((renderer) => renderer.name)
+      .toSorted((left, right) => left.localeCompare(right));
+    return {
+      category,
+      label: RENDERER_CATEGORY_LABEL[category],
+      renderers: rendererNames,
+    };
+  }).filter((group) => group.renderers.length > 0);
 }
 
 function sortMaterialTypes(left: string, right: string): number {
-  const leftIndex = MATERIAL_TYPE_ORDER.indexOf(left as (typeof MATERIAL_TYPE_ORDER)[number])
-  const rightIndex = MATERIAL_TYPE_ORDER.indexOf(right as (typeof MATERIAL_TYPE_ORDER)[number])
+  const leftIndex = MATERIAL_TYPE_ORDER.indexOf(left as (typeof MATERIAL_TYPE_ORDER)[number]);
+  const rightIndex = MATERIAL_TYPE_ORDER.indexOf(right as (typeof MATERIAL_TYPE_ORDER)[number]);
 
   if (leftIndex === -1 && rightIndex === -1) {
-    return left.localeCompare(right)
+    return left.localeCompare(right);
   }
 
   if (leftIndex === -1) {
-    return 1
+    return 1;
   }
 
   if (rightIndex === -1) {
-    return -1
+    return -1;
   }
 
-  return leftIndex - rightIndex
+  return leftIndex - rightIndex;
 }
 
 function toMaterialDescriptor(materialFilePath: string, materialsRoot: string): MaterialDescriptor {
-  const materialDirectory = path.dirname(materialFilePath)
-  const relativeDirectory = path.relative(materialsRoot, materialDirectory)
-  const segments = relativeDirectory.split(path.sep).filter(Boolean)
-  const type = segments.at(0) ?? 'unknown'
-  const name = segments.at(-1) ?? path.basename(materialDirectory)
+  const materialDirectory = path.dirname(materialFilePath);
+  const relativeDirectory = path.relative(materialsRoot, materialDirectory);
+  const segments = relativeDirectory.split(path.sep).filter(Boolean);
+  const type = segments.at(0) ?? 'unknown';
+  const name = segments.at(-1) ?? path.basename(materialDirectory);
 
   return {
     type,
@@ -180,47 +220,50 @@ function toMaterialDescriptor(materialFilePath: string, materialsRoot: string): 
     absoluteDirectory: materialDirectory,
     relativeDirectory,
     sourceUrl: toGithubSourceUrl(relativeDirectory),
-  }
+  };
 }
 
 export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
-  const roots = resolveViewerRoots()
-  const errors: string[] = []
+  const roots = resolveViewerRoots();
+  const errors: string[] = [];
 
-  const hasMaterialsRoot = await directoryExists(roots.materialsRoot)
+  const hasMaterialsRoot = await directoryExists(roots.materialsRoot);
   if (!hasMaterialsRoot) {
-    errors.push(`Materials directory not found: ${roots.materialsRoot}`)
+    errors.push(`Materials directory not found: ${roots.materialsRoot}`);
     return {
       renderers: [],
+      rendererGroups: [],
       groups: [],
       errors,
       resolvedThirdPartyRoot: roots.thirdPartyRoot,
-    }
+    };
   }
-  const [renderers, materialFiles] = await Promise.all([
-    Promise.resolve(getBuiltInRendererNames(roots.thirdPartyRoot)),
+  const [builtInRenderers, materialFiles] = await Promise.all([
+    Promise.resolve(getBuiltInRenderers(roots.thirdPartyRoot)),
     discoverMaterialFiles(roots.materialsRoot),
-  ])
+  ]);
+  const rendererGroups = toRendererGroups(builtInRenderers);
+  const renderers = rendererGroups.flatMap((group) => group.renderers);
 
   if (materialFiles.length === 0) {
-    errors.push(`No material.mtlx files found under: ${roots.materialsRoot}`)
+    errors.push(`No material.mtlx files found under: ${roots.materialsRoot}`);
   }
 
-  const grouped = new Map<string, MaterialViewModel[]>()
+  const grouped = new Map<string, MaterialViewModel[]>();
 
   for (const materialFilePath of materialFiles) {
-    const descriptor = toMaterialDescriptor(materialFilePath, roots.materialsRoot)
+    const descriptor = toMaterialDescriptor(materialFilePath, roots.materialsRoot);
     const images = Object.fromEntries(
       await Promise.all(
         renderers.map(async (rendererName) => {
-          const referencePath = await resolveReferenceImageCandidatePath(descriptor.absoluteDirectory, rendererName)
+          const referencePath = await resolveReferenceImageCandidatePath(descriptor.absoluteDirectory, rendererName);
           const imageUrl = referencePath
             ? `/api/reference-image/${encodeURIComponent(descriptor.type)}/${encodeURIComponent(descriptor.name)}/${encodeURIComponent(rendererName)}`
-            : null
-          return [rendererName, imageUrl] as const
+            : null;
+          return [rendererName, imageUrl] as const;
         }),
       ),
-    )
+    );
 
     const material: MaterialViewModel = {
       type: descriptor.type,
@@ -229,10 +272,10 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
       liveViewerUrl: toLiveViewerUrl(descriptor.type, descriptor.name),
       downloadMtlxZipUrl: toMaterialZipUrl(descriptor.type, descriptor.name),
       images,
-    }
-    const group = grouped.get(descriptor.type) ?? []
-    group.push(material)
-    grouped.set(descriptor.type, group)
+    };
+    const group = grouped.get(descriptor.type) ?? [];
+    group.push(material);
+    grouped.set(descriptor.type, group);
   }
 
   const groups: MaterialTypeGroupViewModel[] = [...grouped.entries()]
@@ -240,14 +283,15 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     .map(([type, materials]) => ({
       type,
       materials: materials.toSorted((left, right) => left.name.localeCompare(right.name)),
-    }))
+    }));
 
   return {
     renderers,
+    rendererGroups,
     groups,
     errors,
     resolvedThirdPartyRoot: roots.thirdPartyRoot,
-  }
+  };
 }
 
 export async function resolveReferenceImagePath(
@@ -255,29 +299,29 @@ export async function resolveReferenceImagePath(
   materialName: string,
   adapterName: string,
 ): Promise<string | undefined> {
-  const targetDirectory = await resolveMaterialDirectory(materialType, materialName)
+  const targetDirectory = await resolveMaterialDirectory(materialType, materialName);
   if (!targetDirectory) {
-    return undefined
+    return undefined;
   }
 
-  return resolveReferenceImageCandidatePath(targetDirectory, adapterName)
+  return resolveReferenceImageCandidatePath(targetDirectory, adapterName);
 }
 
 export async function resolveMaterialDirectory(
   materialType: string,
   materialName: string,
 ): Promise<string | undefined> {
-  const roots = resolveViewerRoots()
-  const targetDirectory = path.resolve(roots.materialsRoot, materialType, materialName)
-  const materialsRootPrefix = `${path.resolve(roots.materialsRoot)}${path.sep}`
+  const roots = resolveViewerRoots();
+  const targetDirectory = path.resolve(roots.materialsRoot, materialType, materialName);
+  const materialsRootPrefix = `${path.resolve(roots.materialsRoot)}${path.sep}`;
   if (!targetDirectory.startsWith(materialsRootPrefix)) {
-    return undefined
+    return undefined;
   }
 
-  const materialPath = path.join(targetDirectory, 'material.mtlx')
+  const materialPath = path.join(targetDirectory, 'material.mtlx');
   if (!(await directoryExists(materialPath))) {
-    return undefined
+    return undefined;
   }
 
-  return targetDirectory
+  return targetDirectory;
 }

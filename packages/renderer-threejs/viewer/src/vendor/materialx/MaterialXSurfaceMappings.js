@@ -64,6 +64,13 @@ function setTransmissionFlags( material, transmissionNode, opacityNode ) {
 	}
 }
 
+function toAttenuationDistance( distanceNode, hasAttenuationColorInput ) {
+	if ( hasNodeValue( distanceNode ) ) return distanceNode;
+	// When attenuation tint is authored without a distance, default to a
+	// finite value so absorption tinting is visible.
+	return hasAttenuationColorInput ? float( 1 ) : undefined;
+}
+
 function applyStandardSurface( material, inputs, issueCollector, nodeName ) {
 	let colorNode = null;
 	if ( inputs.base && inputs.base_color ) colorNode = mul( inputs.base, inputs.base_color );
@@ -136,9 +143,15 @@ function applyGltfPbrSurface( material, inputs, issueCollector, nodeName ) {
 	material.iridescenceNode = inputs.iridescence || float( 0 );
 	material.iridescenceIORNode = inputs.iridescence_ior || float( 1.3 );
 	material.iridescenceThicknessNode = inputs.iridescence_thickness || float( 100 );
-	material.attenuationDistanceNode = inputs.attenuation_distance;
-	material.attenuationColorNode = inputs.attenuation_color || color( 1, 1, 1 );
-	material.thicknessNode = inputs.thickness || float( 0 );
+	const hasAttenuationColorInput = hasNodeValue( inputs.attenuation_color );
+	material.attenuationDistanceNode = toAttenuationDistance( inputs.attenuation_distance, hasAttenuationColorInput );
+	material.attenuationColorNode = inputs.attenuation_color;
+	if ( hasNodeValue( inputs.thickness ) ) {
+		material.thicknessNode = inputs.thickness;
+	} else if ( hasNodeValue( inputs.transmission ) ) {
+		// Keep transmissive glTF materials volumetric even when thickness is omitted.
+		material.thickness = 1;
+	}
 	material.dispersionNode = inputs.dispersion || float( 0 );
 
 	const anisotropyStrength = inputs.anisotropy_strength;
@@ -177,9 +190,14 @@ function applyOpenPbrSurface( material, inputs, issueCollector, nodeName ) {
 
 	material.transmissionNode = inputs.transmission_weight || float( 0 );
 	material.attenuationColorNode = inputs.transmission_color || color( 1, 1, 1 );
-	const transmissionDepthNode = inputs.transmission_depth || float( 0 );
-	material.thicknessNode = hasNodeValue( inputs.geometry_thin_walled ) ? inputs.geometry_thin_walled.select( float( 0 ), transmissionDepthNode ) : transmissionDepthNode;
-	material.attenuationDistanceNode = transmissionDepthNode;
+	const transmissionDepthNode = inputs.transmission_depth;
+	if ( hasNodeValue( transmissionDepthNode ) ) {
+		material.thicknessNode = hasNodeValue( inputs.geometry_thin_walled ) ? inputs.geometry_thin_walled.select( float( 0 ), transmissionDepthNode ) : transmissionDepthNode;
+		material.attenuationDistanceNode = transmissionDepthNode;
+	} else if ( hasNodeValue( inputs.transmission_weight ) ) {
+		// Keep transmissive OpenPBR materials volumetric even when depth is omitted.
+		material.thickness = 1;
+	}
 
 	const transmissionDispersionAbbe = inputs.transmission_dispersion_abbe_number || float( 20 );
 	if ( hasNodeValue( inputs.transmission_dispersion_scale ) ) {

@@ -4,9 +4,9 @@
   "private": true,
   "description": "MaterialX fidelity test system for reference image generation and comparison workflows.",
   "keywords": [
+    "fidelity",
     "materialx",
     "rendering",
-    "fidelity",
     "testing"
   ],
   "license": "MIT",

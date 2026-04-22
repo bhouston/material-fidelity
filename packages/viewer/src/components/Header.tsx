@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
-import { Github } from 'lucide-react'
+import { Link } from '@tanstack/react-router';
+import { Github } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -14,7 +14,11 @@ export default function Header() {
         >
           <img alt="MaterialX logo" className="size-7" src="/materialx-logo.svg" />
         </a>
-        <Link className="text-xl font-semibold text-foreground no-underline" search={{}} to="/">
+        <Link
+          className="text-xl font-semibold text-foreground no-underline"
+          search={(prev) => ({ materials: prev.materials, surfaces: prev.surfaces })}
+          to="/"
+        >
           MaterialX Fidelity Viewer
         </Link>
         <nav className="ml-auto flex items-center gap-4">
@@ -31,5 +35,5 @@ export default function Header() {
         </nav>
       </div>
     </header>
-  )
+  );
 }
