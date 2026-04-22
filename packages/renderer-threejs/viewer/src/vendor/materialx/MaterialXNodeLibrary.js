@@ -42,6 +42,7 @@ const mx_circle = ( texcoord, center, radius ) => {
 };
 
 const mx_bump = ( height, scale = 1 ) => normalMap( mx_heighttonormal( height, 1 ), scale );
+const mx_dot = ( inNode ) => inNode;
 const getRGBChannels = ( input ) => vec3( element( input, 0 ), element( input, 1 ), element( input, 2 ) );
 
 const mx_unpremult = ( input ) => {
@@ -198,7 +199,7 @@ const MXElements = [
 	new MXElement( 'normalize', normalize, [ 'in' ], { in: defaultFloat( 0 ) } ),
 	new MXElement( 'magnitude', length, [ 'in' ], { in: defaultFloat( 0 ) } ),
 	new MXElement( 'length', length, [ 'in' ], { in: defaultFloat( 0 ) } ),
-	new MXElement( 'dot', dot, [ 'in1', 'in2' ], { in1: defaultFloat( 0 ), in2: defaultFloat( 0 ) } ),
+	new MXElement( 'dot', mx_dot, [ 'in' ], { in: defaultFloat( 0 ) } ),
 	new MXElement( 'dotproduct', dot, [ 'in1', 'in2' ], { in1: defaultFloat( 0 ), in2: defaultFloat( 0 ) } ),
 	new MXElement( 'crossproduct', cross, [ 'in1', 'in2' ], { in1: defaultVec3( 0, 0, 0 ), in2: defaultVec3( 0, 0, 0 ) } ),
 	new MXElement( 'distance', distance, [ 'in1', 'in2' ], { in1: defaultFloat( 0 ), in2: defaultFloat( 0 ) } ),

@@ -7,7 +7,7 @@ import {
 	float, bool, int, vec2, vec3, vec4, color, texture,
 	positionLocal, positionWorld, uv, vertexColor,
 	normalLocal, normalWorld, tangentLocal, tangentWorld,
-	mul, element, mx_transform_uv,
+	mat3, mat4, mul, element, mx_transform_uv,
 	mx_srgb_texture_to_lin_rec709
 } from 'three/tsl';
 
@@ -17,6 +17,78 @@ import { MtlXLibrary } from './MaterialXNodeLibrary.js';
 const colorSpaceLib = {
 	mx_srgb_texture_to_lin_rec709
 };
+
+const IDENTITY_MAT3_VALUES = [ 1, 0, 0, 0, 1, 0, 0, 0, 1 ];
+const IDENTITY_MAT4_VALUES = [ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ];
+const MATRIX_PIVOT_EPSILON = 1e-8;
+
+function invertConstantMatrixValues( values, size ) {
+	if ( ! Array.isArray( values ) || values.length !== size * size ) return null;
+
+	const rowAt = ( row, col ) => values[ row * size + col ];
+	const augmented = [];
+
+	for ( let row = 0; row < size; row ++ ) {
+		const augRow = [];
+
+		for ( let col = 0; col < size; col ++ ) {
+			augRow.push( rowAt( row, col ) );
+		}
+
+		for ( let col = 0; col < size; col ++ ) {
+			augRow.push( row === col ? 1 : 0 );
+		}
+
+		augmented.push( augRow );
+	}
+
+	for ( let pivotCol = 0; pivotCol < size; pivotCol ++ ) {
+		let pivotRow = pivotCol;
+		let pivotAbs = Math.abs( augmented[ pivotRow ][ pivotCol ] );
+
+		for ( let row = pivotCol + 1; row < size; row ++ ) {
+			const valueAbs = Math.abs( augmented[ row ][ pivotCol ] );
+			if ( valueAbs > pivotAbs ) {
+				pivotAbs = valueAbs;
+				pivotRow = row;
+			}
+		}
+
+		if ( pivotAbs < MATRIX_PIVOT_EPSILON ) {
+			return null;
+		}
+
+		if ( pivotRow !== pivotCol ) {
+			const temp = augmented[ pivotCol ];
+			augmented[ pivotCol ] = augmented[ pivotRow ];
+			augmented[ pivotRow ] = temp;
+		}
+
+		const pivot = augmented[ pivotCol ][ pivotCol ];
+		for ( let col = 0; col < size * 2; col ++ ) {
+			augmented[ pivotCol ][ col ] /= pivot;
+		}
+
+		for ( let row = 0; row < size; row ++ ) {
+			if ( row === pivotCol ) continue;
+			const factor = augmented[ row ][ pivotCol ];
+			if ( factor === 0 ) continue;
+
+			for ( let col = 0; col < size * 2; col ++ ) {
+				augmented[ row ][ col ] -= factor * augmented[ pivotCol ][ col ];
+			}
+		}
+	}
+
+	const inverse = [];
+	for ( let row = 0; row < size; row ++ ) {
+		for ( let col = 0; col < size; col ++ ) {
+			inverse.push( augmented[ row ][ size + col ] );
+		}
+	}
+
+	return inverse;
+}
 
 function getOutputChannel( outputName ) {
 	if ( outputName === 'outx' || outputName === 'outr' || outputName === 'r' ) return 0;
@@ -123,6 +195,8 @@ class MaterialXNode {
 		if ( type === 'vector4' || type === 'color4' ) return vec4;
 		if ( type === 'color3' ) return color;
 		if ( type === 'boolean' ) return bool;
+		if ( type === 'matrix33' ) return mat3;
+		if ( type === 'matrix44' ) return mat4;
 		return null;
 	}
 
@@ -147,8 +221,14 @@ class MaterialXNode {
 		const type = this.type;
 
 		if ( this.isConst ) {
-			const nodeClass = this.getClassFromType( type );
-			node = nodeClass ? nodeClass( ...this.getVector() ) : float( 0 );
+			if ( type === 'matrix33' ) {
+				node = this.getMatrix( 3 ) || mat3( 1, 0, 0, 0, 1, 0, 0, 0, 1 );
+			} else if ( type === 'matrix44' ) {
+				node = this.getMatrix( 4 ) || mat4( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 );
+			} else {
+				const nodeClass = this.getClassFromType( type );
+				node = nodeClass ? nodeClass( ...this.getVector() ) : float( 0 );
+			}
 		} else if ( this.hasReference ) {
 			if ( this.element === 'output' && this.output && out === null ) out = this.output;
 			const referenceNode = this.materialX.getMaterialXNode( this.referencePath );
@@ -203,6 +283,27 @@ class MaterialXNode {
 
 				const colorSpaceNode = file.getColorSpaceNode();
 				if ( colorSpaceNode ) node = colorSpaceNode( node );
+			} else if ( elementName === 'invertmatrix' ) {
+				const inInput = this.getChildByName( 'in' );
+				const matrixType = inInput ? inInput.type : null;
+				const isMatrixType = matrixType === 'matrix33' || matrixType === 'matrix44';
+
+				if ( inInput && inInput.isConst && isMatrixType ) {
+					const size = matrixType === 'matrix33' ? 3 : 4;
+					const identityValues = size === 3 ? IDENTITY_MAT3_VALUES : IDENTITY_MAT4_VALUES;
+					const matrixValues = inInput.getVector();
+					const invertedValues = invertConstantMatrixValues( matrixValues, size );
+
+					if ( invertedValues === null ) {
+						this.materialX.issueCollector.addInvalidValue( this.name, `Matrix input for "${ this.name || this.element }" is singular; using identity fallback.` );
+						node = size === 3 ? mat3( ...identityValues ) : mat4( ...identityValues );
+					} else {
+						node = size === 3 ? mat3( ...invertedValues ) : mat4( ...invertedValues );
+					}
+				} else {
+					const inNode = this.getNodeByName( 'in' );
+					node = inNode === undefined || inNode === null ? float( 0 ) : inNode;
+				}
 			} else if ( MtlXLibrary[ elementName ] !== undefined ) {
 				const nodeElement = MtlXLibrary[ elementName ];
 				const args = this.getNodesByNames( ...nodeElement.params );
@@ -283,6 +384,13 @@ class MaterialXNode {
 			if ( val !== '' ) vector.push( Number( val.trim() ) );
 		}
 		return vector;
+	}
+
+	getMatrix( size ) {
+		const vector = this.getVector();
+		const expectedLength = size * size;
+		if ( vector.length !== expectedLength ) return null;
+		return size === 3 ? mat3( ...vector ) : mat4( ...vector );
 	}
 
 	getAttribute( name ) { return this.nodeXML.getAttribute( name ); }

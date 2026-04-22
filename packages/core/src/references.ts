@@ -43,8 +43,6 @@ interface RenderResultReportOptions {
   materialPath: string;
   outputPngPath: string;
   outputWebpPath: string;
-  startedAt: number;
-  completedAt: number;
   success: boolean;
   error?: Error;
   validationIssues?: PreflightIssue[];
@@ -89,14 +87,7 @@ async function writeRenderResultReport(options: RenderResultReportOptions): Prom
   const reportPath = toJsonPath(options.outputPngPath);
   const report = {
     rendererName: options.rendererName,
-    materialPath: options.materialPath,
-    outputPngPath: options.outputPngPath,
-    outputWebpPath: options.outputWebpPath,
     status: options.success ? 'success' : 'failed',
-    success: options.success,
-    startedAt: new Date(options.startedAt).toISOString(),
-    completedAt: new Date(options.completedAt).toISOString(),
-    durationMs: Math.max(0, options.completedAt - options.startedAt),
     error: options.error
       ? {
           name: options.error.name,
@@ -315,8 +306,6 @@ export async function createReferences(options: CreateReferencesOptions): Promis
               materialPath,
               outputPngPath,
               outputWebpPath,
-              startedAt,
-              completedAt,
               success: !renderError,
               error: renderError,
               validationIssues,

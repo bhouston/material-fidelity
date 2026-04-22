@@ -156,10 +156,26 @@ describe('createReferences', () => {
     await access(outputWebpPath);
     await access(outputJsonPath);
     await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
-    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as { success: boolean; status: string; error: unknown };
-    expect(report.success).toBe(true);
+    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
+      status: string;
+      error: unknown;
+      success?: unknown;
+      materialPath?: unknown;
+      outputPngPath?: unknown;
+      outputWebpPath?: unknown;
+      startedAt?: unknown;
+      completedAt?: unknown;
+      durationMs?: unknown;
+    };
     expect(report.status).toBe('success');
     expect(report.error).toBeNull();
+    expect(report.success).toBeUndefined();
+    expect(report.materialPath).toBeUndefined();
+    expect(report.outputPngPath).toBeUndefined();
+    expect(report.outputWebpPath).toBeUndefined();
+    expect(report.startedAt).toBeUndefined();
+    expect(report.completedAt).toBeUndefined();
+    expect(report.durationMs).toBeUndefined();
     expect(result.rendererNames).toEqual(['fake']);
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
@@ -512,12 +528,12 @@ export function createAdapter() {
     await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
     await access(outputJsonPath);
     const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
-      success: boolean;
       status: string;
       error: { message: string; stack?: string };
+      success?: unknown;
     };
-    expect(report.success).toBe(false);
     expect(report.status).toBe('failed');
+    expect(report.success).toBeUndefined();
     expect(report.error.message).toContain('Render output is empty');
     expect(report.error.stack).toBeTypeOf('string');
     expect(result.rendered).toBe(0);

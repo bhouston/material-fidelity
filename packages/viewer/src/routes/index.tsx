@@ -77,12 +77,7 @@ interface ReportError {
 
 interface RenderReport {
   rendererName?: string;
-  materialPath?: string;
   status?: string;
-  success?: boolean;
-  startedAt?: string;
-  completedAt?: string;
-  durationMs?: number;
   error?: ReportError | null;
   validationIssues?: ReportIssue[];
   issues?: ReportIssue[];
@@ -93,16 +88,6 @@ interface ActiveReportState {
   materialName: string;
   rendererName: string;
   reportUrl: string;
-}
-
-function formatDuration(durationMs: number | undefined): string | undefined {
-  if (typeof durationMs !== 'number' || Number.isNaN(durationMs) || durationMs < 0) {
-    return undefined;
-  }
-  if (durationMs < 1000) {
-    return `${durationMs} ms`;
-  }
-  return `${(durationMs / 1000).toFixed(2)} s`;
 }
 
 function App() {
@@ -526,28 +511,10 @@ function App() {
 
               {activeReportData ? (
                 <>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-                      <p className="font-medium text-foreground">
-                        {activeReportData.success === true
-                          ? 'success'
-                          : activeReportData.success === false
-                            ? 'failed'
-                            : activeReportData.status ?? 'unknown'}
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Duration</p>
-                      <p className="font-medium text-foreground">{formatDuration(activeReportData.durationMs) ?? 'n/a'}</p>
-                    </div>
-                    <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Started</p>
-                      <p className="font-medium text-foreground">{activeReportData.startedAt ?? 'n/a'}</p>
-                    </div>
-                    <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed</p>
-                      <p className="font-medium text-foreground">{activeReportData.completedAt ?? 'n/a'}</p>
+                      <p className="font-medium text-foreground">{activeReportData.status ?? 'unknown'}</p>
                     </div>
                   </div>
 
