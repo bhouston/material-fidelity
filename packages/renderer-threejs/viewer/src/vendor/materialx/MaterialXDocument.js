@@ -1,6 +1,7 @@
 import {
   Texture,
   RepeatWrapping,
+  ImageLoader,
   ImageBitmapLoader,
   MeshBasicNodeMaterial,
   MeshPhysicalNodeMaterial,
@@ -39,6 +40,11 @@ const colorSpaceLib = {
 const IDENTITY_MAT3_VALUES = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const IDENTITY_MAT4_VALUES = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const MATRIX_PIVOT_EPSILON = 1e-8;
+
+function isSvgUri(uri) {
+  if (typeof uri !== 'string') return false;
+  return /\.svg(?:$|[?#])/i.test(uri);
+}
 
 function invertConstantMatrixValues(values, size) {
   if (!Array.isArray(values) || values.length !== size * size) return null;
@@ -209,32 +215,29 @@ class MaterialXNode {
     const filePrefix = this.getRecursiveAttribute('fileprefix') || '';
     const sourceURI = filePrefix + this.value;
     const resolvedURI = this.materialX.resolveTextureURI(sourceURI);
+    const svgTexture = isSvgUri(resolvedURI);
 
     if (this.materialX.textureCache.has(resolvedURI)) {
       return this.materialX.textureCache.get(resolvedURI);
     }
 
-    let loader = this.materialX.textureLoader;
-    if (resolvedURI) {
+    let loader = svgTexture ? this.materialX.imageLoader : this.materialX.textureLoader;
+    if (resolvedURI && !svgTexture) {
       const handler = this.materialX.manager.getHandler(resolvedURI);
       if (handler !== null) loader = handler;
     }
 
     const textureNode = new Texture();
     textureNode.wrapS = textureNode.wrapT = RepeatWrapping;
+    textureNode.flipY = !svgTexture;
     this.materialX.textureCache.set(resolvedURI, textureNode);
 
-    loader.load(
-      resolvedURI,
-      function (imageBitmap) {
-        textureNode.image = imageBitmap;
-        textureNode.needsUpdate = true;
-      },
-      undefined,
-      () => {
-        textureNode.needsUpdate = true;
-      },
-    );
+    loader.load(resolvedURI, (imageData) => {
+      textureNode.image = imageData;
+      textureNode.needsUpdate = true;
+    }, undefined, () => {
+      throw new Error(`Failed to load texture "${resolvedURI}".`);
+    });
 
     return textureNode;
   }
@@ -590,6 +593,8 @@ class MaterialXDocument {
     this.archiveResolver = archiveResolver;
 
     this.nodesXLib = new Map();
+    this.imageLoader = new ImageLoader(manager);
+    this.imageLoader.setPath(path);
     this.textureLoader = new ImageBitmapLoader(manager);
     this.textureLoader.setOptions({ imageOrientation: 'flipY' });
     this.textureLoader.setPath(path);
