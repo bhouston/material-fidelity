@@ -18,7 +18,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Ben\'s MaterialX Fidelity Test Suite',
+        title: 'MaterialX Fidelity Test Suite',
       },
     ],
     links: [

@@ -19,11 +19,11 @@ export default function Header() {
           search={(prev) => ({ materials: prev.materials, surfaces: prev.surfaces })}
           to="/"
         >
-          Ben's MaterialX Fidelity Test Suite
+          MaterialX Fidelity Test Suite
         </Link>
         <nav className="ml-auto flex items-center gap-4">
           <a
-            aria-label="Ben's MaterialX Fidelity Testing repository"
+            aria-label="MaterialX Fidelity Testing repository"
             className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
             href="https://github.com/bhouston/material-fidelity"
             rel="noopener noreferrer"
