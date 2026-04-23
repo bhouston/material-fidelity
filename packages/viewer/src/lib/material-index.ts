@@ -8,7 +8,7 @@ const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/
 const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
 const DEFAULT_LOCAL_HOST = 'localhost:3000';
 const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca';
-const MATERIAL_TYPE_ORDER = ['open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
+const MATERIAL_TYPE_ORDER = ['nodes', 'open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
 const RENDERER_CATEGORY_ORDER = ['pathtracer', 'raytracer', 'rasterizer'] as const;
 type RendererCategory = (typeof RENDERER_CATEGORY_ORDER)[number];
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
@@ -224,8 +224,14 @@ function toMaterialDescriptor(materialFilePath: string, materialsRoot: string): 
   const materialDirectory = path.dirname(materialFilePath);
   const relativeDirectory = path.relative(materialsRoot, materialDirectory);
   const segments = relativeDirectory.split(path.sep).filter(Boolean);
-  const type = segments.at(0) ?? 'unknown';
+  let type = segments.at(0) ?? 'unknown';
   const name = segments.at(-1) ?? path.basename(materialDirectory);
+
+  if (segments[0] === 'nodes' && segments.length >= 2) {
+    type = 'nodes';
+  } else if (segments[0] === 'surfaces' && segments.length >= 3) {
+    type = segments[1] ?? 'unknown';
+  }
 
   return {
     type,
@@ -350,16 +356,26 @@ export async function resolveMaterialDirectory(
   materialName: string,
 ): Promise<string | undefined> {
   const roots = resolveViewerRoots();
-  const targetDirectory = path.resolve(roots.materialsRoot, materialType, materialName);
   const materialsRootPrefix = `${path.resolve(roots.materialsRoot)}${path.sep}`;
-  if (!targetDirectory.startsWith(materialsRootPrefix)) {
-    return undefined;
+  const candidateDirectories =
+    materialType === 'nodes'
+      ? [path.resolve(roots.materialsRoot, 'nodes', materialName)]
+      : [
+          path.resolve(roots.materialsRoot, 'surfaces', materialType, materialName),
+          // Legacy fallback while old trees are still present.
+          path.resolve(roots.materialsRoot, materialType, materialName),
+        ];
+
+  for (const targetDirectory of candidateDirectories) {
+    if (!targetDirectory.startsWith(materialsRootPrefix)) {
+      continue;
+    }
+
+    const materialPath = path.join(targetDirectory, 'material.mtlx');
+    if (await directoryExists(materialPath)) {
+      return targetDirectory;
+    }
   }
 
-  const materialPath = path.join(targetDirectory, 'material.mtlx');
-  if (!(await directoryExists(materialPath))) {
-    return undefined;
-  }
-
-  return targetDirectory;
+  return undefined;
 }

@@ -122,7 +122,7 @@ describe('createReferences', () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
 
@@ -188,7 +188,7 @@ describe('createReferences', () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
 
@@ -237,8 +237,8 @@ export function createAdapter() {
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
-    const includedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'included');
-    const skippedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'skipped');
+    const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'included');
+    const skippedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'skipped');
 
     await mkdir(includedDir, { recursive: true });
     await mkdir(skippedDir, { recursive: true });
@@ -281,8 +281,8 @@ export function createAdapter() {
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
-    const includedDir = path.join(samplesRoot, 'materials', 'gltf_pbr', 'included');
-    const skippedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'skipped');
+    const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'gltf_pbr', 'included');
+    const skippedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'skipped');
 
     await mkdir(includedDir, { recursive: true });
     await mkdir(skippedDir, { recursive: true });
@@ -324,8 +324,8 @@ export function createAdapter() {
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const includedDir = path.join(samplesRoot, 'materials', 'gltf_pbr', 'included');
-    const skippedDir = path.join(samplesRoot, 'materials', 'standard_surface', 'skipped');
+    const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'gltf_pbr', 'included');
+    const skippedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'skipped');
 
     await mkdir(includedDir, { recursive: true });
     await mkdir(skippedDir, { recursive: true });
@@ -356,8 +356,8 @@ export function createAdapter() {
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
-    const materialOneDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-one');
-    const materialTwoDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-two');
+    const materialOneDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-one');
+    const materialTwoDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-two');
 
     await mkdir(materialOneDir, { recursive: true });
     await mkdir(materialTwoDir, { recursive: true });
@@ -401,7 +401,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const fakeAdapterDir = path.join(root, 'adapters', 'fake');
     const altAdapterDir = path.join(root, 'adapters', 'alt');
@@ -456,8 +456,8 @@ export function createAdapter() {
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
-    const firstMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-one');
-    const secondMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'mat-two');
+    const firstMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-one');
+    const secondMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-two');
     const fakeAdapterDir = path.join(root, 'adapters', 'fake');
     const altAdapterDir = path.join(root, 'adapters', 'alt');
 
@@ -522,7 +522,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
 
@@ -592,7 +592,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'default');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
 
@@ -641,7 +641,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'broken');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'broken');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
 
@@ -671,7 +671,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'unsupported');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'unsupported');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
 
@@ -705,7 +705,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'missing-texture');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'missing-texture');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
 
@@ -745,8 +745,8 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const invalidMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'invalid-one');
-    const validMaterialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'valid-one');
+    const invalidMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'invalid-one');
+    const validMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'valid-one');
     const viewerDir = path.join(samplesRoot, 'viewer');
 
     await mkdir(invalidMaterialDir, { recursive: true });
@@ -779,7 +779,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'uri-texture');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'uri-texture');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
@@ -821,7 +821,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'log-filter-success');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'log-filter-success');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const renderer = createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
     renderer.generateImage = async (options) => {
@@ -866,7 +866,7 @@ export function createAdapter() {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
-    const materialDir = path.join(samplesRoot, 'materials', 'standard_surface', 'log-filter-failure');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'log-filter-failure');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const renderer = createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
     renderer.generateImage = async () => {

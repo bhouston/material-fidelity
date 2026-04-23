@@ -5,34 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useGoogleAnalytics } from 'tanstack-router-ga4';
 import { getViewerIndexData } from '#/lib/material-index';
 
-const SURFACE_TYPES = ['gltf_pbr', 'open_pbr_surface', 'standard_surface'] as const;
-type SurfaceType = (typeof SURFACE_TYPES)[number];
-
-function toCsvSurfaceSelection(value: readonly SurfaceType[]): string | undefined {
-  if (value.length === SURFACE_TYPES.length) {
-    return undefined;
-  }
-  return value.join(',');
-}
-
-function toSelectedSurfaceTypes(rawValue: unknown): SurfaceType[] {
-  if (typeof rawValue !== 'string') {
-    return [...SURFACE_TYPES];
-  }
-
-  const selected = rawValue
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part): part is SurfaceType => SURFACE_TYPES.includes(part as SurfaceType))
-    .filter((part, index, array) => array.indexOf(part) === index);
-
-  if (selected.length === 0) {
-    return [...SURFACE_TYPES];
-  }
-
-  return selected;
-}
-
 const getViewerData = createServerFn({
   method: 'GET',
 }).handler(async () => getViewerIndexData());
@@ -40,10 +12,8 @@ const getViewerData = createServerFn({
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => {
     const materials = typeof search.materials === 'string' ? search.materials.trim() : '';
-    const selectedSurfaces = toSelectedSurfaceTypes(search.surfaces);
     return {
       materials: materials.length > 0 ? materials : undefined,
-      surfaces: toCsvSurfaceSelection(selectedSurfaces),
     };
   },
   loader: () => getViewerData(),
@@ -95,8 +65,6 @@ function App() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const ga = useGoogleAnalytics();
-  const selectedSurfaces = toSelectedSurfaceTypes(search.surfaces);
-  const selectedSurfaceSet = new Set(selectedSurfaces);
   const materialSearch = search.materials?.trim().toLocaleLowerCase() ?? '';
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
   const [activeReportData, setActiveReportData] = useState<RenderReport | null>(null);
@@ -105,7 +73,6 @@ function App() {
   const hasMaterialFilterChangedRef = useRef(false);
   const lastTrackedMaterialFilterRef = useRef(search.materials?.trim() ?? '');
   const filteredGroups = data.groups
-    .filter((group) => selectedSurfaceSet.has(group.type as SurfaceType))
     .map((group) => ({
       ...group,
       materials: group.materials.filter((material) => material.name.toLocaleLowerCase().includes(materialSearch)),
@@ -221,13 +188,12 @@ function App() {
     });
   };
 
-  const updateFilters = (next: { materials: string | undefined; surfaces: readonly SurfaceType[] }) => {
+  const updateFilters = (next: { materials: string | undefined }) => {
     navigate({
       replace: true,
       search: (previous) => ({
         ...previous,
         materials: next.materials,
-        surfaces: toCsvSurfaceSelection(next.surfaces),
       }),
     });
   };
@@ -237,29 +203,6 @@ function App() {
     const trimmed = value.trim();
     updateFilters({
       materials: trimmed.length > 0 ? value : undefined,
-      surfaces: selectedSurfaces,
-    });
-  };
-
-  const handleSurfaceToggle = (surfaceType: SurfaceType, checked: boolean) => {
-    const nextSelected = checked
-      ? [...new Set([...selectedSurfaces, surfaceType])]
-      : selectedSurfaces.filter((value) => value !== surfaceType);
-    const normalizedSelected = nextSelected.length > 0 ? nextSelected : [...SURFACE_TYPES];
-    const resultingEnabled = normalizedSelected.includes(surfaceType);
-
-    ga.event('surface_filter_toggled', {
-      surface_type: surfaceType,
-      surface_enabled: resultingEnabled,
-      requested_state: checked,
-      selection_reset_to_all: nextSelected.length === 0,
-      selected_surface_count: normalizedSelected.length,
-      selected_surfaces: normalizedSelected.join(','),
-    });
-
-    updateFilters({
-      materials: search.materials,
-      surfaces: normalizedSelected,
     });
   };
 
@@ -384,22 +327,6 @@ function App() {
             />
           </label>
 
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">Surface types</legend>
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {SURFACE_TYPES.map((surfaceType) => (
-                <label key={surfaceType} className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input
-                    checked={selectedSurfaceSet.has(surfaceType)}
-                    className="size-4 border-border accent-primary"
-                    onChange={(event) => handleSurfaceToggle(surfaceType, event.currentTarget.checked)}
-                    type="checkbox"
-                  />
-                  <span>{surfaceType}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
         </div>
 
         <p className="mt-4 text-sm text-muted-foreground">

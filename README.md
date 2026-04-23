@@ -64,21 +64,28 @@ Optional flags:
 - `--materials <selector[,selector...]>` optional material filter; matches against each material directory name only (leaf directory), supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
 - `--concurrency <number>` default `1`
 
+## Material Organization
+
+Samples are organized by purpose:
+
+- `third_party/materialx-samples/materials/nodes` - canonical per-node tests
+- `third_party/materialx-samples/materials/surfaces/<surface_type>` - surface/showcase samples grouped by shader family
+
 ## Node Isolation Suite
 
-The non-surface node isolation materials live under:
+The node isolation materials currently live under:
 
-- `third_party/materialx-samples/materials/gltf_pbr/node_isolation`
+- `third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation`
 
 Each node gets its own directory and `material.mtlx`, with phase planning documented in:
 
-- `third_party/materialx-samples/materials/gltf_pbr/node_isolation/PHASES.md`
+- `third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation/PHASES.md`
 
 ### Validate Node Isolation Materials
 
 ```bash
 # single material (run from repo root)
-pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/materialx-samples/materials/gltf_pbr/node_isolation/add/material.mtlx"
+pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
 ```
 
 ```bash
@@ -88,7 +95,7 @@ from pathlib import Path
 import subprocess
 
 root = Path.cwd()
-files = sorted((root / "third_party/materialx-samples/materials/gltf_pbr/node_isolation").glob("*/material.mtlx"))
+files = sorted((root / "third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/material.mtlx"))
 for file in files:
     subprocess.run(
         ["pnpm", "--filter", "@materialx-js/materialx-cli", "start", "validate", str(file)],
@@ -109,6 +116,20 @@ pnpm cli create-references --materials node_isolation
 # targeted node subset by regex on leaf directory names
 pnpm cli create-references --materials "re:(image|tiledimage|transformmatrix)$"
 ```
+
+## Surface Input Coverage
+
+Surface samples now follow an input-driven naming convention:
+
+- `input_<primary_input>` for single-input isolates
+- `graph_<target_input>_<source>` for graph-driven isolates
+- `showcase_<stack_or_look>` for intentionally multi-feature examples
+
+Coverage and rename artifacts:
+
+- `docs/surface-input-coverage-baseline.json`
+- `docs/surface-input-coverage-baseline.md`
+- `docs/surface-sample-rename-map.md`
 
 ## Reference Renderer Setup
 
@@ -134,7 +155,7 @@ pnpm viewer
 
 The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxjs`, `materialxview`, `threejs`).
 
-The page groups materials by type (`open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.webp`) side by side. Missing images render as a placeholder tile.
+The page groups materials by purpose/type (`nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.webp`) side by side. Missing images render as a placeholder tile.
 
 ## License
 
