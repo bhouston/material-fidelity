@@ -250,7 +250,7 @@ function App() {
             <li>
               <a
                 className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelityTesting/tree/main/packages/renderer-materialxview"
+                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-materialxview"
                 target="_blank"
               >
                 @material-fidelity/renderer-materialxview
@@ -268,7 +268,17 @@ function App() {
             <li>
               <a
                 className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelityTesting/tree/main/packages/renderer-threejs"
+                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-materialxjs"
+                target="_blank"
+              >
+                @material-fidelity/renderer-materialxjs
+              </a>{' '}
+              - Creates renders using a custom MaterialX viewer written in TypeScript on top of ThreeJS.
+            </li>
+            <li>
+              <a
+                className="underline underline-offset-2 hover:no-underline"
+                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-threejs"
                 target="_blank"
               >
                 @material-fidelity/renderer-threejs
@@ -356,10 +366,7 @@ function App() {
         </p>
       </section>
 
-      <div className="border-t border-border" />
-
       <section className="pt-2">
-        <div className="border-t border-border">
           {filteredMaterials.map((material) => {
             const materialId = toAnchorId(material.id);
             return (
@@ -451,7 +458,6 @@ function App() {
               </article>
             );
           })}
-        </div>
       </section>
 
       {activeReport ? (
