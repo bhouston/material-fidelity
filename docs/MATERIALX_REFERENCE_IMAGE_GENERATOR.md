@@ -15,7 +15,7 @@ Core flags for thumbnail generation:
 - `--material` input `.mtlx`
 - `--mesh` showcase geometry (`resources/Geometry/shaderball.glb`, `sphere.obj`, etc.)
 - `--envRad` HDRI environment (`resources/Lights/san_giuseppe_bridge_split.hdr`, etc.)
-- `--screenWidth` / `--screenHeight` output resolution (this repository's `mtlx-fidelity` wrapper fixes output at `1024x1024`)
+- `--screenWidth` / `--screenHeight` output resolution (this repository's `mtlx-fidelity` wrapper fixes output at `512x512`)
 - `--captureFilename` output image path
 - Optional quality/look controls: `--envSampleCount`, `--lightRotation`, `--envLightIntensity`, `--cameraZoom`, `--shadowMap`, `--drawEnvironment`
 

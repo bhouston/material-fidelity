@@ -19,6 +19,8 @@ function createSolidPngBase64(red: number, green: number, blue: number, alpha = 
 
 const NON_BLACK_PIXEL_PNG_BASE64 = createSolidPngBase64(255, 0, 0);
 const BLACK_PIXEL_PNG_BASE64 = createSolidPngBase64(0, 0, 0);
+const NON_BLACK_PIXEL_PNG_BUFFER = Buffer.from(NON_BLACK_PIXEL_PNG_BASE64, 'base64');
+const BLACK_PIXEL_PNG_BUFFER = Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64');
 const VALID_MTLX_DOCUMENT = '<materialx version="1.39"></materialx>';
 
 async function makeTempDir(prefix: string): Promise<string> {
@@ -35,11 +37,10 @@ function createPngWriterRenderer(base64Png: string, rendererName = 'fake'): Fide
     category: 'rasterizer',
     emptyReferenceImagePath,
     async checkPrerequisites() {
+      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
       return { success: true };
     },
-    async start() {
-      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
-    },
+    async start() {},
     async shutdown() {},
     async generateImage(options) {
       await writeFile(options.outputPngPath, Buffer.from(base64Png, 'base64'));
@@ -77,10 +78,10 @@ function createTrackingRenderer(base64Png: string, rendererName = 'fake') {
     category: 'rasterizer',
     emptyReferenceImagePath,
     async checkPrerequisites() {
+      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
       return { success: true };
     },
     async start() {
-      await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
       state.started = true;
       state.startCalls += 1;
     },
@@ -118,7 +119,7 @@ afterEach(async () => {
 });
 
 describe('createReferences', () => {
-  it('renders a webp named after the adapter beside each material', async () => {
+  it('renders a png named after the adapter beside each material', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
     const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
@@ -151,18 +152,19 @@ describe('createReferences', () => {
       concurrency: 2,
     });
 
-    const outputWebpPath = path.join(materialDir, 'fake.webp');
+    const outputPngPath = path.join(materialDir, 'fake.png');
+    const outputTempPngPath = path.join(materialDir, 'fake-temp.png');
     const outputJsonPath = path.join(materialDir, 'fake.json');
-    await access(outputWebpPath);
+    await access(outputPngPath);
     await access(outputJsonPath);
-    await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(outputTempPngPath)).rejects.toThrow('ENOENT');
+    await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
     const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
       status: string;
       error: unknown;
       success?: unknown;
       materialPath?: unknown;
       outputPngPath?: unknown;
-      outputWebpPath?: unknown;
       startedAt?: unknown;
       completedAt?: unknown;
       durationMs?: unknown;
@@ -172,7 +174,6 @@ describe('createReferences', () => {
     expect(report.success).toBeUndefined();
     expect(report.materialPath).toBeUndefined();
     expect(report.outputPngPath).toBeUndefined();
-    expect(report.outputWebpPath).toBeUndefined();
     expect(report.startedAt).toBeUndefined();
     expect(report.completedAt).toBeUndefined();
     expect(report.durationMs).toBeUndefined();
@@ -182,6 +183,64 @@ describe('createReferences', () => {
     expect(result.rendered).toBe(1);
     expect(result.failures).toHaveLength(0);
     expect(result.stopped).toBe(false);
+  });
+
+  it('keeps the existing png when the rendered image RMS delta is at or below threshold', async () => {
+    const root = await makeTempDir('fidelity-');
+    const thirdPartyRoot = path.join(root, 'third-party');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
+    const viewerDir = path.join(samplesRoot, 'viewer');
+
+    await mkdir(materialDir, { recursive: true });
+    await mkdir(viewerDir, { recursive: true });
+    await writeFile(path.join(materialDir, 'material.mtlx'), VALID_MTLX_DOCUMENT, 'utf8');
+    await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
+    await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
+    await writeFile(path.join(materialDir, 'fake.png'), NON_BLACK_PIXEL_PNG_BUFFER);
+    await writeFile(path.join(materialDir, 'fake.webp'), 'legacy webp', 'utf8');
+
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
+      concurrency: 1,
+    });
+
+    const finalPng = await readFile(path.join(materialDir, 'fake.png'));
+    expect(finalPng.equals(NON_BLACK_PIXEL_PNG_BUFFER)).toBe(true);
+    await expect(access(path.join(materialDir, 'fake-temp.png'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    expect(result.rendered).toBe(1);
+    expect(result.failures).toHaveLength(0);
+  });
+
+  it('replaces the existing png when rendered RMS delta is above threshold', async () => {
+    const root = await makeTempDir('fidelity-');
+    const thirdPartyRoot = path.join(root, 'third-party');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
+    const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
+    const viewerDir = path.join(samplesRoot, 'viewer');
+
+    await mkdir(materialDir, { recursive: true });
+    await mkdir(viewerDir, { recursive: true });
+    await writeFile(path.join(materialDir, 'material.mtlx'), VALID_MTLX_DOCUMENT, 'utf8');
+    await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
+    await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
+    await writeFile(path.join(materialDir, 'fake.png'), BLACK_PIXEL_PNG_BUFFER);
+
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
+      concurrency: 1,
+    });
+
+    const finalPng = await readFile(path.join(materialDir, 'fake.png'));
+    expect(finalPng.equals(NON_BLACK_PIXEL_PNG_BUFFER)).toBe(true);
+    await expect(access(path.join(materialDir, 'fake-temp.png'))).rejects.toThrow('ENOENT');
+    expect(result.rendered).toBe(1);
+    expect(result.failures).toHaveLength(0);
   });
 
   it('requires the expected viewer hdr and mesh filenames', async () => {
@@ -271,8 +330,38 @@ export function createAdapter() {
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
     expect(result.rendered).toBe(1);
-    await expect(access(path.join(includedDir, 'fake.webp'))).resolves.toBeUndefined();
-    await expect(access(path.join(skippedDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(includedDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(path.join(skippedDir, 'fake.png'))).rejects.toThrow('ENOENT');
+  });
+
+  it('discovers showcase materials recursively', async () => {
+    const root = await makeTempDir('fidelity-');
+    const thirdPartyRoot = path.join(root, 'third-party');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
+    const viewerDir = path.join(samplesRoot, 'viewer');
+    const showcaseDir = path.join(samplesRoot, 'materials', 'showcase', 'gltf_pbr', 'showcase-glass');
+    const surfacesDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'surface-plastic');
+
+    await mkdir(showcaseDir, { recursive: true });
+    await mkdir(surfacesDir, { recursive: true });
+    await mkdir(viewerDir, { recursive: true });
+
+    await writeFile(path.join(showcaseDir, 'material.mtlx'), VALID_MTLX_DOCUMENT, 'utf8');
+    await writeFile(path.join(surfacesDir, 'material.mtlx'), VALID_MTLX_DOCUMENT, 'utf8');
+    await writeFile(path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'), 'hdr', 'utf8');
+    await writeFile(path.join(viewerDir, 'ShaderBall.glb'), 'glb', 'utf8');
+
+    const result = await createReferences({
+      thirdPartyRoot,
+      renderers: [createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake')],
+      rendererNames: ['fake'],
+      concurrency: 2,
+    });
+
+    expect(result.total).toBe(2);
+    expect(result.rendered).toBe(2);
+    await expect(access(path.join(showcaseDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(path.join(surfacesDir, 'fake.png'))).resolves.toBeUndefined();
   });
 
   it('supports regex material selectors against material directory names', async () => {
@@ -315,8 +404,8 @@ export function createAdapter() {
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
     expect(result.rendered).toBe(1);
-    await expect(access(path.join(includedDir, 'fake.webp'))).resolves.toBeUndefined();
-    await expect(access(path.join(skippedDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(includedDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(path.join(skippedDir, 'fake.png'))).rejects.toThrow('ENOENT');
   });
 
   it('does not match material selectors against parent directories', async () => {
@@ -346,8 +435,8 @@ export function createAdapter() {
       }),
     ).rejects.toThrow('No material.mtlx files matched --materials "gltf_pbr".');
 
-    await expect(access(path.join(includedDir, 'fake.webp'))).rejects.toThrow('ENOENT');
-    await expect(access(path.join(skippedDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(includedDir, 'fake.png'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(skippedDir, 'fake.png'))).rejects.toThrow('ENOENT');
   });
 
   it('emits progress events with adapter names for each render task', async () => {
@@ -444,8 +533,8 @@ export function createAdapter() {
       concurrency: 1,
     });
 
-    await expect(access(path.join(materialDir, 'fake.webp'))).resolves.toBeUndefined();
-    await expect(access(path.join(materialDir, 'alt.webp'))).resolves.toBeUndefined();
+    await expect(access(path.join(materialDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(path.join(materialDir, 'alt.png'))).resolves.toBeUndefined();
     expect(result.rendererNames.toSorted()).toEqual(['alt', 'fake']);
     expect(result.total).toBe(2);
     expect(result.rendered).toBe(2);
@@ -555,7 +644,8 @@ export function createAdapter() {
 
     const outputPngPath = path.join(materialDir, 'fake.png');
     const outputJsonPath = path.join(materialDir, 'fake.json');
-    await expect(access(outputPngPath)).rejects.toThrow('ENOENT');
+    await expect(access(outputPngPath)).resolves.toBeUndefined();
+    await expect(access(path.join(materialDir, 'fake-temp.png'))).rejects.toThrow('ENOENT');
     await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
     await access(outputJsonPath);
     const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
@@ -769,10 +859,10 @@ export function createAdapter() {
     expect(result.rendered).toBe(1);
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0]?.materialPath).toBe(path.join(invalidMaterialDir, 'material.mtlx'));
-    await expect(access(path.join(validMaterialDir, 'fake.webp'))).resolves.toBeUndefined();
-    await expect(access(path.join(invalidMaterialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(validMaterialDir, 'fake.png'))).resolves.toBeUndefined();
+    await expect(access(path.join(invalidMaterialDir, 'fake.png'))).rejects.toThrow('ENOENT');
     await expect(access(path.join(invalidMaterialDir, 'fake.json'))).resolves.toBeUndefined();
-    await expect(access(path.join(validMaterialDir, 'fake.json'))).rejects.toThrow('ENOENT');
+    await expect(access(path.join(validMaterialDir, 'fake.json'))).resolves.toBeUndefined();
   });
 
   it('continues rendering and writes warnings for URI texture references', async () => {

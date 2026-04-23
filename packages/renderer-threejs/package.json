@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/renderer-threejs",
+  "name": "@material-fidelity/renderer-threejs",
   "version": "0.1.0",
   "source": "./src/index.ts",
   "files": [
@@ -15,7 +15,7 @@
     "dev": "tsgo -w --preserveWatchOutput"
   },
   "dependencies": {
-    "@materialx-fidelity/core": "workspace:*",
+    "@material-fidelity/core": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",
     "fflate": "^0.8.2",
     "playwright": "^1.59.1",

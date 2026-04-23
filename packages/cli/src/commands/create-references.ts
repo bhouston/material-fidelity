@@ -1,11 +1,11 @@
 import path from 'node:path';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
-import { createReferences } from '@materialx-fidelity/core';
-import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@materialx-fidelity/core';
-import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs';
-import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
-import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
+import { createReferences } from '@material-fidelity/core';
+import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@material-fidelity/core';
+import { createRenderer as createMaterialXJsRenderer } from '@material-fidelity/renderer-materialxjs';
+import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
+import { createRenderer as createThreeJsRenderer } from '@material-fidelity/renderer-threejs';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 

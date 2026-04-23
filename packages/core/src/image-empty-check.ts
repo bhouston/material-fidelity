@@ -9,7 +9,7 @@ interface RawRgbaImage {
   height: number;
 }
 
-async function readImageAsRawRgba(
+export async function readImageAsRawRgba(
   imagePath: string,
   resizeTo?: { width: number; height: number },
 ): Promise<RawRgbaImage> {
@@ -45,7 +45,7 @@ async function readReferenceImageAsRawRgba(
   return loadPromise;
 }
 
-function calculateNormalizedRgbRms(source: Buffer, reference: Buffer): number {
+export function calculateNormalizedRgbRms(source: Buffer, reference: Buffer): number {
   if (source.length !== reference.length) {
     throw new Error(`Image size mismatch: source ${source.length} bytes vs reference ${reference.length} bytes.`);
   }
@@ -61,6 +61,24 @@ function calculateNormalizedRgbRms(source: Buffer, reference: Buffer): number {
   }
 
   return Math.sqrt(sumSquaredDifferences / channelCount) / 255;
+}
+
+export async function calculateImageNormalizedRgbRms(
+  sourceImagePath: string,
+  referenceImagePath: string,
+  options?: { treatDimensionMismatchAsMaxDifference?: boolean },
+): Promise<number> {
+  const sourceImage = await readImageAsRawRgba(sourceImagePath);
+  const referenceImage = await readImageAsRawRgba(referenceImagePath);
+  if (sourceImage.width !== referenceImage.width || sourceImage.height !== referenceImage.height) {
+    if (options?.treatDimensionMismatchAsMaxDifference) {
+      return 1;
+    }
+    throw new Error(
+      `Image dimensions mismatch: source ${sourceImage.width}x${sourceImage.height} vs reference ${referenceImage.width}x${referenceImage.height}.`,
+    );
+  }
+  return calculateNormalizedRgbRms(sourceImage.data, referenceImage.data);
 }
 
 export async function assertRenderIsNotEmpty(outputPngPath: string, emptyReferenceImagePath: string): Promise<void> {

@@ -133,6 +133,6 @@ export async function createMaterialXZipPayloadByTypeAndName(
 
   return {
     zip: payload,
-    sampleDirectory: `${materialType}/${materialName}`,
+    sampleDirectory: normalizePathToPosix(path.relative(roots.materialsRoot, materialDirectory)),
   };
 }

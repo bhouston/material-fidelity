@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { access, writeFile } from 'node:fs/promises';
-import { readMaterialX, validateDocument } from '@materialx-js/materialx';
-import type { MaterialXDocument, MaterialXInput, MaterialXNode } from '@materialx-js/materialx';
+import { readMaterialX, validateDocument } from '@material-viewer/materialx';
+import type { MaterialXDocument, MaterialXInput, MaterialXNode } from '@material-viewer/materialx';
 
 const UNKNOWN_NODE_CATEGORY_PREFIX = 'Unknown node category "';
 

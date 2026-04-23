@@ -1,5 +1,5 @@
-import { parseMaterialX } from '@materialx-js/materialx/dist/xml.js';
-import { createThreeMaterialFromDocument, type TextureResolver } from '@materialx-js/materialx-three';
+import { parseMaterialX } from '@material-viewer/materialx/dist/xml.js';
+import { createThreeMaterialFromDocument, type TextureResolver } from '@material-viewer/materialx-three';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { z } from 'zod';
@@ -34,8 +34,8 @@ const querySchema = z.object({
 
 type ViewerQuery = z.infer<typeof querySchema>;
 const IDEAL_MESH_SPHERE_RADIUS = 2;
-const REFERENCE_IMAGE_WIDTH = 1024;
-const REFERENCE_IMAGE_HEIGHT = 1024;
+const REFERENCE_IMAGE_WIDTH = 512;
+const REFERENCE_IMAGE_HEIGHT = 512;
 const DISABLED_NODE_CATEGORIES = new Set(['artistic_ior']);
 
 function parseQuery(search: string): ViewerQuery {

@@ -39,16 +39,16 @@ importers:
 
   packages/cli:
     dependencies:
-      '@materialx-fidelity/core':
+      '@material-fidelity/core':
         specifier: workspace:*
         version: link:../core
-      '@materialx-fidelity/renderer-materialxjs':
+      '@material-fidelity/renderer-materialxjs':
         specifier: workspace:*
         version: link:../renderer-materialxjs
-      '@materialx-fidelity/renderer-materialxview':
+      '@material-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview
-      '@materialx-fidelity/renderer-threejs':
+      '@material-fidelity/renderer-threejs':
         specifier: workspace:*
         version: link:../renderer-threejs
       humanize-units:
@@ -73,7 +73,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@materialx-js/materialx':
+      '@material-viewer/materialx':
         specifier: workspace:*
         version: link:../../third_party/material-viewer/packages/materialx
       p-limit:
@@ -92,13 +92,13 @@ importers:
 
   packages/renderer-materialxjs:
     dependencies:
-      '@materialx-fidelity/core':
+      '@material-fidelity/core':
         specifier: workspace:*
         version: link:../core
-      '@materialx-js/materialx':
+      '@material-viewer/materialx':
         specifier: workspace:*
         version: link:../../third_party/material-viewer/packages/materialx
-      '@materialx-js/materialx-three':
+      '@material-viewer/materialx-three':
         specifier: workspace:*
         version: link:../../third_party/material-viewer/packages/materialx-three
       '@vitejs/plugin-react':
@@ -125,13 +125,13 @@ importers:
 
   packages/renderer-materialxview:
     dependencies:
-      '@materialx-fidelity/core':
+      '@material-fidelity/core':
         specifier: workspace:*
         version: link:../core
 
   packages/renderer-threejs:
     dependencies:
-      '@materialx-fidelity/core':
+      '@material-fidelity/core':
         specifier: workspace:*
         version: link:../core
       '@vitejs/plugin-react':
@@ -161,13 +161,13 @@ importers:
 
   packages/viewer:
     dependencies:
-      '@materialx-fidelity/renderer-materialxjs':
+      '@material-fidelity/renderer-materialxjs':
         specifier: workspace:*
         version: link:../renderer-materialxjs
-      '@materialx-fidelity/renderer-materialxview':
+      '@material-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview
-      '@materialx-fidelity/renderer-threejs':
+      '@material-fidelity/renderer-threejs':
         specifier: workspace:*
         version: link:../renderer-threejs
       '@tailwindcss/vite':
@@ -268,7 +268,7 @@ importers:
 
   third_party/material-viewer/packages/materialx-cli:
     dependencies:
-      '@materialx-js/materialx':
+      '@material-viewer/materialx':
         specifier: workspace:*
         version: link:../materialx
       type-fest:
@@ -299,7 +299,7 @@ importers:
 
   third_party/material-viewer/packages/materialx-three:
     dependencies:
-      '@materialx-js/materialx':
+      '@material-viewer/materialx':
         specifier: workspace:*
         version: link:../materialx
       three:

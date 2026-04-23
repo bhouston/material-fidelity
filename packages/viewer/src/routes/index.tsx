@@ -75,7 +75,11 @@ function App() {
   const filteredGroups = data.groups
     .map((group) => ({
       ...group,
-      materials: group.materials.filter((material) => material.name.toLocaleLowerCase().includes(materialSearch)),
+      materials: group.materials.filter(
+        (material) =>
+          material.name.toLocaleLowerCase().includes(materialSearch) ||
+          material.displayPath.toLocaleLowerCase().includes(materialSearch),
+      ),
     }))
     .filter((group) => group.materials.length > 0);
   const filteredMaterials = filteredGroups.flatMap((group) =>
@@ -228,10 +232,10 @@ function App() {
             <li>
               <a
                 className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/MaterialX-FidelityTesting/tree/main/packages/renderer-materialxview"
+                href="https://github.com/bhouston/material-fidelityTesting/tree/main/packages/renderer-materialxview"
                 target="_blank"
               >
-                @materialx-fidelity/renderer-materialxview
+                @material-fidelity/renderer-materialxview
               </a>{' '}
               - Creates renders using the official{' '}
               <a
@@ -246,10 +250,10 @@ function App() {
             <li>
               <a
                 className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/MaterialX-FidelityTesting/tree/main/packages/renderer-threejs"
+                href="https://github.com/bhouston/material-fidelityTesting/tree/main/packages/renderer-threejs"
                 target="_blank"
               >
-                @materialx-fidelity/renderer-threejs
+                @material-fidelity/renderer-threejs
               </a>{' '}
               - Uses the MaterialXLoader from the{' '}
               <a
@@ -269,7 +273,7 @@ function App() {
             <li>
               <a
                 className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/materialx-fidelity"
+                href="https://github.com/bhouston/material-fidelity"
                 target="_blank"
               >
                 Add your own renderer here.
@@ -317,11 +321,11 @@ function App() {
       <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-            Material name filter
+            Material filter
             <input
               className="h-10 rounded-none border border-border bg-background px-3 text-sm font-normal text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
               onChange={(event) => handleMaterialSearchChange(event.currentTarget.value)}
-              placeholder="Search materials..."
+              placeholder="Search by name or path..."
               type="text"
               value={search.materials ?? ''}
             />
@@ -339,19 +343,17 @@ function App() {
       <section className="pt-2">
         <div className="border-t border-border">
           {filteredMaterials.map((material) => {
-            const materialId = toAnchorId(`${material.type}-${material.name}`);
+            const materialId = toAnchorId(material.id);
             return (
               <article
-                key={`${material.type}/${material.name}`}
+                key={material.id}
                 className="border-b border-border py-4 last:border-b-0"
               >
                 <div className="group flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h3 id={materialId} className="flex items-center gap-2 text-base font-semibold text-foreground">
-                    <span>
-                      {material.type} / {material.name}
-                    </span>
+                    <span>{material.displayPath}</span>
                     <a
-                      aria-label={`Link to ${material.type} / ${material.name}`}
+                      aria-label={`Link to ${material.displayPath}`}
                       className="text-sm text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                       href={`#${materialId}`}
                     >

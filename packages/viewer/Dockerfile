@@ -22,10 +22,10 @@ RUN test -d /app/third_party/material-viewer/packages/materialx/src
 
 RUN pnpm install --frozen-lockfile --prefer-offline
 
-RUN pnpm --filter @materialx-js/materialx build
+RUN pnpm --filter @material-viewer/materialx build
 
 RUN pnpm build
 
 EXPOSE 8080
 
-CMD ["pnpm", "--filter", "@materialx-fidelity/viewer", "start"]
+CMD ["pnpm", "--filter", "@material-fidelity/viewer", "start"]

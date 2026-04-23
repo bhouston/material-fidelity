@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/core",
+  "name": "@material-fidelity/core",
   "version": "0.1.0",
   "source": "./src/index.ts",
   "files": [
@@ -14,7 +14,7 @@
     "dev": "tsgo -w --preserveWatchOutput"
   },
   "dependencies": {
-    "@materialx-js/materialx": "workspace:*",
+    "@material-viewer/materialx": "workspace:*",
     "p-limit": "^7.3.0",
     "pngjs": "^7.0.0",
     "sharp": "^0.34.5"

@@ -1,5 +1,5 @@
 {
-  "name": "materialx-fidelity",
+  "name": "material-fidelity",
   "version": "0.1.0",
   "private": true,
   "description": "MaterialX fidelity test system for reference image generation and comparison workflows.",
@@ -25,9 +25,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "cli": "pnpm --filter @materialx-fidelity/cli start",
-    "viewer": "pnpm --filter @materialx-fidelity/viewer dev",
-    "viewer:build": "pnpm --filter @materialx-fidelity/viewer build"
+    "cli": "pnpm --filter @material-fidelity/cli start",
+    "viewer": "pnpm --filter @material-fidelity/viewer dev",
+    "viewer:build": "pnpm --filter @material-fidelity/viewer build"
   },
   "dependencies": {
     "rimraf": "^6.1.3"

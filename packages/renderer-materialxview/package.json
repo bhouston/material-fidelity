@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/renderer-materialxview",
+  "name": "@material-fidelity/renderer-materialxview",
   "version": "0.1.0",
   "source": "./src/index.ts",
   "files": [
@@ -14,6 +14,6 @@
     "dev": "tsgo -w --preserveWatchOutput"
   },
   "dependencies": {
-    "@materialx-fidelity/core": "workspace:*"
+    "@material-fidelity/core": "workspace:*"
   }
 }

@@ -25,7 +25,7 @@ export default function Header() {
           <a
             aria-label="MaterialX Fidelity Testing repository"
             className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            href="https://github.com/bhouston/MaterialX-FidelityTesting"
+            href="https://github.com/bhouston/material-fidelityTesting"
             rel="noopener noreferrer"
             target="_blank"
           >

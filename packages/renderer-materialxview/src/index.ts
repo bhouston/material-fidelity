@@ -10,7 +10,7 @@ import {
   type GenerateImageResult,
   type RenderLogEntry,
   type RendererPrerequisiteCheckResult,
-} from '@materialx-fidelity/core';
+} from '@material-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
 const MATERIALXVIEW_SEARCH_PATH_ENV = 'MATERIALXVIEW_SEARCH_PATH';

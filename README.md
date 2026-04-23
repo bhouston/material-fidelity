@@ -1,6 +1,6 @@
 # Material Fidelity Testing
 
-Material Fidelity Testing is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes.
+Material Fidelity is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes.
 
 ## Repository Layout
 
@@ -50,13 +50,13 @@ pnpm cli create-references
 pnpm cli create-references --renderers materialxjs --materials open_pbr
 ```
 
-This command writes `<renderer-name>.webp` in each directory containing a `material.mtlx`.
+This command writes `<renderer-name>.png` in each directory containing a `material.mtlx`.
 
 Currently supported renderers:
 
-- `materialxjs` (`@materialx-fidelity/renderer-materialxjs`)
-- `materialxview` (`@materialx-fidelity/renderer-materialxview`)
-- `threejs` (`@materialx-fidelity/renderer-threejs`)
+- `materialxjs` (`@material-fidelity/renderer-materialxjs`)
+- `materialxview` (`@material-fidelity/renderer-materialxview`)
+- `threejs` (`@material-fidelity/renderer-threejs`)
 
 Optional flags:
 
@@ -69,7 +69,8 @@ Optional flags:
 Samples are organized by purpose:
 
 - `third_party/material-samples/materials/nodes` - canonical per-node tests
-- `third_party/material-samples/materials/surfaces/<surface_type>` - surface/showcase samples grouped by shader family
+- `third_party/material-samples/materials/surfaces/<surface_type>` - focused surface-attribute/debug samples grouped by shader family
+- `third_party/material-samples/materials/showcase/<surface_type>` - complex, transferable showcase materials grouped by shader family
 
 ## Node Isolation Suite
 
@@ -85,7 +86,7 @@ Each node gets its own directory and `material.mtlx`, with phase planning docume
 
 ```bash
 # single material (run from repo root)
-pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
+pnpm --filter @material-viewer/materialx-cli start validate "$PWD/third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
 ```
 
 ```bash
@@ -98,7 +99,7 @@ root = Path.cwd()
 files = sorted((root / "third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/material.mtlx"))
 for file in files:
     subprocess.run(
-        ["pnpm", "--filter", "@materialx-js/materialx-cli", "start", "validate", str(file)],
+        ["pnpm", "--filter", "@material-viewer/materialx-cli", "start", "validate", str(file)],
         check=True,
     )
 print(f"Validated {len(files)} materials.")
@@ -141,7 +142,7 @@ To keep reference renders visually comparable between `materialxview` and `three
 - environment orientation parity: apply a Y rotation offset of `-90` degrees in the Three.js viewer (`scene.environmentRotation.y`) to match MaterialXView lighting orientation
 - color/output: no tone mapping, sRGB output encoding
 - visible background comes from the active environment HDR (`san_giuseppe_bridge_2k.hdr`)
-- fixed resolution of `1024x1024`
+- fixed resolution of `512x512`
 
 These values are intentionally aligned with `MaterialXView` defaults and its scene normalization behavior in `source/MaterialXView/Viewer.cpp`.
 
@@ -155,7 +156,7 @@ pnpm viewer
 
 The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxjs`, `materialxview`, `threejs`).
 
-The page groups materials by purpose/type (`nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.webp`) side by side. Missing images render as a placeholder tile.
+The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
 
 ## License
 

@@ -13,7 +13,7 @@ import {
   type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
-} from '@materialx-fidelity/core';
+} from '@material-fidelity/core';
 
 interface RuntimeState {
   baseUrl: string;
@@ -153,7 +153,7 @@ class MaterialXJsRenderer implements FidelityRenderer {
       plugins: [react()],
       resolve: {
         alias: [
-          { find: '@materialx-js/materialx-three', replacement: materialxThreePackageEntry },
+          { find: '@material-viewer/materialx-three', replacement: materialxThreePackageEntry },
           // Force a single Three.js runtime to avoid mixed TSL node instances.
           { find: /^three$/, replacement: join(threeRoot, 'build', 'three.module.js') },
           { find: /^three\/webgpu$/, replacement: join(threeRoot, 'build', 'three.webgpu.js') },

@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/renderer-materialxjs",
+  "name": "@material-fidelity/renderer-materialxjs",
   "version": "0.1.0",
   "source": "./src/index.ts",
   "files": [
@@ -15,9 +15,9 @@
     "dev": "tsgo -w --preserveWatchOutput"
   },
   "dependencies": {
-    "@materialx-fidelity/core": "workspace:*",
-    "@materialx-js/materialx": "workspace:*",
-    "@materialx-js/materialx-three": "workspace:*",
+    "@material-fidelity/core": "workspace:*",
+    "@material-viewer/materialx": "workspace:*",
+    "@material-viewer/materialx-three": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",
     "playwright": "^1.59.1",
     "react": "^19.2.5",

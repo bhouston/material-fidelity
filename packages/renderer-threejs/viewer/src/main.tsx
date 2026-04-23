@@ -32,8 +32,8 @@ const querySchema = z.object({
 
 type ViewerQuery = z.infer<typeof querySchema>;
 const IDEAL_MESH_SPHERE_RADIUS = 2;
-const REFERENCE_IMAGE_WIDTH = 1024;
-const REFERENCE_IMAGE_HEIGHT = 1024;
+const REFERENCE_IMAGE_WIDTH = 512;
+const REFERENCE_IMAGE_HEIGHT = 512;
 
 function parseQuery(search: string): ViewerQuery {
   const rawQuery = Object.fromEntries(new URLSearchParams(search).entries());

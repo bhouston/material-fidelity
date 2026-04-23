@@ -1,9 +1,8 @@
 import path from 'node:path';
-import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import pLimit from 'p-limit';
-import sharp from 'sharp';
 import { findFilesByName } from './fs-utils.js';
-import { assertRenderIsNotEmpty } from './image-empty-check.js';
+import { assertRenderIsNotEmpty, calculateImageNormalizedRgbRms } from './image-empty-check.js';
 import {
   formatFatalValidationIssues,
   validateMaterial,
@@ -23,14 +22,19 @@ import type {
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
 const DEFAULT_BACKGROUND_COLOR = '0,0,0';
+const RENDER_REPLACE_RMS_THRESHOLD = 0.001;
 
 function createOutputPath(materialPath: string, rendererName: string): string {
   return path.join(path.dirname(materialPath), `${rendererName}.png`);
 }
 
-function toWebpPath(outputPngPath: string): string {
-  const parsedPath = path.parse(outputPngPath);
-  return path.join(parsedPath.dir, `${parsedPath.name}.webp`);
+function createTempOutputPath(materialPath: string, rendererName: string): string {
+  return path.join(path.dirname(materialPath), `${rendererName}-temp.png`);
+}
+
+function toLegacyWebpPath(outputPngPath: string): string {
+  const parsed = path.parse(outputPngPath);
+  return path.join(parsed.dir, `${parsed.name}.webp`);
 }
 
 function toJsonPath(outputPngPath: string): string {
@@ -42,7 +46,6 @@ interface RenderResultReportOptions {
   rendererName: string;
   materialPath: string;
   outputPngPath: string;
-  outputWebpPath: string;
   success: boolean;
   error?: Error;
   validationIssues?: PreflightIssue[];
@@ -103,6 +106,15 @@ async function writeRenderResultReport(options: RenderResultReportOptions): Prom
     logs: options.logs ?? [],
   };
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function createReferences(options: CreateReferencesOptions): Promise<CreateReferencesResult> {
@@ -271,7 +283,8 @@ export async function createReferences(options: CreateReferencesOptions): Promis
           let validationIssues: PreflightIssue[] | undefined;
           let logs: RenderLogEntry[] = [];
           const startedAt = Date.now();
-          const outputWebpPath = toWebpPath(outputPngPath);
+          const outputTempPngPath = createTempOutputPath(materialPath, renderer.name);
+          const legacyWebpPath = toLegacyWebpPath(outputPngPath);
           try {
             const validationResult = await getMaterialValidation(materialPath);
             if (validationResult.fatalIssues.length > 0) {
@@ -280,23 +293,35 @@ export async function createReferences(options: CreateReferencesOptions): Promis
             }
             const renderResult = await renderer.generateImage({
               mtlxPath: materialPath,
-              outputPngPath,
+              outputPngPath: outputTempPngPath,
               environmentHdrPath: hdrPath,
               modelPath,
               backgroundColor: DEFAULT_BACKGROUND_COLOR,
             });
             logs = normalizeRenderLogs([...renderResult.logs]);
-            await assertRenderIsNotEmpty(outputPngPath, renderer.emptyReferenceImagePath);
-            await sharp(outputPngPath).webp({ quality: 99 }).toFile(outputWebpPath);
-            await rm(outputPngPath, { force: true });
+            await rm(legacyWebpPath, { force: true });
+            await assertRenderIsNotEmpty(outputTempPngPath, renderer.emptyReferenceImagePath);
+            const hasExistingCanonical = await fileExists(outputPngPath);
+            if (!hasExistingCanonical) {
+              await rename(outputTempPngPath, outputPngPath);
+            } else {
+              const normalizedRms = await calculateImageNormalizedRgbRms(outputTempPngPath, outputPngPath, {
+                treatDimensionMismatchAsMaxDifference: true,
+              });
+              if (normalizedRms > RENDER_REPLACE_RMS_THRESHOLD) {
+                await rm(outputPngPath, { force: true });
+                await rename(outputTempPngPath, outputPngPath);
+              } else {
+                await rm(outputTempPngPath, { force: true });
+              }
+            }
           } catch (error) {
             renderError = error instanceof Error ? error : new Error(String(error));
             logs = normalizeRenderLogs([...logs, ...readRendererLogs(error)]);
           }
 
           if (renderError) {
-            await rm(outputWebpPath, { force: true });
-            await rm(outputPngPath, { force: true });
+            await rm(outputTempPngPath, { force: true });
           }
 
           const completedAt = Date.now();
@@ -305,7 +330,6 @@ export async function createReferences(options: CreateReferencesOptions): Promis
               rendererName: renderer.name,
               materialPath,
               outputPngPath,
-              outputWebpPath,
               success: !renderError,
               error: renderError,
               validationIssues,

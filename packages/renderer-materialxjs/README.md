@@ -1,6 +1,6 @@
 # renderer-materialxjs
 
-Capture renderer for MaterialX Fidelity using the JavaScript MaterialX toolchain (`@materialx-js/materialx` + `@materialx-js/materialx-three`) with a local Vite page and Playwright screenshots.
+Capture renderer for MaterialX Fidelity using the JavaScript MaterialX toolchain (`@material-viewer/materialx` + `@material-viewer/materialx-three`) with a local Vite page and Playwright screenshots.
 
 ## What This Renderer Does
 
@@ -8,14 +8,14 @@ Capture renderer for MaterialX Fidelity using the JavaScript MaterialX toolchain
 - loads `material.mtlx`, `ShaderBall.glb`, and `san_giuseppe_bridge_2k.hdr`
 - compiles MaterialX with the JavaScript MaterialX compiler
 - renders one deterministic frame and writes `<material-dir>/materialxjs.png`
-- relies on `@materialx-fidelity/core` to convert PNG to `materialxjs.webp`
+- relies on `@material-fidelity/core` to preserve PNG output as `materialxjs.png`
 
 ## Local Debug
 
 From repo root:
 
 ```bash
-pnpm --filter @materialx-fidelity/renderer-materialxjs dev
+pnpm --filter @material-fidelity/renderer-materialxjs dev
 ```
 
 Then run normal reference generation:
@@ -45,4 +45,4 @@ When upstream MaterialX JavaScript changes, use this checklist:
    - `pnpm test`
 5. run a focused render diff:
    - `pnpm cli create-references --renderers materialxjs --materials open_pbr`
-6. visually compare `materialxjs.webp` against existing renderer outputs in the fidelity viewer
+6. visually compare `materialxjs.png` against existing renderer outputs in the fidelity viewer

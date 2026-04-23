@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/cli",
+  "name": "@material-fidelity/cli",
   "version": "0.1.0",
   "bin": {
     "mtlx-fidelity": "./dist/bin.js"
@@ -18,10 +18,10 @@
     "start": "node ./dist/bin.js"
   },
   "dependencies": {
-    "@materialx-fidelity/core": "workspace:*",
-    "@materialx-fidelity/renderer-materialxjs": "workspace:*",
-    "@materialx-fidelity/renderer-materialxview": "workspace:*",
-    "@materialx-fidelity/renderer-threejs": "workspace:*",
+    "@material-fidelity/core": "workspace:*",
+    "@material-fidelity/renderer-materialxjs": "workspace:*",
+    "@material-fidelity/renderer-materialxview": "workspace:*",
+    "@material-fidelity/renderer-threejs": "workspace:*",
     "humanize-units": "^2.0.4",
     "ink": "^7.0.1",
     "react": "^19.2.5",

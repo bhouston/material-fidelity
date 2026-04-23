@@ -1,14 +1,14 @@
 import { access, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity/renderer-materialxjs';
-import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
-import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
+import { createRenderer as createMaterialXJsRenderer } from '@material-fidelity/renderer-materialxjs';
+import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
+import { createRenderer as createThreeJsRenderer } from '@material-fidelity/renderer-threejs';
 
 const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/material-samples/tree/main/materials';
 const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
 const DEFAULT_LOCAL_HOST = 'localhost:3000';
-const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca';
-const MATERIAL_TYPE_ORDER = ['nodes', 'open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
+const DEFAULT_PRODUCTION_HOST = 'material-fidelity.ben3d.ca';
+const MATERIAL_TYPE_ORDER = ['showcase', 'nodes', 'open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
 const RENDERER_CATEGORY_ORDER = ['pathtracer', 'raytracer', 'rasterizer'] as const;
 type RendererCategory = (typeof RENDERER_CATEGORY_ORDER)[number];
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
@@ -18,9 +18,12 @@ const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
 };
 interface MaterialDescriptor {
   type: string;
+  apiType: string;
+  apiName: string;
   name: string;
   absoluteDirectory: string;
   relativeDirectory: string;
+  displayPath: string;
   sourceUrl: string;
 }
 
@@ -30,8 +33,10 @@ interface BuiltInRendererDescriptor {
 }
 
 export interface MaterialViewModel {
+  id: string;
   type: string;
   name: string;
+  displayPath: string;
   sourceUrl: string;
   liveViewerUrl: string;
   downloadMtlxZipUrl: string;
@@ -125,11 +130,6 @@ async function resolveReferenceImageCandidatePath(
   materialDirectory: string,
   rendererName: string,
 ): Promise<string | undefined> {
-  const webpPath = path.join(materialDirectory, `${rendererName}.webp`);
-  if (await directoryExists(webpPath)) {
-    return webpPath;
-  }
-
   const pngPath = path.join(materialDirectory, `${rendererName}.png`);
   if (await directoryExists(pngPath)) {
     return pngPath;
@@ -224,20 +224,34 @@ function toMaterialDescriptor(materialFilePath: string, materialsRoot: string): 
   const materialDirectory = path.dirname(materialFilePath);
   const relativeDirectory = path.relative(materialsRoot, materialDirectory);
   const segments = relativeDirectory.split(path.sep).filter(Boolean);
-  let type = segments.at(0) ?? 'unknown';
   const name = segments.at(-1) ?? path.basename(materialDirectory);
+  const displayPath = segments.join(' / ');
+  let type = segments.at(0) ?? 'unknown';
+  let apiType = type;
+  let apiName = name;
 
   if (segments[0] === 'nodes' && segments.length >= 2) {
     type = 'nodes';
+    apiType = 'nodes';
+    apiName = name;
+  } else if (segments[0] === 'showcase' && segments.length >= 3) {
+    type = 'showcase';
+    apiType = `showcase:${segments[1]}`;
+    apiName = name;
   } else if (segments[0] === 'surfaces' && segments.length >= 3) {
     type = segments[1] ?? 'unknown';
+    apiType = type;
+    apiName = name;
   }
 
   return {
     type,
+    apiType,
+    apiName,
     name,
     absoluteDirectory: materialDirectory,
     relativeDirectory,
+    displayPath,
     sourceUrl: toGithubSourceUrl(relativeDirectory),
   };
 }
@@ -277,7 +291,7 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
         renderers.map(async (rendererName) => {
           const referencePath = await resolveReferenceImageCandidatePath(descriptor.absoluteDirectory, rendererName);
           const imageUrl = referencePath
-            ? `/api/reference-image/${encodeURIComponent(descriptor.type)}/${encodeURIComponent(descriptor.name)}/${encodeURIComponent(rendererName)}`
+            ? `/api/reference-image/${encodeURIComponent(descriptor.apiType)}/${encodeURIComponent(descriptor.apiName)}/${encodeURIComponent(rendererName)}`
             : null;
           return [rendererName, imageUrl] as const;
         }),
@@ -288,7 +302,7 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
         renderers.map(async (rendererName) => {
           const reportPath = await resolveReferenceReportCandidatePath(descriptor.absoluteDirectory, rendererName);
           const reportUrl = reportPath
-            ? `/api/reference-report/${encodeURIComponent(descriptor.type)}/${encodeURIComponent(descriptor.name)}/${encodeURIComponent(rendererName)}`
+            ? `/api/reference-report/${encodeURIComponent(descriptor.apiType)}/${encodeURIComponent(descriptor.apiName)}/${encodeURIComponent(rendererName)}`
             : null;
           return [rendererName, reportUrl] as const;
         }),
@@ -296,11 +310,13 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     );
 
     const material: MaterialViewModel = {
+      id: descriptor.relativeDirectory,
       type: descriptor.type,
       name: descriptor.name,
+      displayPath: descriptor.displayPath,
       sourceUrl: descriptor.sourceUrl,
-      liveViewerUrl: toLiveViewerUrl(descriptor.type, descriptor.name),
-      downloadMtlxZipUrl: toMaterialZipUrl(descriptor.type, descriptor.name),
+      liveViewerUrl: toLiveViewerUrl(descriptor.apiType, descriptor.apiName),
+      downloadMtlxZipUrl: toMaterialZipUrl(descriptor.apiType, descriptor.apiName),
       images,
       reports,
     };
@@ -313,7 +329,7 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     .toSorted(([leftType], [rightType]) => sortMaterialTypes(leftType, rightType))
     .map(([type, materials]) => ({
       type,
-      materials: materials.toSorted((left, right) => left.name.localeCompare(right.name)),
+      materials: materials.toSorted((left, right) => left.displayPath.localeCompare(right.displayPath)),
     }));
 
   return {
@@ -360,11 +376,14 @@ export async function resolveMaterialDirectory(
   const candidateDirectories =
     materialType === 'nodes'
       ? [path.resolve(roots.materialsRoot, 'nodes', materialName)]
-      : [
-          path.resolve(roots.materialsRoot, 'surfaces', materialType, materialName),
-          // Legacy fallback while old trees are still present.
-          path.resolve(roots.materialsRoot, materialType, materialName),
-        ];
+      : materialType.startsWith('showcase:')
+        ? [path.resolve(roots.materialsRoot, 'showcase', materialType.slice('showcase:'.length), materialName)]
+        : [
+            path.resolve(roots.materialsRoot, 'showcase', materialType, materialName),
+            path.resolve(roots.materialsRoot, 'surfaces', materialType, materialName),
+            // Legacy fallback while old trees are still present.
+            path.resolve(roots.materialsRoot, materialType, materialName),
+          ];
 
   for (const targetDirectory of candidateDirectories) {
     if (!targetDirectory.startsWith(materialsRootPrefix)) {

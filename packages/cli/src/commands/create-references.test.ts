@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { command } from './create-references.js';
-import type { createReferences } from '@materialx-fidelity/core';
+import type { createReferences } from '@material-fidelity/core';
 
 const { createReferencesMock } = vi.hoisted(() => ({
   createReferencesMock: vi.fn<typeof createReferences>(),
 }));
 
-vi.mock('@materialx-fidelity/core', () => ({
+vi.mock('@material-fidelity/core', () => ({
   createReferences: createReferencesMock,
 }));
 
-vi.mock('@materialx-fidelity/renderer-materialxview', () => ({
+vi.mock('@material-fidelity/renderer-materialxview', () => ({
   createRenderer: () => ({
     name: 'materialxview',
     version: 'test',
@@ -21,7 +21,18 @@ vi.mock('@materialx-fidelity/renderer-materialxview', () => ({
   }),
 }));
 
-vi.mock('@materialx-fidelity/renderer-threejs', () => ({
+vi.mock('@material-fidelity/renderer-materialxjs', () => ({
+  createRenderer: () => ({
+    name: 'materialxjs',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+}));
+
+vi.mock('@material-fidelity/renderer-threejs', () => ({
   createRenderer: () => ({
     name: 'threejs',
     version: 'test',
@@ -76,7 +87,7 @@ describe('create-references command', () => {
       concurrency: 2,
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
-    expect(firstCall?.[0].renderers).toHaveLength(2);
+    expect(firstCall?.[0].renderers).toHaveLength(3);
   });
 
   it('passes materials selectors through to core createReferences', async () => {

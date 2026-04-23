@@ -13,7 +13,7 @@ import {
   type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
-} from '@materialx-fidelity/core';
+} from '@material-fidelity/core';
 
 interface RuntimeState {
   baseUrl: string;

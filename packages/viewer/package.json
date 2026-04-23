@@ -1,5 +1,5 @@
 {
-  "name": "@materialx-fidelity/viewer",
+  "name": "@material-fidelity/viewer",
   "private": true,
   "type": "module",
   "imports": {
@@ -13,9 +13,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@materialx-fidelity/renderer-materialxjs": "workspace:*",
-    "@materialx-fidelity/renderer-materialxview": "workspace:*",
-    "@materialx-fidelity/renderer-threejs": "workspace:*",
+    "@material-fidelity/renderer-materialxjs": "workspace:*",
+    "@material-fidelity/renderer-materialxview": "workspace:*",
+    "@material-fidelity/renderer-threejs": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/devtools-vite": "^0.6.0",
     "@tanstack/react-router": "latest",
