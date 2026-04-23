@@ -340,7 +340,8 @@ class MaterialXNode {
         const uvNode = this.getNodeByName('texcoord') || uv(0);
         const uvTiling = this.getNodeByName('uvtiling');
         const uvOffset = this.getNodeByName('uvoffset');
-        const transformedUv = mx_transform_uv(uvNode, uvTiling, uvOffset);
+        // three/tsl expects (scale, offset, uv), not (uv, scale, offset).
+        const transformedUv = mx_transform_uv(uvTiling, uvOffset, uvNode);
         node = texture(textureFile, transformedUv);
 
         const colorSpaceNode = file.getColorSpaceNode();
