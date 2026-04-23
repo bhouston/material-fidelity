@@ -35,6 +35,36 @@ const IDEAL_MESH_SPHERE_RADIUS = 2;
 const REFERENCE_IMAGE_WIDTH = 512;
 const REFERENCE_IMAGE_HEIGHT = 512;
 
+function logMaterialXWarnings(candidate: unknown): void {
+  if (!candidate || typeof candidate !== 'object') {
+    return;
+  }
+
+  const report = (candidate as { report?: unknown }).report;
+  if (!report || typeof report !== 'object') {
+    return;
+  }
+
+  const warnings = (report as { warnings?: unknown }).warnings;
+  if (!Array.isArray(warnings) || warnings.length === 0) {
+    return;
+  }
+
+  const warningMessages = warnings
+    .map((warning) => {
+      if (!warning || typeof warning !== 'object') {
+        return undefined;
+      }
+      const message = (warning as { message?: unknown }).message;
+      return typeof message === 'string' && message.trim().length > 0 ? message : undefined;
+    })
+    .filter((message): message is string => typeof message === 'string');
+
+  if (warningMessages.length > 0) {
+    console.warn(`Three.js MaterialX compile warnings: ${warningMessages.join(' | ')}`);
+  }
+}
+
 function parseQuery(search: string): ViewerQuery {
   const rawQuery = Object.fromEntries(new URLSearchParams(search).entries());
   return querySchema.parse(rawQuery);
@@ -144,6 +174,7 @@ async function buildScene(): Promise<void> {
       : await new Promise((resolve, reject) => {
           materialXLoader.load(materialXPath.fileName, resolve, undefined, reject);
         });
+  logMaterialXWarnings(materialXResult);
 
   const resolvedMaterial = firstMaterial(materialXResult);
   if (!resolvedMaterial) {

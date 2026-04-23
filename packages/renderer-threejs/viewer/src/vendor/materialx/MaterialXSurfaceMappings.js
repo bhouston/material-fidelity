@@ -1,5 +1,5 @@
 import { DoubleSide } from 'three/webgpu';
-import { float, color, mul, clamp, step, vec2, cos, sin } from 'three/tsl';
+import { float, color, mul, clamp, step, vec2, cos, sin, pow } from 'three/tsl';
 
 const mappedStandardSurfaceInputs = new Set([
   'base',
@@ -371,7 +371,7 @@ function applyOpenPbrSurface(material, inputs, issueCollector, nodeName) {
   if (fuzzEnabled) {
     material.sheenNode = mul(fuzzWeight, fuzzColor);
     if (hasNodeValue(inputs.fuzz_roughness) && isConstNear(inputs.fuzz_roughness, 0.5) === false) {
-      material.sheenRoughnessNode = inputs.fuzz_roughness;
+      material.sheenRoughnessNode = pow(inputs.fuzz_roughness, float(2.5));
     }
   }
 
