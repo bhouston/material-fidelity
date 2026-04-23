@@ -9,6 +9,7 @@ import { MaterialXLoader } from './vendor/MaterialXLoader.js';
 declare global {
   var __MTLX_CAPTURE_DONE__: boolean | undefined;
   var __MTLX_CAPTURE_ERROR__: string | undefined;
+  var __MTLX_FORCE_RENDER__: (() => void) | undefined;
 }
 
 const querySchema = z.object({
@@ -150,6 +151,10 @@ async function buildScene(): Promise<void> {
   const camera = new THREE.PerspectiveCamera(45, REFERENCE_IMAGE_WIDTH / REFERENCE_IMAGE_HEIGHT, 0.05, 1000);
   camera.position.set(0, 0, 5);
   camera.lookAt(0, 0, 0);
+  const renderFrame = (): void => {
+    renderer.render(scene, camera);
+  };
+  globalThis.__MTLX_FORCE_RENDER__ = renderFrame;
 
   const hdrLoader = new HDRLoader();
   const environmentTexture = await hdrLoader.loadAsync(query.environmentHdrPath);
@@ -202,14 +207,15 @@ async function buildScene(): Promise<void> {
   if (typeof renderer.compileAsync === 'function') {
     await renderer.compileAsync(gltf.scene, camera, scene);
   }
-  renderer.render(scene, camera);
+  renderFrame();
   await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-  renderer.render(scene, camera);
+  renderFrame();
 }
 
 async function initialize(): Promise<void> {
   globalThis.__MTLX_CAPTURE_DONE__ = false;
   delete globalThis.__MTLX_CAPTURE_ERROR__;
+  globalThis.__MTLX_FORCE_RENDER__ = undefined;
 
   try {
     await buildScene();

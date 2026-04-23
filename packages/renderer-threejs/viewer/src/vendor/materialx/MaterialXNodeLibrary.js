@@ -910,6 +910,8 @@ SUPPORTED_NODE_CATEGORIES.add('texcoord');
 SUPPORTED_NODE_CATEGORIES.add('geomcolor');
 SUPPORTED_NODE_CATEGORIES.add('image');
 SUPPORTED_NODE_CATEGORIES.add('tiledimage');
+SUPPORTED_NODE_CATEGORIES.add('hextiledimage');
+SUPPORTED_NODE_CATEGORIES.add('hextilednormalmap');
 SUPPORTED_NODE_CATEGORIES.add('transformnormal');
 
 export { MtlXLibrary, SUPPORTED_NODE_CATEGORIES };

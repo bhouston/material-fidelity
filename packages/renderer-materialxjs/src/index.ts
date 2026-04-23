@@ -24,6 +24,8 @@ interface RuntimeState {
 
 const VIEWER_ENVIRONMENT_ROTATION_DEGREES = -90;
 const GPU_BROWSER_ARGS = ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgpu', '--enable-unsafe-webgpu'];
+const POST_IDLE_DELAY_MS = 150;
+const POST_IDLE_RENDER_PASSES = 3;
 
 function toFsUrlPath(absolutePath: string): string {
   return `/@fs/${absolutePath.replaceAll('\\', '/')}`;
@@ -46,6 +48,17 @@ function readGlobalError(page: Page): Promise<string | undefined> {
     const value = Reflect.get(globalThis, '__MTLX_CAPTURE_ERROR__');
     return typeof value === 'string' ? value : undefined;
   });
+}
+
+async function renderAdditionalFrames(page: Page, passes: number): Promise<void> {
+  for (let pass = 0; pass < passes; pass += 1) {
+    await page.evaluate(() => {
+      const forceRenderCandidate = Reflect.get(globalThis, '__MTLX_FORCE_RENDER__');
+      const forceRender = typeof forceRenderCandidate === 'function' ? forceRenderCandidate : undefined;
+      forceRender?.();
+    });
+    await page.waitForTimeout(16);
+  }
 }
 
 function toLogLevel(type: string): RenderLogEntry['level'] {
@@ -273,6 +286,16 @@ class MaterialXJsRenderer implements FidelityRenderer {
       const renderError = await readGlobalError(page);
       if (renderError) {
         throw createRenderError(renderError, logs);
+      }
+      if (browserError) {
+        throw browserError;
+      }
+      await page.waitForTimeout(POST_IDLE_DELAY_MS);
+      await renderAdditionalFrames(page, POST_IDLE_RENDER_PASSES);
+
+      const postIdleRenderError = await readGlobalError(page);
+      if (postIdleRenderError) {
+        throw createRenderError(postIdleRenderError, logs);
       }
       if (browserError) {
         throw browserError;
