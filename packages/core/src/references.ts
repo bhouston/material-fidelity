@@ -106,14 +106,14 @@ async function writeRenderResultReport(options: RenderResultReportOptions): Prom
 }
 
 export async function createReferences(options: CreateReferencesOptions): Promise<CreateReferencesResult> {
-  const samplesRoot = path.join(options.thirdPartyRoot, 'materialx-samples');
+  const samplesRoot = path.join(options.thirdPartyRoot, 'material-samples');
   const materialsRoot = path.join(samplesRoot, 'materials');
   const viewerRoot = path.join(samplesRoot, 'viewer');
 
   try {
     await access(samplesRoot);
   } catch {
-    throw new Error(`Missing required materialx-samples directory at ${samplesRoot}.`);
+    throw new Error(`Missing required material-samples directory at ${samplesRoot}.`);
   }
 
   try {

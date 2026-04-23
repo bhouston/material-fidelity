@@ -68,24 +68,24 @@ Optional flags:
 
 Samples are organized by purpose:
 
-- `third_party/materialx-samples/materials/nodes` - canonical per-node tests
-- `third_party/materialx-samples/materials/surfaces/<surface_type>` - surface/showcase samples grouped by shader family
+- `third_party/material-samples/materials/nodes` - canonical per-node tests
+- `third_party/material-samples/materials/surfaces/<surface_type>` - surface/showcase samples grouped by shader family
 
 ## Node Isolation Suite
 
 The node isolation materials currently live under:
 
-- `third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation`
+- `third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation`
 
 Each node gets its own directory and `material.mtlx`, with phase planning documented in:
 
-- `third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation/PHASES.md`
+- `third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/PHASES.md`
 
 ### Validate Node Isolation Materials
 
 ```bash
 # single material (run from repo root)
-pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
+pnpm --filter @materialx-js/materialx-cli start validate "$PWD/third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
 ```
 
 ```bash
@@ -95,7 +95,7 @@ from pathlib import Path
 import subprocess
 
 root = Path.cwd()
-files = sorted((root / "third_party/materialx-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/material.mtlx"))
+files = sorted((root / "third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/material.mtlx"))
 for file in files:
     subprocess.run(
         ["pnpm", "--filter", "@materialx-js/materialx-cli", "start", "validate", str(file)],

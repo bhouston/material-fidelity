@@ -121,7 +121,7 @@ describe('createReferences', () => {
   it('renders a webp named after the adapter beside each material', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
@@ -187,7 +187,7 @@ describe('createReferences', () => {
   it('requires the expected viewer hdr and mesh filenames', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
@@ -234,7 +234,7 @@ export function createAdapter() {
   it('applies materialSelectors to material paths', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
     const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'included');
@@ -278,7 +278,7 @@ export function createAdapter() {
   it('supports regex material selectors against material directory names', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
     const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'gltf_pbr', 'included');
@@ -322,7 +322,7 @@ export function createAdapter() {
   it('does not match material selectors against parent directories', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const includedDir = path.join(samplesRoot, 'materials', 'surfaces', 'gltf_pbr', 'included');
     const skippedDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'skipped');
@@ -353,7 +353,7 @@ export function createAdapter() {
   it('emits progress events with adapter names for each render task', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
     const materialOneDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-one');
@@ -400,7 +400,7 @@ export function createAdapter() {
   it('defaults to all renderers when rendererNames is omitted', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const fakeAdapterDir = path.join(root, 'adapters', 'fake');
@@ -454,7 +454,7 @@ export function createAdapter() {
   it('queues renders in material-first then adapter order', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const firstMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-one');
     const secondMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'mat-two');
@@ -521,7 +521,7 @@ export function createAdapter() {
   it('marks blank-reference-similar renders as empty failures', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
@@ -573,7 +573,7 @@ export function createAdapter() {
     expect(result.failures[0]?.error.message).toContain('Render output is empty');
   });
 
-  it('fails early when materialx-samples directory is missing', async () => {
+  it('fails early when material-samples directory is missing', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
 
@@ -585,13 +585,13 @@ export function createAdapter() {
         renderers: [],
         concurrency: 1,
       }),
-    ).rejects.toThrow('Missing required materialx-samples directory');
+    ).rejects.toThrow('Missing required material-samples directory');
   });
 
   it('fails early when an adapter prerequisite check fails', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'default');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const adapterDir = path.join(root, 'adapters', 'fake');
@@ -640,7 +640,7 @@ export function createAdapter() {
   it('marks malformed material xml as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'broken');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
@@ -670,7 +670,7 @@ export function createAdapter() {
   it('marks unsupported node categories as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'unsupported');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
@@ -704,7 +704,7 @@ export function createAdapter() {
   it('marks missing texture references as a task failure and continues', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'missing-texture');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const { renderer, state } = createTrackingRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
@@ -744,7 +744,7 @@ export function createAdapter() {
   it('renders valid materials even when another material fails validation', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const invalidMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'invalid-one');
     const validMaterialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'valid-one');
     const viewerDir = path.join(samplesRoot, 'viewer');
@@ -778,7 +778,7 @@ export function createAdapter() {
   it('continues rendering and writes warnings for URI texture references', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'uri-texture');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -820,7 +820,7 @@ export function createAdapter() {
   it('filters debug logs from successful render reports', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'log-filter-success');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const renderer = createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
@@ -865,7 +865,7 @@ export function createAdapter() {
   it('filters debug logs from renderer errors', async () => {
     const root = await makeTempDir('fidelity-');
     const thirdPartyRoot = path.join(root, 'third-party');
-    const samplesRoot = path.join(thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
     const materialDir = path.join(samplesRoot, 'materials', 'surfaces', 'standard_surface', 'log-filter-failure');
     const viewerDir = path.join(samplesRoot, 'viewer');
     const renderer = createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');

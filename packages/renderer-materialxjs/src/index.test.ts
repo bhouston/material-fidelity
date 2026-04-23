@@ -96,23 +96,23 @@ describe('materialxjs renderer', () => {
     const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start();
 
-    const materialPath = path.join(thirdPartyRoot, 'materialx-samples', 'materials', 'example', 'material.mtlx');
-    const outputOne = path.join(thirdPartyRoot, 'materialx-samples', 'materials', 'example', 'one.png');
-    const outputTwo = path.join(thirdPartyRoot, 'materialx-samples', 'materials', 'example', 'two.png');
+    const materialPath = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'material.mtlx');
+    const outputOne = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'one.png');
+    const outputTwo = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'two.png');
     await createFile(materialPath);
 
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputOne,
-      modelPath: path.join(thirdPartyRoot, 'materialx-samples', 'viewer', 'ShaderBall.glb'),
-      environmentHdrPath: path.join(thirdPartyRoot, 'materialx-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
+      modelPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'ShaderBall.glb'),
+      environmentHdrPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
       backgroundColor: '0,0,0',
     });
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputTwo,
-      modelPath: path.join(thirdPartyRoot, 'materialx-samples', 'viewer', 'ShaderBall.glb'),
-      environmentHdrPath: path.join(thirdPartyRoot, 'materialx-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
+      modelPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'ShaderBall.glb'),
+      environmentHdrPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
       backgroundColor: '0,0,0',
     });
 

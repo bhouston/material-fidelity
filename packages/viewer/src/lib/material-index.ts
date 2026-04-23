@@ -4,7 +4,7 @@ import { createRenderer as createMaterialXJsRenderer } from '@materialx-fidelity
 import { createRenderer as createMaterialXViewRenderer } from '@materialx-fidelity/renderer-materialxview';
 import { createRenderer as createThreeJsRenderer } from '@materialx-fidelity/renderer-threejs';
 
-const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/materialx-samples/tree/main/materials';
+const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/material-samples/tree/main/materials';
 const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
 const DEFAULT_LOCAL_HOST = 'localhost:3000';
 const DEFAULT_PRODUCTION_HOST = 'materialx-fidelity.ben3d.ca';
@@ -103,7 +103,7 @@ export function resolveViewerRoots(): ViewerRoots {
   const invocationCwd = process.env.INIT_CWD ?? process.cwd();
   const repoRoot = inferRepoRoot(invocationCwd);
   const thirdPartyRoot = path.join(repoRoot, 'third_party');
-  const materialsRoot = path.join(thirdPartyRoot, 'materialx-samples', 'materials');
+  const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials');
 
   return {
     repoRoot,

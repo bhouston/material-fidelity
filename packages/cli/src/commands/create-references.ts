@@ -133,7 +133,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
 
   useEffect(() => {
     let active = true;
-    const materialsRoot = path.join(args.thirdPartyRoot, 'materialx-samples', 'materials');
+    const materialsRoot = path.join(args.thirdPartyRoot, 'material-samples', 'materials');
 
     const applyProgress = (event: CreateReferencesProgressEvent) => {
       if (!active) {
@@ -308,7 +308,7 @@ export const command = defineCommand({
       materialSelectors: [...new Set(materialSelectors)],
       filter: argv.filter,
     };
-    const materialsRoot = path.join(thirdPartyRoot, 'materialx-samples', 'materials');
+    const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials');
     const isInteractive = process.stdout.isTTY && !process.env.CI;
     const result = isInteractive
       ? await runCreateReferencesWithInk(commandArgs)

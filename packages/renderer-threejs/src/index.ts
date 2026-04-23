@@ -115,7 +115,7 @@ class ThreeJsRenderer implements FidelityRenderer {
     }
 
     try {
-      const samplesRoot = join(this.thirdPartyRoot, 'materialx-samples');
+      const samplesRoot = join(this.thirdPartyRoot, 'material-samples');
       const viewerRoot = join(samplesRoot, 'viewer');
       const missingFiles = await findMissingFiles([
         join(viewerRoot, VIEWER_HDR_FILENAME),
@@ -148,7 +148,7 @@ class ThreeJsRenderer implements FidelityRenderer {
       }
     }
 
-    const samplesRoot = join(this.thirdPartyRoot, 'materialx-samples');
+    const samplesRoot = join(this.thirdPartyRoot, 'material-samples');
     const viewerRoot = join(samplesRoot, 'viewer');
     const envPath = join(viewerRoot, VIEWER_HDR_FILENAME);
     const modelPath = join(viewerRoot, VIEWER_MODEL_FILENAME);
