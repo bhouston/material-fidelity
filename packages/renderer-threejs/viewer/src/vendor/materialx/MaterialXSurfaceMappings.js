@@ -1,5 +1,5 @@
 import { DoubleSide } from 'three/webgpu';
-import { float, color, mul, clamp, step, vec2, cos, sin, pow, mix, transformNormalToView } from 'three/tsl';
+import { float, color, mul, clamp, vec2, cos, sin, pow, mix, transformNormalToView } from 'three/tsl';
 
 const mappedStandardSurfaceInputs = new Set([
   'base',
@@ -153,8 +153,10 @@ function setAnisotropy(material, strengthNode, rotationNode) {
   material.anisotropyRotationNode = rotation;
 }
 
-function setTransmissionFlags(material, transmissionNode, opacityNode) {
-  if (hasNodeValue(opacityNode) && isEffectivelyOne(opacityNode) === false) material.transparent = true;
+function setTransmissionFlags(material, transmissionNode, opacityNode, allowOpacityTransparency = true) {
+  if (allowOpacityTransparency && hasNodeValue(opacityNode) && isEffectivelyOne(opacityNode) === false) {
+    material.transparent = true;
+  }
 
   if (isEnabledWeightNode(transmissionNode)) {
     material.side = DoubleSide;
@@ -169,11 +171,14 @@ function toAttenuationDistance(distanceNode, hasAttenuationColorInput) {
   return hasAttenuationColorInput ? float(1) : undefined;
 }
 
-function buildGltfOpacityNode(alphaNode, alphaModeNode, alphaCutoffNode) {
-  if (typeof alphaModeNode === 'number' && Math.round(alphaModeNode) === 1) {
-    return step(alphaCutoffNode ?? float(0.5), alphaNode ?? float(1));
-  }
-  return alphaNode;
+function buildGltfOpacityNode(alphaNode, alphaModeNode) {
+  const alphaMode = getConstNumber(alphaModeNode);
+  const roundedMode = alphaMode === null ? 2 : Math.round(alphaMode);
+  const alpha = alphaNode ?? float(1);
+
+  if (roundedMode === 0) return float(1);
+  if (roundedMode === 1) return alpha;
+  return alpha;
 }
 
 function applyStandardSurface(material, inputs, issueCollector, nodeName) {
@@ -269,7 +274,12 @@ function applyStandardSurface(material, inputs, issueCollector, nodeName) {
 }
 
 function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
-  const opacityNode = buildGltfOpacityNode(inputs.alpha, inputs.alpha_mode, inputs.alpha_cutoff);
+  const alphaModeLiteral = getConstNumber(inputs.alpha_mode);
+  const alphaMode = alphaModeLiteral === null ? 2 : Math.round(alphaModeLiteral);
+  const isAlphaMaskMode = alphaMode === 1;
+  const isAlphaBlendMode = alphaMode === 2;
+  const opacityNode = buildGltfOpacityNode(inputs.alpha, inputs.alpha_mode);
+  const alphaCutoffNode = inputs.alpha_cutoff ?? float(0.5);
   const hasAttenuationColorInput = Object.prototype.hasOwnProperty.call(inputs, 'attenuation_color');
   const transmissionEnabled = isEnabledWeightNode(inputs.transmission);
   const clearcoatEnabled = isEnabledWeightNode(inputs.clearcoat);
@@ -289,6 +299,11 @@ function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
   }
   if (hasNodeValue(opacityNode) && isEffectivelyOne(opacityNode) === false) {
     material.opacityNode = opacityNode;
+  }
+  if (isAlphaMaskMode) {
+    material.alphaTestNode = alphaCutoffNode;
+    const alphaCutoff = getConstNumber(alphaCutoffNode);
+    if (alphaCutoff !== null) material.alphaTest = alphaCutoff;
   }
   if (transmissionEnabled) {
     material.transmissionNode = inputs.transmission;
@@ -339,7 +354,7 @@ function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
     material.emissiveNode = mul(inputs.emissive, inputs.emissive_strength);
   else if (hasNodeValue(inputs.emissive)) material.emissiveNode = inputs.emissive;
 
-  setTransmissionFlags(material, inputs.transmission, opacityNode);
+  setTransmissionFlags(material, inputs.transmission, opacityNode, isAlphaBlendMode);
   warnIgnoredInputs(inputs, mappedGltfPbrInputs, issueCollector, 'gltf_pbr', nodeName);
 }
 

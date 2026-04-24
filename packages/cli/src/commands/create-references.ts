@@ -22,9 +22,8 @@ function resolveThirdPartyRoot(invocationCwd: string): string {
   return path.join(repoRoot, 'third_party');
 }
 
-function formatElapsed(ms: number): string {
-  const elapsedSeconds = Math.max(0, ms / 1000);
-  return humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
+function formatElapsed(seconds: number): string {
+  return humanizeTime(Math.max(0, seconds), { unitSeparator: ' ' });
 }
 
 function formatMaterialLabel(materialPath: string, materialsRoot: string): string {
@@ -117,7 +116,6 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
   const [started, setStarted] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [startedAt] = useState(() => Date.now());
-  const [durationTotalMs, setDurationTotalMs] = useState(0);
   const [renderLogs, setRenderLogs] = useState<RenderLogLine[]>([]);
   const [stopping, setStopping] = useState(false);
   const [statusLine, setStatusLine] = useState('Preparing render plan...');
@@ -159,10 +157,9 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
         return;
       }
 
-      const elapsed = formatElapsed(event.durationMs ?? 0);
+      const elapsed = formatElapsed((event.durationMs ?? 0) / 1000);
       setTotal(event.total);
       setCompleted(event.completed);
-      setDurationTotalMs((value) => value + (event.durationMs ?? 0));
       setRenderLogs((previous) =>
         previous.map((entry) =>
           entry.key === `${event.rendererName}:${event.materialPath}`
@@ -214,14 +211,16 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     };
   }, [args, exit, onComplete, onError]);
 
-  const elapsedMs = Math.max(0, Date.now() - startedAt);
-  const etaMs = useMemo(() => {
-    if (completed === 0 || total <= completed) {
-      return 0;
+  const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
+  const active = Math.max(0, started - completed);
+  const effectiveCompleted = Math.min(total, completed + active * 0.5);
+  const etaSeconds = useMemo(() => {
+    if (effectiveCompleted < 1 || total <= effectiveCompleted) {
+      return null;
     }
-    const averageMs = durationTotalMs / completed;
-    return Math.max(0, averageMs * (total - completed));
-  }, [completed, durationTotalMs, total]);
+    const secondsPerRender = elapsedSeconds / effectiveCompleted;
+    return Math.max(0, secondsPerRender * (total - effectiveCompleted));
+  }, [effectiveCompleted, elapsedSeconds, total]);
 
   return createElement(
     Box,
@@ -240,12 +239,12 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     createElement(
       Text,
       undefined,
-      `${renderProgressBar(completed, total)}  ${completed}/${total} complete, ${started - completed} active`,
+      `${renderProgressBar(completed, total)}  ${completed}/${total} complete, ${active} active`,
     ),
     createElement(
       Text,
       { color: stopping ? 'yellow' : 'gray' },
-      `Elapsed: ${formatElapsed(elapsedMs)} | ETA: ${formatElapsed(etaMs)} | Ctrl-C to stop`,
+      `Elapsed: ${formatElapsed(elapsedSeconds)} | ETA: ${etaSeconds == null ? '?' : formatElapsed(etaSeconds)} | Ctrl-C to stop`,
     ),
   );
 }
