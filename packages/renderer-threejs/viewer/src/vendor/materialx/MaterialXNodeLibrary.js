@@ -333,7 +333,7 @@ const mx_ramp4 = (valuetl, valuetr, valuebl, valuebr, texcoord = vec2(0, 0)) => 
 };
 
 const mx_rotate2d_materialx = (inNode, amount = 0) => {
-  const rotationRadians = mul(sub(0, amount), Math.PI / 180.0);
+  const rotationRadians = mul(amount, Math.PI / 180.0);
   const sa = sin(rotationRadians);
   const ca = cos(rotationRadians);
   const x = element(inNode, 0);
@@ -342,11 +342,9 @@ const mx_rotate2d_materialx = (inNode, amount = 0) => {
 };
 
 const mx_place2d_materialx = (texcoord, pivot = vec2(0, 0), scale = vec2(1, 1), rotate = 0, offset = vec2(0, 0), operationorder = 0) => {
-  const pivotAdjusted = vec2(element(pivot, 0), sub(1, element(pivot, 1)));
-  const offsetAdjusted = vec2(element(offset, 0), sub(0, element(offset, 1)));
-  const centered = sub(texcoord, pivotAdjusted);
-  const srt = add(sub(mx_rotate2d_materialx(div(centered, scale), rotate), offsetAdjusted), pivotAdjusted);
-  const trs = add(div(mx_rotate2d_materialx(sub(centered, offsetAdjusted), rotate), scale), pivotAdjusted);
+  const centered = sub(texcoord, pivot);
+  const srt = add(sub(mx_rotate2d_materialx(div(centered, scale), rotate), offset), pivot);
+  const trs = add(div(mx_rotate2d_materialx(sub(centered, offset), rotate), scale), pivot);
 
   if (typeof operationorder === 'number') {
     return Math.abs(operationorder) > Number.EPSILON ? trs : srt;

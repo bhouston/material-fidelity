@@ -67,6 +67,14 @@ function toRadians(degrees) {
   return mul(degrees, HEXTILE_PI_OVER_180);
 }
 
+function mxToUvSpace(uvNode) {
+  return vec2(element(uvNode, 0), sub(1, element(uvNode, 1)));
+}
+
+function mxFromUvSpace(uvNode) {
+  return vec2(element(uvNode, 0), sub(1, element(uvNode, 1)));
+}
+
 function mxHextileHash(point) {
   const x = element(point, 0);
   const y = element(point, 1);
@@ -544,7 +552,7 @@ class MaterialXNode {
       if (defaultGeomProp && /^UV(\d+)$/.test(defaultGeomProp)) {
         index = parseInt(defaultGeomProp.match(/^UV(\d+)$/)[1], 10);
       }
-      node = uv(index);
+      node = mxToUvSpace(uv(index));
     }
 
     if ((this.element === 'separate2' || this.element === 'separate3' || this.element === 'separate4') && out) {
@@ -554,9 +562,9 @@ class MaterialXNode {
 
     if (this.element === 'gltf_colorimage' && out) {
       const file = this.getChildByName('file');
-      const uvNode = this.getNodeByName('texcoord') || uv(0);
+      const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
       const textureFile = file ? file.getTexture() : null;
-      const sampled = textureFile ? texture(textureFile, uvNode) : vec4(0, 0, 0, 1);
+      const sampled = textureFile ? texture(textureFile, mxFromUvSpace(uvNode)) : vec4(0, 0, 0, 1);
 
       if (out === 'outa' || out === 'a') {
         return element(sampled, 3);
@@ -621,7 +629,7 @@ class MaterialXNode {
       } else if (elementName === 'texcoord') {
         const indexNode = this.getChildByName('index');
         const index = indexNode ? parseInt(indexNode.value) : 0;
-        node = uv(index);
+        node = mxToUvSpace(uv(index));
       } else if (elementName === 'geomcolor') {
         const indexNode = this.getChildByName('index');
         const index = indexNode ? parseInt(indexNode.value) : 0;
@@ -629,12 +637,12 @@ class MaterialXNode {
       } else if (elementName === 'tiledimage') {
         const file = this.getChildByName('file');
         const textureFile = file.getTexture();
-        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
         const uvTiling = this.getNodeByName('uvtiling');
         const uvOffset = this.getNodeByName('uvoffset');
         // three/tsl expects (scale, offset, uv), not (uv, scale, offset).
         const transformedUv = mx_transform_uv(uvTiling, uvOffset, uvNode);
-        node = texture(textureFile, transformedUv);
+        node = texture(textureFile, mxFromUvSpace(transformedUv));
 
         const colorSpaceNode = file.getColorSpaceNode();
         if (colorSpaceNode) node = colorSpaceNode(node);
@@ -642,7 +650,7 @@ class MaterialXNode {
         const file = this.getChildByName('file');
         const uvNode = this.getNodeByName('texcoord');
         const textureFile = file.getTexture();
-        node = texture(textureFile, uvNode);
+        node = texture(textureFile, mxFromUvSpace(uvNode));
 
         const colorSpaceNode = file.getColorSpaceNode();
         if (colorSpaceNode) node = colorSpaceNode(node);
@@ -656,7 +664,7 @@ class MaterialXNode {
           node = vec4(0, 0, 0, 1);
         } else {
           const textureFile = file.getTexture();
-          const uvNode = this.getNodeByName('texcoord') || uv(0);
+          const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
           const tiling = this.getNodeByName('tiling') || vec2(1, 1);
           const rotation = this.getNodeByName('rotation') || float(1);
           const rotationRange = this.getNodeByName('rotationrange') || vec2(0, 360);
@@ -670,9 +678,9 @@ class MaterialXNode {
           const transformedUv = mul(uvNode, tiling);
           const tileData = mxHextileCoord(transformedUv, rotation, rotationRange, scale, scaleRange, offset, offsetRange);
 
-          let sample0 = texture(textureFile, tileData.coords[0]);
-          let sample1 = texture(textureFile, tileData.coords[1]);
-          let sample2 = texture(textureFile, tileData.coords[2]);
+          let sample0 = texture(textureFile, mxFromUvSpace(tileData.coords[0]));
+          let sample1 = texture(textureFile, mxFromUvSpace(tileData.coords[1]));
+          let sample2 = texture(textureFile, mxFromUvSpace(tileData.coords[2]));
           const sample0Raw = sample0;
           const sample1Raw = sample1;
           const sample2Raw = sample2;
@@ -716,9 +724,9 @@ class MaterialXNode {
         }
       } else if (elementName === 'gltf_image' || elementName === 'gltf_colorimage' || elementName === 'gltf_normalmap') {
         const file = this.getChildByName('file');
-        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
         const textureFile = file ? file.getTexture() : null;
-        node = textureFile ? texture(textureFile, uvNode) : float(0);
+        node = textureFile ? texture(textureFile, mxFromUvSpace(uvNode)) : float(0);
 
         const colorSpaceNode = file ? file.getColorSpaceNode() : null;
         if (colorSpaceNode) node = colorSpaceNode(node);
@@ -728,11 +736,11 @@ class MaterialXNode {
         }
       } else if (elementName === 'gltf_anisotropy_image') {
         const file = this.getChildByName('file');
-        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
         const defaultInput = this.getNodeByName('default') || vec3(1, 0.5, 1);
         const textureFile = file ? file.getTexture() : null;
         const sampled = textureFile
-          ? texture(textureFile, uvNode)
+          ? texture(textureFile, mxFromUvSpace(uvNode))
           : vec4(element(defaultInput, 0), element(defaultInput, 1), element(defaultInput, 2), 1);
         const anisotropyStrengthFactor = this.getNodeByName('anisotropy_strength') || float(1);
         const anisotropyRotationFactor = this.getNodeByName('anisotropy_rotation') || float(0);
@@ -755,30 +763,13 @@ class MaterialXNode {
         node = anisotropyStrengthOut;
       } else if (elementName === 'gltf_iridescence_thickness') {
         const file = this.getChildByName('file');
-        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const uvNode = this.getNodeByName('texcoord') || mxToUvSpace(uv(0));
         const textureFile = file ? file.getTexture() : null;
-        const sampled = textureFile ? texture(textureFile, uvNode) : vec4(0, 0, 0, 1);
+        const sampled = textureFile ? texture(textureFile, mxFromUvSpace(uvNode)) : vec4(0, 0, 0, 1);
         const sampledThickness = element(sampled, 0);
         const thicknessMin = this.getNodeByName('thicknessMin') || float(100);
         const thicknessMax = this.getNodeByName('thicknessMax') || float(400);
         node = add(thicknessMin, mul(sampledThickness, sub(thicknessMax, thicknessMin)));
-      } else if (elementName === 'rotate2d') {
-        const inInput = this.getChildByName('in');
-        const inNode = this.getNodeByName('in') || vec2(0, 0);
-        const amount = this.getNodeByName('amount') || float(0);
-        const rotate2dNodeElement = MtlXLibrary.rotate2d;
-        const sourceNode =
-          inInput && inInput.hasReference ? this.materialX.getMaterialXNode(inInput.referencePath) : null;
-        const isDirectTexcoord = sourceNode?.element === 'texcoord';
-        if (!isDirectTexcoord) {
-          node = rotate2dNodeElement ? rotate2dNodeElement.nodeFunc(inNode, amount) : inNode;
-        } else {
-          const pivotAdjusted = vec2(0, 1);
-          const centered = sub(inNode, pivotAdjusted);
-          node = rotate2dNodeElement
-            ? add(rotate2dNodeElement.nodeFunc(centered, amount), pivotAdjusted)
-            : add(centered, pivotAdjusted);
-        }
       } else if (elementName === 'invertmatrix') {
         const inInput = this.getChildByName('in');
         const matrixType = inInput ? inInput.type : null;
