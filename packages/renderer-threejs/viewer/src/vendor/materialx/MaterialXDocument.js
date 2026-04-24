@@ -762,6 +762,23 @@ class MaterialXNode {
         const thicknessMin = this.getNodeByName('thicknessMin') || float(100);
         const thicknessMax = this.getNodeByName('thicknessMax') || float(400);
         node = add(thicknessMin, mul(sampledThickness, sub(thicknessMax, thicknessMin)));
+      } else if (elementName === 'rotate2d') {
+        const inInput = this.getChildByName('in');
+        const inNode = this.getNodeByName('in') || vec2(0, 0);
+        const amount = this.getNodeByName('amount') || float(0);
+        const rotate2dNodeElement = MtlXLibrary.rotate2d;
+        const sourceNode =
+          inInput && inInput.hasReference ? this.materialX.getMaterialXNode(inInput.referencePath) : null;
+        const isDirectTexcoord = sourceNode?.element === 'texcoord';
+        if (!isDirectTexcoord) {
+          node = rotate2dNodeElement ? rotate2dNodeElement.nodeFunc(inNode, amount) : inNode;
+        } else {
+          const pivotAdjusted = vec2(0, 1);
+          const centered = sub(inNode, pivotAdjusted);
+          node = rotate2dNodeElement
+            ? add(rotate2dNodeElement.nodeFunc(centered, amount), pivotAdjusted)
+            : add(centered, pivotAdjusted);
+        }
       } else if (elementName === 'invertmatrix') {
         const inInput = this.getChildByName('in');
         const matrixType = inInput ? inInput.type : null;

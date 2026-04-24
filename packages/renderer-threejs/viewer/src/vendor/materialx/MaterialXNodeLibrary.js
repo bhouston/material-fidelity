@@ -356,7 +356,7 @@ const mx_place2d_materialx = (texcoord, pivot = vec2(0, 0), scale = vec2(1, 1), 
 
 const mx_rotate3d_materialx = (inNode, amount = 0, axis = vec3(0, 1, 0)) => {
   const normalizedAxis = normalize(axis);
-  const rotationRadians = mul(sub(0, amount), Math.PI / 180.0);
+  const rotationRadians = mul(amount, Math.PI / 180.0);
   const s = sin(rotationRadians);
   const c = cos(rotationRadians);
   const oc = sub(1, c);
