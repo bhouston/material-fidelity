@@ -253,10 +253,9 @@ function applyStandardSurface(material, inputs, issueCollector, nodeName) {
   }
   const sheenColor = inputs.sheen_color || color(1, 1, 1);
   if (sheenEnabled) {
+    const sheenRoughness = hasNodeValue(inputs.sheen_roughness) ? inputs.sheen_roughness : float(0.3);
     material.sheenNode = mul(inputs.sheen, sheenColor);
-  }
-  if (sheenEnabled && hasNodeValue(inputs.sheen_roughness) && isConstNear(inputs.sheen_roughness, 0.3) === false) {
-    material.sheenRoughnessNode = inputs.sheen_roughness;
+    material.sheenRoughnessNode = sheenRoughness;
   }
   if (clearcoatEnabled) {
     material.clearcoatNode = inputs.coat;
@@ -318,9 +317,8 @@ function applyGltfPbrSurface(material, inputs, issueCollector, nodeName) {
   }
   if (sheenEnabled) {
     const sheenColor = hasNodeValue(inputs.sheen_color) ? inputs.sheen_color : color(0, 0, 0);
-    if (hasNodeValue(inputs.sheen_roughness) && isEffectivelyZero(inputs.sheen_roughness) === false) {
-      material.sheenRoughnessNode = inputs.sheen_roughness;
-    }
+    const sheenRoughness = hasNodeValue(inputs.sheen_roughness) ? inputs.sheen_roughness : float(0);
+    material.sheenRoughnessNode = sheenRoughness;
     material.sheenNode = sheenColor;
   }
   if (iridescenceEnabled) {
@@ -409,8 +407,8 @@ function applyOpenPbrSurface(material, inputs, issueCollector, nodeName) {
   const fuzzColor = inputs.fuzz_color || color(1, 1, 1);
   if (fuzzEnabled) {
     material.sheenNode = mul(fuzzWeight, fuzzColor);
-    if (hasNodeValue(inputs.fuzz_roughness) && isConstNear(inputs.fuzz_roughness, 0.5) === false) {
-      material.sheenRoughnessNode = pow(inputs.fuzz_roughness, float(2.5));
+    if (hasNodeValue(inputs.fuzz_roughness)) {
+      material.sheenRoughnessNode = pow(inputs.fuzz_roughness, float(1.5));
     }
   }
 
