@@ -99,7 +99,7 @@ describe('threejs renderer', () => {
     const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start();
 
-    const materialPath = path.join(samplesRoot, 'materials', 'example', 'material.mtlx');
+    const materialPath = path.join(samplesRoot, 'materials', 'example', 'example.mtlx');
     const outputOne = path.join(samplesRoot, 'materials', 'example', 'one.png');
     const outputTwo = path.join(samplesRoot, 'materials', 'example', 'two.png');
     await createFile(materialPath);

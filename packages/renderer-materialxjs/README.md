@@ -5,7 +5,7 @@ Capture renderer for MaterialX Fidelity using the JavaScript MaterialX toolchain
 ## What This Renderer Does
 
 - starts a local capture web page from `viewer/`
-- loads `material.mtlx`, `ShaderBall.glb`, and `san_giuseppe_bridge_2k.hdr`
+- loads the directory's `.mtlx` material file, `ShaderBall.glb`, and `san_giuseppe_bridge_2k.hdr`
 - compiles MaterialX with the JavaScript MaterialX compiler
 - renders one deterministic frame and writes `<material-dir>/materialxjs.png`
 - relies on `@material-fidelity/core` to preserve PNG output as `materialxjs.png`

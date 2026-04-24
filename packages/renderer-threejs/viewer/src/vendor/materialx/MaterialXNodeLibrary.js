@@ -45,7 +45,6 @@ import {
   mx_worley_noise_float,
   mx_unifiednoise2d,
   mx_unifiednoise3d,
-  mx_place2d,
   mx_safepower,
   mx_contrast,
   element,
@@ -334,7 +333,7 @@ const mx_ramp4 = (valuetl, valuetr, valuebl, valuebr, texcoord = vec2(0, 0)) => 
 };
 
 const mx_rotate2d_materialx = (inNode, amount = 0) => {
-  const rotationRadians = mul(amount, Math.PI / 180.0);
+  const rotationRadians = mul(sub(0, amount), Math.PI / 180.0);
   const sa = sin(rotationRadians);
   const ca = cos(rotationRadians);
   const x = element(inNode, 0);
@@ -342,9 +341,22 @@ const mx_rotate2d_materialx = (inNode, amount = 0) => {
   return vec2(add(mul(ca, x), mul(sa, y)), sub(mul(ca, y), mul(sa, x)));
 };
 
+const mx_place2d_materialx = (texcoord, pivot = vec2(0, 0), scale = vec2(1, 1), rotate = 0, offset = vec2(0, 0), operationorder = 0) => {
+  const pivotAdjusted = vec2(element(pivot, 0), sub(1, element(pivot, 1)));
+  const offsetAdjusted = vec2(element(offset, 0), sub(0, element(offset, 1)));
+  const centered = sub(texcoord, pivotAdjusted);
+  const srt = add(sub(mx_rotate2d_materialx(div(centered, scale), rotate), offsetAdjusted), pivotAdjusted);
+  const trs = add(div(mx_rotate2d_materialx(sub(centered, offsetAdjusted), rotate), scale), pivotAdjusted);
+
+  if (typeof operationorder === 'number') {
+    return Math.abs(operationorder) > Number.EPSILON ? trs : srt;
+  }
+  return mix(srt, trs, step(0.5, operationorder));
+};
+
 const mx_rotate3d_materialx = (inNode, amount = 0, axis = vec3(0, 1, 0)) => {
   const normalizedAxis = normalize(axis);
-  const rotationRadians = mul(amount, Math.PI / 180.0);
+  const rotationRadians = mul(sub(0, amount), Math.PI / 180.0);
   const s = sin(rotationRadians);
   const c = cos(rotationRadians);
   const oc = sub(1, c);
@@ -820,7 +832,7 @@ const MXElements = [
       diminish: defaultFloat(0.5),
     },
   ),
-  new MXElement('place2d', mx_place2d, ['texcoord', 'pivot', 'scale', 'rotate', 'offset', 'operationorder'], {
+  new MXElement('place2d', mx_place2d_materialx, ['texcoord', 'pivot', 'scale', 'rotate', 'offset', 'operationorder'], {
     texcoord: defaultVec2(0, 0),
     pivot: defaultVec2(0, 0),
     scale: defaultVec2(1, 1),
@@ -910,6 +922,8 @@ SUPPORTED_NODE_CATEGORIES.add('texcoord');
 SUPPORTED_NODE_CATEGORIES.add('geomcolor');
 SUPPORTED_NODE_CATEGORIES.add('image');
 SUPPORTED_NODE_CATEGORIES.add('tiledimage');
+SUPPORTED_NODE_CATEGORIES.add('gltf_anisotropy_image');
+SUPPORTED_NODE_CATEGORIES.add('gltf_iridescence_thickness');
 SUPPORTED_NODE_CATEGORIES.add('hextiledimage');
 SUPPORTED_NODE_CATEGORIES.add('hextilednormalmap');
 SUPPORTED_NODE_CATEGORIES.add('transformnormal');

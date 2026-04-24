@@ -126,6 +126,25 @@ async function directoryExists(directoryPath: string): Promise<boolean> {
   }
 }
 
+async function listMtlxFilesInDirectory(directoryPath: string): Promise<string[]> {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === '.mtlx')
+    .map((entry) => path.join(directoryPath, entry.name))
+    .toSorted((left, right) => left.localeCompare(right));
+}
+
+async function resolveSingleMtlxFileInDirectory(directoryPath: string): Promise<string | undefined> {
+  if (!(await directoryExists(directoryPath))) {
+    return undefined;
+  }
+  const mtlxFiles = await listMtlxFilesInDirectory(directoryPath);
+  if (mtlxFiles.length !== 1) {
+    return undefined;
+  }
+  return mtlxFiles[0];
+}
+
 async function resolveReferenceImageCandidatePath(
   materialDirectory: string,
   rendererName: string,
@@ -151,22 +170,21 @@ async function resolveReferenceReportCandidatePath(
 }
 
 async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
-  const materialFiles: string[] = [];
   const entries = await readdir(rootDir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const entryPath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      materialFiles.push(...(await discoverMaterialFiles(entryPath)));
-      continue;
-    }
-
-    if (entry.isFile() && entry.name === 'material.mtlx') {
-      materialFiles.push(entryPath);
-    }
+  const mtlxFiles = entries
+    .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === '.mtlx')
+    .map((entry) => path.join(rootDir, entry.name));
+  if (mtlxFiles.length > 0) {
+    return mtlxFiles;
   }
 
-  return materialFiles;
+  const nested: string[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      nested.push(...(await discoverMaterialFiles(path.join(rootDir, entry.name))));
+    }
+  }
+  return nested;
 }
 
 function getBuiltInRenderers(thirdPartyRoot: string): BuiltInRendererDescriptor[] {
@@ -279,7 +297,7 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
   const renderers = rendererGroups.flatMap((group) => group.renderers);
 
   if (materialFiles.length === 0) {
-    errors.push(`No material.mtlx files found under: ${roots.materialsRoot}`);
+    errors.push(`No .mtlx files found under: ${roots.materialsRoot}`);
   }
 
   const grouped = new Map<string, MaterialViewModel[]>();
@@ -390,11 +408,22 @@ export async function resolveMaterialDirectory(
       continue;
     }
 
-    const materialPath = path.join(targetDirectory, 'material.mtlx');
-    if (await directoryExists(materialPath)) {
+    const materialPath = await resolveSingleMtlxFileInDirectory(targetDirectory);
+    if (materialPath) {
       return targetDirectory;
     }
   }
 
   return undefined;
+}
+
+export async function resolveMaterialFilePath(
+  materialType: string,
+  materialName: string,
+): Promise<string | undefined> {
+  const targetDirectory = await resolveMaterialDirectory(materialType, materialName);
+  if (!targetDirectory) {
+    return undefined;
+  }
+  return resolveSingleMtlxFileInDirectory(targetDirectory);
 }

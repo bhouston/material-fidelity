@@ -1,9 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { resolveMaterialDirectory, resolveViewerRoots } from '#/lib/material-index';
-
-const MATERIAL_FILENAME = 'material.mtlx';
+import { resolveMaterialDirectory, resolveMaterialFilePath, resolveViewerRoots } from '#/lib/material-index';
 const IMAGE_EXTENSIONS = new Set([
   '.avif',
   '.bmp',
@@ -105,12 +103,16 @@ export async function createMaterialXZipPayloadByTypeAndName(
     return undefined;
   }
 
-  const materialPath = path.join(materialDirectory, MATERIAL_FILENAME);
+  const materialPath = await resolveMaterialFilePath(materialType, materialName);
+  if (!materialPath) {
+    return undefined;
+  }
+  const materialFilename = path.basename(materialPath);
   const materialXml = await readFile(materialPath, 'utf8');
   const referencedImagePaths = extractReferencedImagePaths(materialXml);
   const zip = new JSZip();
 
-  zip.file(MATERIAL_FILENAME, materialXml);
+  zip.file(materialFilename, materialXml);
 
   for (const referencedPath of referencedImagePaths) {
     const resolved = resolveAssetPath(materialDirectory, roots.materialsRoot, referencedPath);

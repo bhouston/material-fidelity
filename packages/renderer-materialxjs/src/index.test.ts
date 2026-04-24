@@ -96,7 +96,7 @@ describe('materialxjs renderer', () => {
     const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start();
 
-    const materialPath = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'material.mtlx');
+    const materialPath = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'example.mtlx');
     const outputOne = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'one.png');
     const outputTwo = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'two.png');
     await createFile(materialPath);

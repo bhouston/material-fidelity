@@ -227,16 +227,16 @@ async function main() {
   };
 
   for (const materialName of MATERIAL_NAMES) {
-    const sourcePath = path.join(sourceRoot, materialName, 'material.mtlx');
-    const targetPath = path.join(targetRoot, materialName, 'material.mtlx');
+    const sourcePath = path.join(sourceRoot, materialName, `${materialName}.mtlx`);
+    const targetPath = path.join(targetRoot, materialName, `${materialName}.mtlx`);
 
     if (!(await pathExists(sourcePath))) {
-      summary.skipped.push({ material: materialName, reason: 'source material.mtlx not found' });
+      summary.skipped.push({ material: materialName, reason: `source ${materialName}.mtlx not found` });
       continue;
     }
 
     if (await pathExists(targetPath)) {
-      summary.skipped.push({ material: materialName, reason: 'target material.mtlx already exists' });
+      summary.skipped.push({ material: materialName, reason: `target ${materialName}.mtlx already exists` });
       continue;
     }
 

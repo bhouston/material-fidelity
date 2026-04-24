@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import pLimit from 'p-limit';
-import { findFilesByName } from './fs-utils.js';
+import { findFilesByExtension } from './fs-utils.js';
 import { assertRenderIsNotEmpty, calculateImageNormalizedRgbRms } from './image-empty-check.js';
 import {
   formatFatalValidationIssues,
@@ -147,9 +147,9 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     throw new Error(`Missing required viewer directory at ${viewerRoot}.`);
   }
 
-  const materialFiles = await findFilesByName(materialsRoot, 'material.mtlx');
+  const materialFiles = await findFilesByExtension(materialsRoot, '.mtlx');
   if (materialFiles.length === 0) {
-    throw new Error(`No material.mtlx files found under ${materialsRoot}.`);
+    throw new Error(`No .mtlx files found under ${materialsRoot}.`);
   }
   const materialSelectors = [
     ...new Set((options.materialSelectors ?? []).map((selector) => selector.trim()).filter(Boolean)),
@@ -161,7 +161,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
         )
       : materialFiles;
   if (selectedMaterialFiles.length === 0) {
-    throw new Error(`No material.mtlx files matched --materials "${materialSelectors.join(', ')}".`);
+    throw new Error(`No .mtlx files matched --materials "${materialSelectors.join(', ')}".`);
   }
   await options.onPlan?.({ materialPaths: selectedMaterialFiles });
 

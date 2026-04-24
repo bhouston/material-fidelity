@@ -50,7 +50,7 @@ pnpm cli create-references
 pnpm cli create-references --renderers materialxjs --materials open_pbr
 ```
 
-This command writes `<renderer-name>.png` in each directory containing a `material.mtlx`.
+This command writes `<renderer-name>.png` in each directory containing a `.mtlx` material file.
 
 Currently supported renderers:
 
@@ -78,7 +78,7 @@ The node isolation materials currently live under:
 
 - `third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation`
 
-Each node gets its own directory and `material.mtlx`, with phase planning documented in:
+Each node gets its own directory and `<node-name>.mtlx`, with phase planning documented in:
 
 - `third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/PHASES.md`
 
@@ -86,7 +86,7 @@ Each node gets its own directory and `material.mtlx`, with phase planning docume
 
 ```bash
 # single material (run from repo root)
-pnpm --filter @material-viewer/materialx-cli start validate "$PWD/third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/add/material.mtlx"
+pnpm --filter @material-viewer/materialx-cli start validate "$PWD/third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation/add/add.mtlx"
 ```
 
 ```bash
@@ -96,7 +96,7 @@ from pathlib import Path
 import subprocess
 
 root = Path.cwd()
-files = sorted((root / "third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/material.mtlx"))
+files = sorted((root / "third_party/material-samples/materials/surfaces/gltf_pbr/node_isolation").glob("*/*.mtlx"))
 for file in files:
     subprocess.run(
         ["pnpm", "--filter", "@material-viewer/materialx-cli", "start", "validate", str(file)],

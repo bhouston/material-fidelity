@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { materialMatchesSelector } from './material-selectors.js';
 
 describe('materialMatchesSelector', () => {
-  const materialPath = path.join('/tmp', 'materials', 'surfaces', 'gltf_pbr', 'included', 'material.mtlx');
+  const materialPath = path.join('/tmp', 'materials', 'surfaces', 'gltf_pbr', 'included', 'included.mtlx');
 
   it('matches substring selectors against the material directory leaf name', () => {
     expect(materialMatchesSelector(materialPath, 'incl')).toBe(true);

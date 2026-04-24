@@ -25,6 +25,26 @@ export async function findFilesByName(rootDir: string, fileName: string): Promis
   return matches;
 }
 
+export async function findFilesByExtension(rootDir: string, extension: string): Promise<string[]> {
+  const normalized = extension.toLowerCase();
+  const matches: string[] = [];
+  const entries = await readdir(rootDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      matches.push(...(await findFilesByExtension(entryPath, normalized)));
+      continue;
+    }
+
+    if (entry.isFile() && path.extname(entry.name).toLowerCase() === normalized) {
+      matches.push(entryPath);
+    }
+  }
+
+  return matches;
+}
+
 export async function findFirstFileByExtension(rootDir: string, extension: string): Promise<string | undefined> {
   const normalized = extension.toLowerCase();
   const entries = await readdir(rootDir, { withFileTypes: true });

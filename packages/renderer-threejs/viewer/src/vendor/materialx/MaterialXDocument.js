@@ -23,6 +23,7 @@ import {
   max,
   mix,
   mul,
+  mx_atan2,
   normalMap,
   pow,
   sin,
@@ -725,6 +726,42 @@ class MaterialXNode {
           const normalScale = this.getNodeByName('scale') || float(1);
           node = normalMap(node, normalScale);
         }
+      } else if (elementName === 'gltf_anisotropy_image') {
+        const file = this.getChildByName('file');
+        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const defaultInput = this.getNodeByName('default') || vec3(1, 0.5, 1);
+        const textureFile = file ? file.getTexture() : null;
+        const sampled = textureFile
+          ? texture(textureFile, uvNode)
+          : vec4(element(defaultInput, 0), element(defaultInput, 1), element(defaultInput, 2), 1);
+        const anisotropyStrengthFactor = this.getNodeByName('anisotropy_strength') || float(1);
+        const anisotropyRotationFactor = this.getNodeByName('anisotropy_rotation') || float(0);
+        const encodedDirection = vec2(
+          sub(mul(element(sampled, 0), 2), 1),
+          sub(mul(element(sampled, 1), 2), 1),
+        );
+        const textureRotation = mx_atan2(element(encodedDirection, 1), element(encodedDirection, 0));
+        const anisotropyStrengthOut = clamp(mul(anisotropyStrengthFactor, element(sampled, 2)), 0, 1);
+        const anisotropyRotationOut = add(anisotropyRotationFactor, textureRotation);
+
+        if (out === 'anisotropy_rotation_out') {
+          return anisotropyRotationOut;
+        }
+
+        if (out === 'anisotropy_strength_out' || out === null) {
+          return anisotropyStrengthOut;
+        }
+
+        node = anisotropyStrengthOut;
+      } else if (elementName === 'gltf_iridescence_thickness') {
+        const file = this.getChildByName('file');
+        const uvNode = this.getNodeByName('texcoord') || uv(0);
+        const textureFile = file ? file.getTexture() : null;
+        const sampled = textureFile ? texture(textureFile, uvNode) : vec4(0, 0, 0, 1);
+        const sampledThickness = element(sampled, 0);
+        const thicknessMin = this.getNodeByName('thicknessMin') || float(100);
+        const thicknessMax = this.getNodeByName('thicknessMax') || float(400);
+        node = add(thicknessMin, mul(sampledThickness, sub(thicknessMax, thicknessMin)));
       } else if (elementName === 'invertmatrix') {
         const inInput = this.getChildByName('in');
         const matrixType = inInput ? inInput.type : null;
