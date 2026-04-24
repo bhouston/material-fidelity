@@ -379,9 +379,9 @@ const mx_rotate3d_materialx = (inNode, amount = 0, axis = vec3(0, 1, 0)) => {
   const m22 = add(mul(mul(oc, az), az), c);
 
   return vec3(
-    add(add(mul(m00, x), mul(m01, y)), mul(m02, z)),
-    add(add(mul(m10, x), mul(m11, y)), mul(m12, z)),
-    add(add(mul(m20, x), mul(m21, y)), mul(m22, z)),
+    add(add(mul(m00, x), mul(m10, y)), mul(m20, z)),
+    add(add(mul(m01, x), mul(m11, y)), mul(m21, z)),
+    add(add(mul(m02, x), mul(m12, y)), mul(m22, z)),
   );
 };
 
