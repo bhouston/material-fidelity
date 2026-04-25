@@ -234,10 +234,10 @@ const mx_transformnormal = (inNode = vec3(0, 0, 1), fromspace = 'world', tospace
   }
 
   if (from === 'object' && to === 'world') {
-    return normalize(mul(modelNormalMatrix, inNormal));
+    return normalize(mul(inNormal, modelNormalMatrix));
   }
 
-  return normalize(mul(mat3(modelWorldMatrix), inNormal));
+  return normalize(mul(inNormal, mat3(modelWorldMatrix)));
 };
 
 const mx_transformvector = (inNode = vec3(0, 0, 0), fromspace = 'world', tospace = 'world') => {
@@ -250,10 +250,10 @@ const mx_transformvector = (inNode = vec3(0, 0, 0), fromspace = 'world', tospace
   }
 
   if (from === 'object' && to === 'world') {
-    return mul(mat3(modelWorldMatrix), inVector);
+    return mul(inVector, mat3(modelWorldMatrix));
   }
 
-  return mul(mat3(modelWorldMatrixInverse), inVector);
+  return mul(inVector, mat3(modelWorldMatrixInverse));
 };
 
 const mx_transformpoint = (inNode = vec3(0, 0, 0), fromspace = 'world', tospace = 'world') => {
@@ -267,7 +267,7 @@ const mx_transformpoint = (inNode = vec3(0, 0, 0), fromspace = 'world', tospace 
 
   const point4 = vec4(inPoint, 1);
   const matrix = from === 'object' && to === 'world' ? modelWorldMatrix : modelWorldMatrixInverse;
-  const transformed4 = mul(matrix, point4);
+  const transformed4 = mul(point4, matrix);
   return vec3(element(transformed4, 0), element(transformed4, 1), element(transformed4, 2));
 };
 
