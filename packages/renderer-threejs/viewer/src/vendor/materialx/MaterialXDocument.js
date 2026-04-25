@@ -688,7 +688,16 @@ class MaterialXNode {
     const vector = this.getVector();
     const expectedLength = size * size;
     if (vector.length !== expectedLength) return null;
-    return size === 3 ? mat3(...vector) : mat4(...vector);
+    // MaterialX matrix values are serialized in column-major order.
+    // Reorder to row-major before constructing TSL matrix nodes so
+    // transformmatrix semantics match MaterialXJS and MaterialXView.
+    const reordered = [];
+    for (let row = 0; row < size; row += 1) {
+      for (let column = 0; column < size; column += 1) {
+        reordered.push(vector[column * size + row]);
+      }
+    }
+    return size === 3 ? mat3(...reordered) : mat4(...reordered);
   }
 
   getAttribute(name) {
