@@ -1,6 +1,8 @@
 import {
   abs,
   add,
+  bitOr,
+  bitXor,
   clamp,
   floor,
   ceil,
@@ -72,6 +74,9 @@ import {
   If,
   Loop,
   Fn,
+  shiftLeft,
+  shiftRight,
+  uint,
 } from 'three/tsl';
 import { normalizeSpaceName } from './MaterialXUtils.js';
 
@@ -116,6 +121,85 @@ const mx_ifgreater_materialx = (value1, value2, in1, in2) => mx_ifgreater(value1
 const mx_ifgreatereq_materialx = (value1, value2, in1, in2) => mx_ifgreatereq(value1, value2, in2, in1);
 const mx_ifequal_materialx = (value1, value2, in1, in2) => mx_ifequal(value1, value2, in2, in1);
 const mx_checkerboard = (color1, color2, texcoord) => mix(color1, color2, clamp(checker(texcoord), 0, 1));
+
+const mx_rotl32_materialx = (x, k) => bitOr(shiftLeft(x, uint(k)), shiftRight(x, uint(32 - k)));
+
+const mx_bjmix_materialx = (aInput, bInput, cInput) => {
+  const a = uint(aInput).toVar();
+  const b = uint(bInput).toVar();
+  const c = uint(cInput).toVar();
+
+  a.subAssign(c);
+  a.assign(bitXor(a, mx_rotl32_materialx(c, 4)));
+  c.addAssign(b);
+  b.subAssign(a);
+  b.assign(bitXor(b, mx_rotl32_materialx(a, 6)));
+  a.addAssign(c);
+  c.subAssign(b);
+  c.assign(bitXor(c, mx_rotl32_materialx(b, 8)));
+  b.addAssign(a);
+  a.subAssign(c);
+  a.assign(bitXor(a, mx_rotl32_materialx(c, 16)));
+  c.addAssign(b);
+  b.subAssign(a);
+  b.assign(bitXor(b, mx_rotl32_materialx(a, 19)));
+  a.addAssign(c);
+  c.subAssign(b);
+  c.assign(bitXor(c, mx_rotl32_materialx(b, 4)));
+  b.addAssign(a);
+
+  return [a, b, c];
+};
+
+const mx_bjfinal_materialx = (aInput, bInput, cInput) => {
+  const a = uint(aInput).toVar();
+  const b = uint(bInput).toVar();
+  const c = uint(cInput).toVar();
+
+  c.assign(bitXor(c, b));
+  c.subAssign(mx_rotl32_materialx(b, 14));
+  a.assign(bitXor(a, c));
+  a.subAssign(mx_rotl32_materialx(c, 11));
+  b.assign(bitXor(b, a));
+  b.subAssign(mx_rotl32_materialx(a, 25));
+  c.assign(bitXor(c, b));
+  c.subAssign(mx_rotl32_materialx(b, 16));
+  a.assign(bitXor(a, c));
+  a.subAssign(mx_rotl32_materialx(c, 4));
+  b.assign(bitXor(b, a));
+  b.subAssign(mx_rotl32_materialx(a, 14));
+  c.assign(bitXor(c, b));
+  c.subAssign(mx_rotl32_materialx(b, 24));
+
+  return c;
+};
+
+const mx_bits_to_01_materialx = (bits) => div(float(bits), float(uint(0xffffffff)));
+
+const mx_cell_noise_vec3_materialx = Fn(([positionInput]) => {
+  const position = vec3(positionInput).toVar();
+  const ix = int(floor(position.x)).toVar();
+  const iy = int(floor(position.y)).toVar();
+  const iz = int(floor(position.z)).toVar();
+  const seed = uint(0xdeadbeef + (4 << 2) + 13).toVar();
+  const a = seed.toVar();
+  const b = seed.toVar();
+  const c = seed.toVar();
+  a.addAssign(uint(ix));
+  b.addAssign(uint(iy));
+  c.addAssign(uint(iz));
+
+  const [mixedA, mixedB, mixedC] = mx_bjmix_materialx(a, b, c);
+  const hash0 = mx_bjfinal_materialx(mixedA, mixedB, mixedC);
+  const hash1 = mx_bjfinal_materialx(add(mixedA, uint(1)), mixedB, mixedC);
+  const hash2 = mx_bjfinal_materialx(add(mixedA, uint(2)), mixedB, mixedC);
+
+  return vec3(
+    mx_bits_to_01_materialx(hash0),
+    mx_bits_to_01_materialx(hash1),
+    mx_bits_to_01_materialx(hash2),
+  );
+});
 
 // Match MaterialX smoothstep semantics for degenerate ranges:
 // when high <= low, behave like step(high, in) instead of relying on GPU undefined behavior.
@@ -237,11 +321,7 @@ const mx_worley_noise_float_materialx_3d = Fn(([positionInput, jitterInput, styl
     Loop({ start: -1, end: int(1), name: 'y', condition: '<=' }, ({ y }) => {
       Loop({ start: -1, end: int(1), name: 'z', condition: '<=' }, ({ z }) => {
         const cellCoords = vec3(baseCell.x.add(float(x)), baseCell.y.add(float(y)), baseCell.z.add(float(z))).toVar();
-        const off = vec3(
-          mx_cell_noise_float(vec4(cellCoords, 0)),
-          mx_cell_noise_float(vec4(cellCoords, 1)),
-          mx_cell_noise_float(vec4(cellCoords, 2)),
-        ).toVar();
+        const off = vec3(mx_cell_noise_vec3_materialx(cellCoords)).toVar();
         off.subAssign(0.5);
         off.mulAssign(jitter);
         off.addAssign(0.5);
