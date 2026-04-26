@@ -33,6 +33,8 @@ const register = (registry, categories, handler) => {
   }
 };
 
+const UV_FALLBACK_CATEGORIES = new Set(['noise2d', 'cellnoise2d', 'worleynoise2d', 'unifiednoise2d']);
+
 const compileConvertNode = (nodeX) => {
   const nodeClass = nodeX.getClassFromType(nodeX.type) || float;
   return nodeClass(nodeX.getNodeByName('in'));
@@ -331,6 +333,10 @@ function compileNodeFromRegistry(nodeX, out, compileContext) {
       continue;
     }
     const paramName = nodeElement.params[i];
+    if (paramName === 'texcoord' && UV_FALLBACK_CATEGORIES.has(nodeX.element)) {
+      args[i] = compileContext.mxToUvSpace(uv(0));
+      continue;
+    }
     const defaultValue = nodeElement.defaults ? nodeElement.defaults[paramName] : undefined;
     if (defaultValue !== undefined) {
       args[i] = typeof defaultValue === 'function' ? defaultValue() : float(defaultValue);

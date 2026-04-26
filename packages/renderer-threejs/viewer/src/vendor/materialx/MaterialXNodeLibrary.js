@@ -42,9 +42,6 @@ import {
   mx_fractal_noise_float,
   mx_noise_float,
   mx_cell_noise_float,
-  mx_worley_noise_float,
-  mx_unifiednoise2d,
-  mx_unifiednoise3d,
   mx_safepower,
   mx_contrast,
   element,
@@ -72,6 +69,9 @@ import {
   fract,
   sub,
   step,
+  If,
+  Loop,
+  Fn,
 } from 'three/tsl';
 import { normalizeSpaceName } from './MaterialXUtils.js';
 
@@ -223,6 +223,182 @@ const mx_overlay = (fg, bg, mixval = 1) => {
   return mix(bg, overlayed, mixval);
 };
 const mx_mod = (in1, in2) => sub(in1, mul(in2, floor(div(in1, in2))));
+
+const mx_worley_noise_float_materialx_3d = Fn(([positionInput, jitterInput, styleInput]) => {
+  const position = vec3(positionInput).toVar();
+  const jitter = float(jitterInput).toVar();
+  const style = int(styleInput).toVar();
+  const baseCell = vec3(floor(position.x), floor(position.y), floor(position.z)).toVar();
+  const localpos = fract(position).toVar();
+  const sqdist = float(1e6).toVar();
+  const minpos = vec3(0, 0, 0).toVar();
+
+  Loop({ start: -1, end: int(1), name: 'x', condition: '<=' }, ({ x }) => {
+    Loop({ start: -1, end: int(1), name: 'y', condition: '<=' }, ({ y }) => {
+      Loop({ start: -1, end: int(1), name: 'z', condition: '<=' }, ({ z }) => {
+        const cellCoords = vec3(baseCell.x.add(float(x)), baseCell.y.add(float(y)), baseCell.z.add(float(z))).toVar();
+        const off = vec3(
+          mx_cell_noise_float(vec4(cellCoords, 0)),
+          mx_cell_noise_float(vec4(cellCoords, 1)),
+          mx_cell_noise_float(vec4(cellCoords, 2)),
+        ).toVar();
+        off.subAssign(0.5);
+        off.mulAssign(jitter);
+        off.addAssign(0.5);
+        const cellpos = vec3(vec3(float(x), float(y), float(z)).add(off).sub(localpos)).toVar();
+        const dist = dot(cellpos, cellpos).toVar();
+
+        If(dist.lessThan(sqdist), () => {
+          sqdist.assign(dist);
+          minpos.assign(cellpos);
+        });
+      });
+    });
+  });
+
+  If(style.equal(int(1)), () => {
+    sqdist.assign(mx_cell_noise_float(minpos.add(position)));
+  }).Else(() => {
+    sqdist.assign(sqrt(sqdist));
+  });
+
+  return sqdist;
+});
+
+const mx_worley_noise_float_materialx_2d = Fn(([texcoordInput, jitterInput, styleInput]) => {
+  const texcoord = vec2(texcoordInput).toVar();
+  const jitter = float(jitterInput).toVar();
+  const style = int(styleInput).toVar();
+
+  const X = int().toVar();
+  const Y = int().toVar();
+  const floorPos = floor(texcoord).toVar();
+  X.assign(int(floorPos.x));
+  Y.assign(int(floorPos.y));
+  const localpos = vec2(fract(texcoord.x), fract(texcoord.y)).toVar();
+  const sqdist = float(1e6).toVar();
+  const minpos = vec2(0, 0).toVar();
+
+  Loop({ start: -1, end: int(1), name: 'x', condition: '<=' }, ({ x }) => {
+    Loop({ start: -1, end: int(1), name: 'y', condition: '<=' }, ({ y }) => {
+      const cell = vec2(float(x), float(y)).toVar();
+      const seed = vec2(cell.x.add(float(X)), cell.y.add(float(Y))).toVar();
+      const off = vec2(mx_cell_noise_float(vec3(seed.x, seed.y, 0)), mx_cell_noise_float(vec3(seed.x, seed.y, 1))).toVar();
+      off.subAssign(0.5);
+      off.mulAssign(jitter);
+      off.addAssign(0.5);
+      const cellpos = vec2(cell.add(off).sub(localpos)).toVar();
+      const dist = dot(cellpos, cellpos).toVar();
+
+      If(dist.lessThan(sqdist), () => {
+        sqdist.assign(dist);
+        minpos.assign(cellpos);
+      });
+    });
+  });
+
+  If(style.equal(int(1)), () => {
+    sqdist.assign(mx_cell_noise_float(minpos.add(texcoord)));
+  }).Else(() => {
+    sqdist.assign(sqrt(sqdist));
+  });
+
+  return sqdist;
+});
+
+const mx_unifiednoise2d_materialx = Fn(
+  ([
+    noiseTypeInput,
+    texcoordInput,
+    freqInput,
+    offsetInput,
+    jitterInput,
+    outminInput,
+    outmaxInput,
+    clampoutputInput,
+    octavesInput,
+    lacunarityInput,
+    diminishInput,
+    styleInput,
+  ]) => {
+    const noiseType = int(noiseTypeInput).toVar();
+    const texcoord = vec2(texcoordInput).toVar();
+    const freq = vec2(freqInput).toVar();
+    const offset = vec2(offsetInput).toVar();
+    const jitter = float(jitterInput).toVar();
+    const outmin = float(outminInput).toVar();
+    const outmax = float(outmaxInput).toVar();
+    const clampoutput = float(clampoutputInput).toVar();
+    const octaves = int(octavesInput).toVar();
+    const lacunarity = float(lacunarityInput).toVar();
+    const diminish = float(diminishInput).toVar();
+    const style = int(styleInput).toVar();
+
+    const applyFreq = mul(texcoord, freq).toVar();
+    const applyOffset = add(applyFreq, offset).toVar();
+    const cellJitterMult = mul(sub(jitter, 1), 90000).toVar();
+    const applyCellJitter = mx_rotate2d_materialx(applyOffset, cellJitterMult).toVar();
+    const fractalInput = vec3(element(applyOffset, 0), element(applyOffset, 1), cellJitterMult).toVar();
+    const result = float(0).toVar();
+
+    If(noiseType.equal(int(0)), () => {
+      result.assign(mx_noise_float(applyCellJitter, 0.5, 0.5));
+    });
+    If(noiseType.equal(int(1)), () => {
+      result.assign(mx_cell_noise_float(applyCellJitter));
+    });
+    If(noiseType.equal(int(2)), () => {
+      result.assign(mx_worley_noise_float_materialx_2d(applyOffset, jitter, style));
+    });
+    If(noiseType.equal(int(3)), () => {
+      result.assign(mx_fractal_noise_float(fractalInput, octaves, lacunarity, diminish, 1));
+    });
+
+    const ranged = add(outmin, mul(result, sub(outmax, outmin))).toVar();
+    const clamped = clamp(ranged, outmin, outmax).toVar();
+    return mx_ifequal_materialx(clampoutput, float(1), clamped, ranged);
+  },
+);
+
+const mx_unifiednoise3d_materialx = (
+  noiseType = 0,
+  position = vec3(0, 0, 0),
+  freq = vec3(1, 1, 1),
+  offset = vec3(0, 0, 0),
+  jitter = 1,
+  outmin = 0,
+  outmax = 1,
+  clampoutput = true,
+  octaves = 3,
+  lacunarity = 2,
+  diminish = 0.5,
+  style = 0,
+) => {
+  const applyFreq = mul(position, freq);
+  const applyOffset = add(applyFreq, offset);
+  const cellJitterMult = mul(sub(jitter, 1), 90000);
+  const applyCellJitter = mx_rotate3d_materialx(applyOffset, cellJitterMult, vec3(0.1, 1, 0));
+  const perlin = mx_noise_float(applyCellJitter, 0.5, 0.5);
+  const cell = mx_cell_noise_float(applyCellJitter);
+  const worley = mx_worley_noise_float_materialx_3d(applyOffset, jitter, style);
+  const fractal = mx_fractal_noise_float(applyCellJitter, octaves, lacunarity, diminish, 1);
+
+  const typeFloat = float(noiseType);
+  const switched = mx_ifequal_materialx(
+    typeFloat,
+    float(3),
+    fractal,
+    mx_ifequal_materialx(
+      typeFloat,
+      float(2),
+      worley,
+      mx_ifequal_materialx(typeFloat, float(1), cell, perlin),
+    ),
+  );
+  const ranged = add(outmin, mul(switched, sub(outmax, outmin)));
+  const clamped = clamp(ranged, outmin, outmax);
+  return mx_ifequal_materialx(clampoutput, float(1), clamped, ranged);
+};
 
 const mx_transformnormal = (inNode = vec3(0, 0, 1), fromspace = 'world', tospace = 'world') => {
   const from = normalizeSpaceName(fromspace, 'world');
@@ -766,8 +942,8 @@ const MXElements = [
     amplitude: defaultFloat(1),
     pivot: defaultFloat(0),
   }),
-  new MXElement('noise3d', mx_noise_float, ['texcoord', 'amplitude', 'pivot'], {
-    texcoord: defaultVec3(0, 0, 0),
+  new MXElement('noise3d', mx_noise_float, ['position', 'amplitude', 'pivot'], {
+    position: () => positionLocal,
     amplitude: defaultFloat(1),
     pivot: defaultFloat(0),
   }),
@@ -780,17 +956,19 @@ const MXElements = [
   }),
   new MXElement('cellnoise2d', mx_cell_noise_float, ['texcoord'], { texcoord: defaultVec2(0, 0) }),
   new MXElement('cellnoise3d', mx_cell_noise_float, ['position'], { position: () => positionLocal }),
-  new MXElement('worleynoise2d', mx_worley_noise_float, ['texcoord', 'jitter'], {
+  new MXElement('worleynoise2d', mx_worley_noise_float_materialx_2d, ['texcoord', 'jitter', 'style'], {
     texcoord: defaultVec2(0, 0),
     jitter: defaultFloat(1),
+    style: defaultInt(0),
   }),
-  new MXElement('worleynoise3d', mx_worley_noise_float, ['texcoord', 'jitter'], {
-    texcoord: defaultVec3(0, 0, 0),
+  new MXElement('worleynoise3d', mx_worley_noise_float_materialx_3d, ['position', 'jitter', 'style'], {
+    position: () => positionLocal,
     jitter: defaultFloat(1),
+    style: defaultInt(0),
   }),
   new MXElement(
     'unifiednoise2d',
-    mx_unifiednoise2d,
+    mx_unifiednoise2d_materialx,
     [
       'type',
       'texcoord',
@@ -803,6 +981,7 @@ const MXElements = [
       'octaves',
       'lacunarity',
       'diminish',
+      'style',
     ],
     {
       type: defaultInt(0),
@@ -816,14 +995,15 @@ const MXElements = [
       octaves: defaultInt(3),
       lacunarity: defaultFloat(2),
       diminish: defaultFloat(0.5),
+      style: defaultInt(0),
     },
   ),
   new MXElement(
     'unifiednoise3d',
-    mx_unifiednoise3d,
+    mx_unifiednoise3d_materialx,
     [
       'type',
-      'texcoord',
+      'position',
       'freq',
       'offset',
       'jitter',
@@ -833,10 +1013,11 @@ const MXElements = [
       'octaves',
       'lacunarity',
       'diminish',
+      'style',
     ],
     {
       type: defaultInt(0),
-      texcoord: defaultVec3(0, 0, 0),
+      position: () => positionLocal,
       freq: defaultVec3(1, 1, 1),
       offset: defaultVec3(0, 0, 0),
       jitter: defaultFloat(1),
@@ -846,6 +1027,7 @@ const MXElements = [
       octaves: defaultInt(3),
       lacunarity: defaultFloat(2),
       diminish: defaultFloat(0.5),
+      style: defaultInt(0),
     },
   ),
   new MXElement('place2d', mx_place2d_materialx, ['texcoord', 'pivot', 'scale', 'rotate', 'offset', 'operationorder'], {
