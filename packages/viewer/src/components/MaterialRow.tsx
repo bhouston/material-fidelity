@@ -3,6 +3,7 @@ import type {
   MaterialViewModel,
   RendererCategoryGroupViewModel,
 } from '#/lib/material-index';
+import { getRendererMetadata } from '#/lib/renderer-metadata';
 
 function toAnchorId(value: string): string {
   return value
@@ -75,6 +76,7 @@ export function MaterialRow({
               {rendererGroup.renderers.map((rendererName) => {
                 const imageUrl = material.images[rendererName];
                 const reportUrl = material.reports[rendererName];
+                const metadata = getRendererMetadata(rendererName);
                 return (
                   <figure key={rendererName} className="flex w-[170px] flex-none flex-col gap-2 sm:w-[200px]">
                     <div className="relative">
@@ -103,8 +105,9 @@ export function MaterialRow({
                         </button>
                       ) : null}
                     </div>
-                    <figcaption className="text-center text-xs font-medium text-muted-foreground">
-                      {rendererName}
+                    <figcaption className="text-center text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground">{rendererName}</p>
+                      <p>{metadata?.observerDescription ?? 'Renderer description unavailable.'}</p>
                     </figcaption>
                   </figure>
                 );

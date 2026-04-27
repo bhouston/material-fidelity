@@ -159,6 +159,10 @@ The viewer scans MaterialX materials and looks for images for the built-in rende
 
 The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
 
+Optional viewer environment variables:
+
+- `VIEWER_RENDERERS` optional comma-separated renderer allowlist (for example: `materialxview,threejs-current,threejs-new`). If unset, the viewer shows all built-in renderers.
+
 ## License
 
 MIT. See `LICENSE`.

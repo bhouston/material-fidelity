@@ -3,10 +3,12 @@ import { createServerFn } from '@tanstack/react-start';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useGoogleAnalytics } from 'tanstack-router-ga4';
+import Header from '#/components/Header';
 import { MaterialRow } from '#/components/MaterialRow';
 import { RenderLogViewer } from '#/components/RenderLogViewer';
 import type { ReportLogEntry } from '#/components/RenderLogViewer';
 import { getViewerIndexData } from '#/lib/material-index';
+import { getRendererMetadata } from '#/lib/renderer-metadata';
 
 const getViewerData = createServerFn({
   method: 'GET',
@@ -70,6 +72,7 @@ function App() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const ga = useGoogleAnalytics();
+  const [materialFilterInput, setMaterialFilterInput] = useState(search.materials ?? '');
   const materialSearchTerms = normalizeMaterialFilters(search.materials);
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
   const [activeReportData, setActiveReportData] = useState<RenderReport | null>(null);
@@ -138,6 +141,10 @@ function App() {
       abortController.abort();
     };
   }, [activeReport]);
+
+  useEffect(() => {
+    setMaterialFilterInput(search.materials ?? '');
+  }, [search.materials]);
 
   useEffect(() => {
     if (!hasMaterialFilterChangedRef.current) {
@@ -209,16 +216,37 @@ function App() {
   };
 
   const handleMaterialSearchChange = (value: string) => {
-    hasMaterialFilterChangedRef.current = true;
-    const trimmed = value.trim();
-    updateFilters({
-      materials: trimmed.length > 0 ? value : undefined,
-    });
+    setMaterialFilterInput(value);
   };
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const trimmed = materialFilterInput.trim();
+      const nextMaterials = trimmed.length > 0 ? materialFilterInput : undefined;
+      if ((search.materials ?? '') === (nextMaterials ?? '')) {
+        return;
+      }
+      hasMaterialFilterChangedRef.current = true;
+      updateFilters({
+        materials: nextMaterials,
+      });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [materialFilterInput, search.materials]);
+
   return (
-    <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-4 py-8 sm:px-6">
-      <section>
+    <>
+      <Header
+        materialFilter={materialFilterInput}
+        onMaterialFilterChange={handleMaterialSearchChange}
+        shownMaterialCount={shownMaterialCount}
+        totalMaterialCount={totalMaterialCount}
+      />
+      <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-4 py-6 sm:px-6">
+        <section>
         <p className="max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
           This viewer lists{' '}
           <a
@@ -233,55 +261,31 @@ function App() {
           differences and missing captures.
         </p>
         <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          <p className="font-medium text-foreground">Supported renderers:</p>
+          <p className="font-medium text-foreground">Enabled renderers:</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">
-            <li>
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-materialxview"
-                target="_blank"
-              >
-                @material-fidelity/renderer-materialxview
-              </a>{' '}
-              - Creates renders using the official{' '}
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/AcademySoftwareFoundation/MaterialX/blob/main/documents/DeveloperGuide/Viewer.md"
-                target="_blank"
-              >
-                MaterialX Viewer
-              </a>
-              .
-            </li>
-            <li>
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-materialxjs"
-                target="_blank"
-              >
-                @material-fidelity/renderer-materialxjs
-              </a>{' '}
-              - Creates renders using a custom MaterialX viewer written in TypeScript on top of ThreeJS.
-            </li>
-            <li>
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-threejs"
-                target="_blank"
-              >
-                @material-fidelity/renderer-threejs
-              </a>{' '}
-              - Includes both `threejs-new` (custom MaterialXLoader proposal) and `threejs-current` (official Three.js
-              MaterialXLoader from npm) using the{' '}
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://threejs.org/"
-                target="_blank"
-              >
-                Three.js project
-              </a>{' '}
-              with the WebGPU Renderer.
-            </li>
+            {data.renderers.map((rendererName) => {
+              const metadata = getRendererMetadata(rendererName);
+              return (
+                <li key={rendererName}>
+                  <code className="font-semibold text-foreground">{rendererName}</code>
+                  {metadata ? (
+                    <>
+                      {' - '}
+                      <a
+                        className="underline underline-offset-2 hover:no-underline"
+                        href={metadata.packageUrl}
+                        target="_blank"
+                      >
+                        {metadata.packageName}
+                      </a>{' '}
+                      - {metadata.observerDescription}
+                    </>
+                  ) : (
+                    ' - Renderer is enabled but has no description metadata yet.'
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
         <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
@@ -335,68 +339,48 @@ function App() {
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-            Material filter
-            <input
-              className="h-10 rounded-none border border-border bg-background px-3 text-sm font-normal text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
-              onChange={(event) => handleMaterialSearchChange(event.currentTarget.value)}
-              placeholder="Search by name or path (comma-separated)..."
-              type="text"
-              value={search.materials ?? ''}
+        <section className="pt-2">
+          {filteredMaterials.map((material) => (
+            <MaterialRow
+              key={material.id}
+              material={material}
+              onOpenReport={setActiveReport}
+              onTrackMaterialAction={trackMaterialAction}
+              rendererGroups={data.rendererGroups}
             />
-          </label>
+          ))}
+        </section>
 
-        </div>
-
-        <p className="mt-4 text-sm text-muted-foreground">
-          Showing {shownMaterialCount} materials of {totalMaterialCount} total
-        </p>
-      </section>
-
-      <section className="pt-2">
-        {filteredMaterials.map((material) => (
-          <MaterialRow
-            key={material.id}
-            material={material}
-            onOpenReport={setActiveReport}
-            onTrackMaterialAction={trackMaterialAction}
-            rendererGroups={data.rendererGroups}
-          />
-        ))}
-      </section>
-
-      {activeReport ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setActiveReport(null)}
-          role="presentation"
-        >
-          <section
-            aria-modal="true"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-background shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+        {activeReport ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={() => setActiveReport(null)}
+            role="presentation"
           >
-            <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Render report</h3>
-                <p className="text-sm text-muted-foreground">
-                  {activeReport.materialName} - {activeReport.rendererName}
-                </p>
-              </div>
-              <button
-                aria-label="Close report dialog"
-                className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                onClick={() => setActiveReport(null)}
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
-            </header>
+            <section
+              aria-modal="true"
+              className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-background shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Render report</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {activeReport.materialName} - {activeReport.rendererName}
+                  </p>
+                </div>
+                <button
+                  aria-label="Close report dialog"
+                  className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setActiveReport(null)}
+                  type="button"
+                >
+                  <X className="size-4" />
+                </button>
+              </header>
 
-            <div className="space-y-4 px-5 py-4 text-sm">
+              <div className="space-y-4 px-5 py-4 text-sm">
               {isReportLoading ? <p className="text-muted-foreground">Loading report...</p> : null}
 
               {activeReportError ? (
@@ -456,10 +440,11 @@ function App() {
                   </section>
                 </>
               ) : null}
-            </div>
-          </section>
-        </div>
-      ) : null}
-    </main>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </main>
+    </>
   );
 }

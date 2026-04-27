@@ -35,6 +35,10 @@ interface BuiltInRendererDescriptor {
   category: RendererCategory;
 }
 
+interface RendererFilterResolution {
+  renderers: BuiltInRendererDescriptor[];
+}
+
 export interface MaterialViewModel {
   id: string;
   type: string;
@@ -209,6 +213,47 @@ function getBuiltInRenderers(thirdPartyRoot: string): BuiltInRendererDescriptor[
     });
 }
 
+function parseConfiguredRenderers(rawValue: string | undefined): string[] | undefined {
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  return [...new Set(rawValue.split(',').map((renderer) => renderer.trim()).filter((renderer) => renderer.length > 0))];
+}
+
+function resolveConfiguredRenderers(
+  builtInRenderers: BuiltInRendererDescriptor[],
+  configuredRenderers: string[] | undefined,
+  errors: string[],
+): RendererFilterResolution {
+  if (!configuredRenderers) {
+    return {
+      renderers: builtInRenderers,
+    };
+  }
+
+  const byName = new Map(builtInRenderers.map((renderer) => [renderer.name, renderer] as const));
+  const unknownRenderers = configuredRenderers.filter((rendererName) => !byName.has(rendererName));
+
+  if (unknownRenderers.length > 0) {
+    errors.push(
+      `Unknown renderer(s) in VIEWER_RENDERERS: ${unknownRenderers.join(', ')}. Known renderers: ${builtInRenderers.map((renderer) => renderer.name).join(', ')}`,
+    );
+  }
+
+  const filteredRenderers = configuredRenderers
+    .map((rendererName) => byName.get(rendererName))
+    .filter((renderer): renderer is BuiltInRendererDescriptor => renderer !== undefined);
+
+  if (filteredRenderers.length === 0) {
+    errors.push('VIEWER_RENDERERS is defined, but no configured renderers matched the built-in renderer set.');
+  }
+
+  return {
+    renderers: filteredRenderers,
+  };
+}
+
 function toRendererGroups(renderers: BuiltInRendererDescriptor[]): RendererCategoryGroupViewModel[] {
   return RENDERER_CATEGORY_ORDER.map((category) => {
     const rendererNames = renderers
@@ -281,6 +326,7 @@ function toMaterialDescriptor(materialFilePath: string, materialsRoot: string): 
 export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
   const roots = resolveViewerRoots();
   const errors: string[] = [];
+  const configuredRenderers = parseConfiguredRenderers(process.env.VIEWER_RENDERERS);
 
   const hasMaterialsRoot = await directoryExists(roots.materialsRoot);
   if (!hasMaterialsRoot) {
@@ -297,7 +343,8 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     Promise.resolve(getBuiltInRenderers(roots.thirdPartyRoot)),
     discoverMaterialFiles(roots.materialsRoot),
   ]);
-  const rendererGroups = toRendererGroups(builtInRenderers);
+  const rendererResolution = resolveConfiguredRenderers(builtInRenderers, configuredRenderers, errors);
+  const rendererGroups = toRendererGroups(rendererResolution.renderers);
   const renderers = rendererGroups.flatMap((group) => group.renderers);
 
   if (materialFiles.length === 0) {

@@ -5,6 +5,7 @@ ENV PNPM_HOME="/pnpm" \
     PATH="$PNPM_HOME:$PATH" \
     NODE_ENV=production \
     PORT=8080 \
+    VIEWER_RENDERERS="materialxview,threejs-current,threejs-new" \
     CI=true
 
 RUN npm install -g pnpm@10.33.0
