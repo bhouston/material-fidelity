@@ -3,7 +3,7 @@ import { command } from './render.js';
 import type { createReferences } from '@material-fidelity/core';
 
 const { availableParallelismMock, createReferencesMock } = vi.hoisted(() => ({
-  availableParallelismMock: vi.fn(() => 8),
+  availableParallelismMock: vi.fn<() => number>(() => 8),
   createReferencesMock: vi.fn<typeof createReferences>(),
 }));
 
@@ -17,6 +17,17 @@ vi.mock('node:os', async (importActual) => {
 
 vi.mock('@material-fidelity/core', () => ({
   createReferences: createReferencesMock,
+}));
+
+vi.mock('@material-fidelity/renderer-blender', () => ({
+  createRenderer: () => ({
+    name: 'blender',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
 }));
 
 vi.mock('@material-fidelity/renderer-materialxview', () => ({
@@ -110,7 +121,7 @@ describe('render command', () => {
       concurrency: 2,
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
-    expect(firstCall?.[0].renderers).toHaveLength(4);
+    expect(firstCall?.[0].renderers).toHaveLength(5);
   });
 
   it('defaults concurrency to the recommended available parallelism', async () => {

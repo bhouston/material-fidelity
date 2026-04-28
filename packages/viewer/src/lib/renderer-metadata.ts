@@ -6,6 +6,12 @@ export interface RendererMetadata {
 }
 
 const RENDERER_METADATA_BY_NAME: Record<string, RendererMetadata> = {
+  blender: {
+    rendererName: 'blender',
+    packageName: '@material-fidelity/renderer-blender',
+    packageUrl: 'https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-blender',
+    observerDescription: "This is Blender's bundled MaterialX support rendered through Cycles.",
+  },
   materialxview: {
     rendererName: 'materialxview',
     packageName: '@material-fidelity/renderer-materialxview',

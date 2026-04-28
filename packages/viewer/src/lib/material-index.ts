@@ -1,5 +1,6 @@
 import { access, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { createRenderer as createBlenderRenderer } from '@material-fidelity/renderer-blender';
 import { createRenderer as createMaterialXJsRenderer } from '@material-fidelity/renderer-materialxjs';
 import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
 import {
@@ -196,6 +197,7 @@ async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
 
 function getBuiltInRenderers(thirdPartyRoot: string): BuiltInRendererDescriptor[] {
   const renderers = [
+    createBlenderRenderer({ thirdPartyRoot }),
     createMaterialXJsRenderer({ thirdPartyRoot }),
     createMaterialXViewRenderer(),
     createThreeJsNewRenderer({ thirdPartyRoot }),

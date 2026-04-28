@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@material-fidelity/renderer-blender": "workspace:*",
     "@material-fidelity/renderer-materialxjs": "workspace:*",
     "@material-fidelity/renderer-materialxview": "workspace:*",
     "@material-fidelity/renderer-threejs": "workspace:*",
