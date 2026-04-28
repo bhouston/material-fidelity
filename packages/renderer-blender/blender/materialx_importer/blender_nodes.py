@@ -5,7 +5,7 @@ from typing import Any
 
 import bpy
 
-from .document import get_input, input_value, type_name
+from .document import get_input, input_type_or_default, input_value, input_value_or_default, type_name
 from .types import CompileContext, CompiledSocket
 from .values import (
     COMPONENT_TYPES,
@@ -97,6 +97,9 @@ def input_socket(
         compiled = context.compiler.compile_input(input_element, scope)
         if compiled is not None:
             return compiled
+    value = input_value_or_default(node, input_name)
+    if value is not None:
+        return constant_socket(context, value, input_type_or_default(node, input_name) or default_type_for_value(default))
     return constant_socket(context, default, type_name(input_element) if input_element is not None else default_type_for_value(default))
 
 
@@ -114,7 +117,7 @@ def connect_or_set_input(
         if compiled is not None:
             context.material.node_tree.links.new(compiled.socket, socket)
             return
-    set_socket_default(socket, default)
+    set_socket_default(socket, input_value_or_default(node, input_name) or default)
 
 
 def coordinate_socket(

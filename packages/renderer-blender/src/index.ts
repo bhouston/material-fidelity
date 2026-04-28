@@ -34,7 +34,7 @@ interface BlenderRendererOptions {
 }
 
 const BLENDER_RENDERER_OPTIONS: BlenderRendererOptions = {
-  name: 'blender',
+  name: 'blender-new',
   scriptFileName: 'render_materialx.py',
   minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
 };

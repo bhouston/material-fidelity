@@ -136,7 +136,7 @@ afterEach(async () => {
 
 describe('blender renderer', () => {
   it('exposes the default and io_blender_mtlx renderer names', () => {
-    expect(createRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender');
+    expect(createRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-new');
     expect(createIoBlenderMtlxRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-io-mtlx');
   });
 
@@ -194,7 +194,7 @@ describe('blender renderer', () => {
         code: 0,
         stdout: [
           '00:00.302  blend            | Read blend: "/tmp/material-fidelity-blender-abc/template.blend"',
-          "00:04.658  render           | Saved: '/tmp/example/blender-temp.png'",
+          "00:04.658  render           | Saved: '/tmp/example/blender-new-temp.png'",
           'render started',
           'render finished',
         ].join('\n'),
@@ -204,7 +204,7 @@ describe('blender renderer', () => {
     const viewerRoot = path.join(thirdPartyRoot, 'material-samples', 'viewer');
     const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example');
     const materialPath = path.join(materialsRoot, 'example.mtlx');
-    const outputPath = path.join(materialsRoot, 'blender-temp.png');
+    const outputPath = path.join(materialsRoot, 'blender-new-temp.png');
     const modelPath = path.join(viewerRoot, 'ShaderBall.glb');
     const environmentHdrPath = path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr');
     await Promise.all([createFile(materialPath), createFile(modelPath), createFile(environmentHdrPath)]);

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import bpy
@@ -16,6 +17,7 @@ from ..blender_nodes import (
     input_socket,
     map_range_component,
     math_socket,
+    rotate2d_components,
     smoothstep_component,
 )
 from ..document import category, type_name
@@ -94,6 +96,8 @@ def register(registry) -> None:
     registry.register("invert", compile_invert)
     registry.register_many({"magnitude", "length"}, compile_magnitude)
     registry.register_categories(VECTOR_MATH_OPERATIONS.keys(), compile_vector_math)
+    registry.register("rotate2d", compile_rotate2d)
+    registry.register("rotate3d", compile_rotate3d)
 
 
 def compile_math(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
@@ -249,3 +253,70 @@ def compile_vector_math(context: CompileContext, node: Any, output_name: str, sc
         context.material.node_tree.links.new(input2.socket, vector_node.inputs[1])
     socket = vector_node.outputs.get(vector_output_name)
     return CompiledSocket(socket, output_type) if socket is not None else None
+
+
+def compile_rotate2d(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    source = input_socket(context, node, "in", (0.0, 0.0), scope)
+    amount = input_socket(context, node, "amount", 0.0, scope)
+    components = rotate2d_components(
+        context,
+        [component_socket(context, source, 0), component_socket(context, source, 1)],
+        amount,
+    )
+    return combine_components(context, components, "vector2")
+
+
+def compile_rotate3d(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    source = input_socket(context, node, "in", (0.0, 0.0, 0.0), scope)
+    axis_input = input_socket(context, node, "axis", (0.0, 1.0, 0.0), scope)
+    amount = input_socket(context, node, "amount", 0.0, scope)
+
+    normalize = context.material.node_tree.nodes.new(type="ShaderNodeVectorMath")
+    normalize.operation = "NORMALIZE"
+    context.material.node_tree.links.new(axis_input.socket, normalize.inputs[0])
+    axis = CompiledSocket(normalize.outputs["Vector"], "vector3")
+
+    radians = math_socket(
+        context,
+        "MULTIPLY",
+        amount.socket,
+        constant_socket(context, math.pi / 180.0, "float").socket,
+    )
+    sine = math_socket(context, "SINE", radians, None)
+    cosine = math_socket(context, "COSINE", radians, None)
+    one_minus_cosine = math_socket(context, "SUBTRACT", constant_socket(context, 1.0, "float").socket, cosine)
+
+    sx = component_socket(context, source, 0)
+    sy = component_socket(context, source, 1)
+    sz = component_socket(context, source, 2)
+    ax = component_socket(context, axis, 0)
+    ay = component_socket(context, axis, 1)
+    az = component_socket(context, axis, 2)
+
+    dot_axis_source = math_socket(
+        context,
+        "ADD",
+        math_socket(context, "ADD", math_socket(context, "MULTIPLY", ax, sx), math_socket(context, "MULTIPLY", ay, sy)),
+        math_socket(context, "MULTIPLY", az, sz),
+    )
+
+    cross = [
+        math_socket(context, "SUBTRACT", math_socket(context, "MULTIPLY", ay, sz), math_socket(context, "MULTIPLY", az, sy)),
+        math_socket(context, "SUBTRACT", math_socket(context, "MULTIPLY", az, sx), math_socket(context, "MULTIPLY", ax, sz)),
+        math_socket(context, "SUBTRACT", math_socket(context, "MULTIPLY", ax, sy), math_socket(context, "MULTIPLY", ay, sx)),
+    ]
+    source_components = [sx, sy, sz]
+    axis_components = [ax, ay, az]
+    rotated = []
+    for index in range(3):
+        source_part = math_socket(context, "MULTIPLY", source_components[index], cosine)
+        cross_part = math_socket(context, "MULTIPLY", cross[index], sine)
+        axis_part = math_socket(
+            context,
+            "MULTIPLY",
+            axis_components[index],
+            math_socket(context, "MULTIPLY", dot_axis_source, one_minus_cosine),
+        )
+        rotated.append(math_socket(context, "ADD", math_socket(context, "SUBTRACT", source_part, cross_part), axis_part))
+
+    return combine_components(context, rotated, "vector3")

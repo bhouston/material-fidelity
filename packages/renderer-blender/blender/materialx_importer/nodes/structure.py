@@ -5,12 +5,14 @@ from typing import Any
 from ..blender_nodes import component_socket, connect_or_set_input, input_socket
 from ..document import type_name
 from ..types import CompileContext, CompiledSocket
+from ..values import static_int_input
 
 
 def register(registry) -> None:
     registry.register_many({"separate2", "separate3", "separate4"}, compile_separate)
     registry.register_many({"combine2", "combine3", "combine4"}, compile_combine)
     registry.register("dot", compile_dot)
+    registry.register("extract", compile_extract)
 
 
 def compile_separate(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
@@ -61,3 +63,9 @@ def compile_dot(context: CompileContext, node: Any, output_name: str, scope: Any
     else:
         default = 0.0
     return input_socket(context, node, "in", default, scope)
+
+
+def compile_extract(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    source = input_socket(context, node, "in", 0.0, scope)
+    index = max(0, static_int_input(node, "index", 0))
+    return CompiledSocket(component_socket(context, source, index), "float")

@@ -18,7 +18,7 @@ def load_materialx_as_blender_material(mtlx_path: str) -> MaterialImportResult:
     warnings: list[str] = []
     surface_node = find_surface_shader(document)
     if surface_node is None:
-        warnings.append("No supported standard_surface or gltf_pbr node found; using fallback material.")
+        warnings.append("No supported standard_surface, gltf_pbr, or open_pbr_surface node found; using fallback material.")
         return MaterialImportResult(create_fallback_material("MaterialX_Fallback"), warnings)
 
     material_name = safe_name(surface_node.getName() or Path(mtlx_path).stem)

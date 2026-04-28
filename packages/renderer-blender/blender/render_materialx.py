@@ -71,8 +71,8 @@ CYCLES_RENDER_PROFILES = {
         "max_bounces": 2,
         "diffuse_bounces": 1,
         "glossy_bounces": 1,
-        "transmission_bounces": 2,
-        "transparent_max_bounces": 2,
+        "transmission_bounces": 4,
+        "transparent_max_bounces": 4,
     },
 }
 _T = TypeVar("_T")
@@ -114,7 +114,7 @@ def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
         args.background_color,
         warnings,
     )
-    log_warnings_event("blender-template-create", warnings)
+    log_warnings_event("blender-new-template-create", warnings)
     time_call(
         timings,
         "save_mainfile",
@@ -123,7 +123,7 @@ def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
     )
     timings["total"] = elapsed_ms(started_at)
     # log_timing_event(
-    #     "blender-template-timing",
+    #     "blender-new-template-timing",
     #     timings,
     #     output=args.template_output_path,
     #     warnings=warnings,
@@ -131,9 +131,8 @@ def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
     print(
         json.dumps(
             {
-                "event": "blender-template-finish",
+                "event": "blender-new-template-finish",
                 "output": args.template_output_path,
-                "warnings": warnings,
             }
         )
     )
@@ -166,11 +165,11 @@ def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
         normalized_root,
         material_result.material,
     )
-    log_warnings_event("blender-render-start", warnings)
+    log_warnings_event("blender-new-render-start", warnings)
     time_call(timings, "cycles_render", bpy.ops.render.render, write_still=True)
     timings["total"] = elapsed_ms(started_at)
     # log_timing_event(
-    #     "blender-render-timing",
+    #     "blender-new-render-timing",
     #     timings,
     #     output=args.output_png_path,
     #     mtlx_path=args.mtlx_path,
@@ -179,9 +178,8 @@ def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
     print(
         json.dumps(
             {
-                "event": "blender-render-finish",
+                "event": "blender-new-render-finish",
                 "output": args.output_png_path,
-                "warnings": warnings,
             }
         )
     )
@@ -285,6 +283,7 @@ def configure_render(width: int, height: int, output_png_path: str | None, backg
         scene.render.filepath = output_png_path
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
+    scene.display_settings.display_device = "sRGB"
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
     scene.view_settings.exposure = 0

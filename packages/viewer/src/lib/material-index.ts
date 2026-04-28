@@ -17,6 +17,14 @@ const DEFAULT_LOCAL_HOST = 'localhost:3000';
 const DEFAULT_PRODUCTION_HOST = 'material-fidelity.ben3d.ca';
 const MATERIAL_TYPE_ORDER = ['showcase', 'nodes', 'open_pbr_surface', 'gltf_pbr', 'standard_surface'] as const;
 const RENDERER_CATEGORY_ORDER = ['pathtracer', 'raytracer', 'rasterizer'] as const;
+const RENDERER_NAME_ORDER = [
+  'materialxview',
+  'blender-new',
+  'blender-io-mtlx',
+  'materialxjs',
+  'threejs-current',
+  'threejs-new',
+] as const;
 type RendererCategory = (typeof RENDERER_CATEGORY_ORDER)[number];
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
   pathtracer: 'Pathtracers',
@@ -207,16 +215,28 @@ function getBuiltInRenderers(thirdPartyRoot: string): BuiltInRendererDescriptor[
     createThreeJsNewRenderer({ thirdPartyRoot }),
     createThreeJsCurrentRenderer({ thirdPartyRoot }),
   ];
-  return renderers
-    .map((renderer) => ({ name: renderer.name, category: renderer.category }))
-    .toSorted((left, right) => {
-      const leftIndex = RENDERER_CATEGORY_ORDER.indexOf(left.category);
-      const rightIndex = RENDERER_CATEGORY_ORDER.indexOf(right.category);
-      if (leftIndex !== rightIndex) {
-        return leftIndex - rightIndex;
-      }
-      return left.name.localeCompare(right.name);
-    });
+  return renderers.map((renderer) => ({ name: renderer.name, category: renderer.category })).toSorted(sortRenderers);
+}
+
+function getRendererNameOrder(rendererName: string): number {
+  const index = RENDERER_NAME_ORDER.indexOf(rendererName as (typeof RENDERER_NAME_ORDER)[number]);
+  return index === -1 ? RENDERER_NAME_ORDER.length : index;
+}
+
+function sortRenderers(left: BuiltInRendererDescriptor, right: BuiltInRendererDescriptor): number {
+  const leftNameOrder = getRendererNameOrder(left.name);
+  const rightNameOrder = getRendererNameOrder(right.name);
+  if (leftNameOrder !== rightNameOrder) {
+    return leftNameOrder - rightNameOrder;
+  }
+
+  const leftCategoryIndex = RENDERER_CATEGORY_ORDER.indexOf(left.category);
+  const rightCategoryIndex = RENDERER_CATEGORY_ORDER.indexOf(right.category);
+  if (leftCategoryIndex !== rightCategoryIndex) {
+    return leftCategoryIndex - rightCategoryIndex;
+  }
+
+  return left.name.localeCompare(right.name);
 }
 
 function parseConfiguredRenderers(rawValue: string | undefined): string[] | undefined {
@@ -224,7 +244,14 @@ function parseConfiguredRenderers(rawValue: string | undefined): string[] | unde
     return undefined;
   }
 
-  return [...new Set(rawValue.split(',').map((renderer) => renderer.trim()).filter((renderer) => renderer.length > 0))];
+  return [
+    ...new Set(
+      rawValue
+        .split(',')
+        .map((renderer) => renderer.trim())
+        .filter((renderer) => renderer.length > 0),
+    ),
+  ];
 }
 
 function resolveConfiguredRenderers(
@@ -261,17 +288,19 @@ function resolveConfiguredRenderers(
 }
 
 function toRendererGroups(renderers: BuiltInRendererDescriptor[]): RendererCategoryGroupViewModel[] {
-  return RENDERER_CATEGORY_ORDER.map((category) => {
-    const rendererNames = renderers
-      .filter((renderer) => renderer.category === category)
-      .map((renderer) => renderer.name)
-      .toSorted((left, right) => left.localeCompare(right));
-    return {
-      category,
-      label: RENDERER_CATEGORY_LABEL[category],
-      renderers: rendererNames,
+  const groups = new Map<RendererCategory, RendererCategoryGroupViewModel>();
+
+  for (const renderer of renderers.toSorted(sortRenderers)) {
+    const group = groups.get(renderer.category) ?? {
+      category: renderer.category,
+      label: RENDERER_CATEGORY_LABEL[renderer.category],
+      renderers: [],
     };
-  }).filter((group) => group.renderers.length > 0);
+    group.renderers.push(renderer.name);
+    groups.set(renderer.category, group);
+  }
+
+  return [...groups.values()];
 }
 
 function sortMaterialTypes(left: string, right: string): number {
@@ -474,10 +503,7 @@ export async function resolveMaterialDirectory(
   return undefined;
 }
 
-export async function resolveMaterialFilePath(
-  materialType: string,
-  materialName: string,
-): Promise<string | undefined> {
+export async function resolveMaterialFilePath(materialType: string, materialName: string): Promise<string | undefined> {
   const targetDirectory = await resolveMaterialDirectory(materialType, materialName);
   if (!targetDirectory) {
     return undefined;

@@ -21,7 +21,7 @@ vi.mock('@material-fidelity/core', () => ({
 
 vi.mock('@material-fidelity/renderer-blender', () => ({
   createRenderer: () => ({
-    name: 'blender',
+    name: 'blender-new',
     version: 'test',
     checkPrerequisites: async () => ({ success: true }),
     start: async () => undefined,

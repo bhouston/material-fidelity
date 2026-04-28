@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from .document import get_input, input_value
+from .document import input_value_or_default
 
 
 COMPONENT_TYPES = {"color3", "color4", "vector2", "vector3", "vector4"}
@@ -32,14 +32,14 @@ def parse_bool_float(value: Any) -> float:
 
 
 def static_int_input(node: Any, name: str, default: int) -> int:
-    value = input_value(get_input(node, name))
+    value = input_value_or_default(node, name)
     if value is None:
         return default
     return int(parse_float(value))
 
 
 def static_bool_input(node: Any, name: str, default: bool) -> bool:
-    value = input_value(get_input(node, name))
+    value = input_value_or_default(node, name)
     if value is None:
         return default
     return parse_bool_float(value) != 0.0

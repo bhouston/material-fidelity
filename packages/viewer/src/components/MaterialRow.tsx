@@ -1,8 +1,5 @@
 import { DownloadIcon, ExternalLink, Info } from 'lucide-react';
-import type {
-  MaterialViewModel,
-  RendererCategoryGroupViewModel,
-} from '#/lib/material-index';
+import type { MaterialViewModel, RendererCategoryGroupViewModel } from '#/lib/material-index';
 import { getRendererMetadata } from '#/lib/renderer-metadata';
 
 function toAnchorId(value: string): string {
@@ -15,23 +12,11 @@ function toAnchorId(value: string): string {
 interface MaterialRowProps {
   material: MaterialViewModel;
   rendererGroups: RendererCategoryGroupViewModel[];
-  onTrackMaterialAction: (
-    action: 'download_mtlx' | 'open_live_viewer',
-    material: MaterialViewModel,
-  ) => void;
-  onOpenReport: (report: {
-    materialName: string;
-    rendererName: string;
-    reportUrl: string;
-  }) => void;
+  onTrackMaterialAction: (action: 'download_mtlx' | 'open_live_viewer', material: MaterialViewModel) => void;
+  onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
-export function MaterialRow({
-  material,
-  rendererGroups,
-  onTrackMaterialAction,
-  onOpenReport,
-}: MaterialRowProps) {
+export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, onOpenReport }: MaterialRowProps) {
   const materialId = toAnchorId(material.id);
 
   return (
@@ -69,8 +54,8 @@ export function MaterialRow({
         </div>
       </div>
 
-      <div className="mt-3 overflow-x-auto pb-2">
-        <div className="flex min-w-full justify-center gap-4">
+      <div className="mt-3 -mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+        <div className="flex w-max min-w-full justify-start gap-4 lg:justify-center">
           {rendererGroups.map((rendererGroup, groupIndex) => (
             <div key={rendererGroup.category} className="flex flex-none items-stretch gap-4">
               {rendererGroup.renderers.map((rendererName) => {
@@ -96,9 +81,7 @@ export function MaterialRow({
                         <button
                           aria-label={`Show render report for ${material.name} on ${rendererName}`}
                           className="absolute right-2 bottom-2 inline-flex size-7 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-                          onClick={() =>
-                            onOpenReport({ materialName: material.name, rendererName, reportUrl })
-                          }
+                          onClick={() => onOpenReport({ materialName: material.name, rendererName, reportUrl })}
                           type="button"
                         >
                           <Info className="size-4" />

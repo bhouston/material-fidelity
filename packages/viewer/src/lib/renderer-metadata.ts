@@ -6,11 +6,11 @@ export interface RendererMetadata {
 }
 
 const RENDERER_METADATA_BY_NAME: Record<string, RendererMetadata> = {
-  blender: {
-    rendererName: 'blender',
+  'blender-new': {
+    rendererName: 'blender-new',
     packageName: '@material-fidelity/renderer-blender',
     packageUrl: 'https://github.com/bhouston/material-fidelity/tree/main/packages/renderer-blender',
-    observerDescription: "Custom MaterialX loader for Blender Cycles",
+    observerDescription: "Experimental MaterialX loader for Blender Cycles",
   },
   'blender-io-mtlx': {
     rendererName: 'blender-io-mtlx',

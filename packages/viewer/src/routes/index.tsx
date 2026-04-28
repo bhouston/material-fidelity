@@ -17,11 +17,15 @@ const getViewerData = createServerFn({
   method: 'GET',
 }).handler(async () => getViewerIndexData());
 
+const NO_RENDERERS_SEARCH_VALUE = '__none';
+
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => {
     const materials = typeof search.materials === 'string' ? search.materials.trim() : '';
+    const renderers = typeof search.renderers === 'string' ? search.renderers.trim() : '';
     return {
       materials: materials.length > 0 ? materials : undefined,
+      renderers: renderers.length > 0 ? renderers : undefined,
     };
   },
   loader: () => getViewerData(),
@@ -54,6 +58,47 @@ function normalizeMaterialFilters(materialFilter: string | undefined): string[] 
         .filter((filter) => filter.length > 0),
     ),
   ];
+}
+
+function normalizeRendererFilters(rendererFilter: string | undefined): string[] | undefined {
+  if (!rendererFilter) {
+    return undefined;
+  }
+
+  if (rendererFilter === NO_RENDERERS_SEARCH_VALUE) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      rendererFilter
+        .split(',')
+        .map((filter) => filter.trim())
+        .filter((filter) => filter.length > 0),
+    ),
+  ];
+}
+
+function resolveSelectedRenderers(rendererFilter: string | undefined, availableRenderers: string[]): string[] {
+  const normalizedFilters = normalizeRendererFilters(rendererFilter);
+  if (normalizedFilters === undefined) {
+    return availableRenderers;
+  }
+
+  const availableRendererSet = new Set(availableRenderers);
+  return normalizedFilters.filter((rendererName) => availableRendererSet.has(rendererName));
+}
+
+function toRendererSearchValue(selectedRenderers: string[], availableRenderers: string[]): string | undefined {
+  if (selectedRenderers.length === 0) {
+    return NO_RENDERERS_SEARCH_VALUE;
+  }
+
+  if (selectedRenderers.length === availableRenderers.length) {
+    return undefined;
+  }
+
+  return selectedRenderers.join(',');
 }
 
 interface ReportIssue {
@@ -90,6 +135,14 @@ function App() {
   const ga = useGoogleAnalytics();
   const [materialFilterInput, setMaterialFilterInput] = useState(search.materials ?? '');
   const materialSearchTerms = normalizeMaterialFilters(search.materials);
+  const selectedRenderers = resolveSelectedRenderers(search.renderers, data.renderers);
+  const selectedRendererSet = new Set(selectedRenderers);
+  const visibleRendererGroups = data.rendererGroups
+    .map((group) => ({
+      ...group,
+      renderers: group.renderers.filter((rendererName) => selectedRendererSet.has(rendererName)),
+    }))
+    .filter((group) => group.renderers.length > 0);
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
   const [activeReportData, setActiveReportData] = useState<RenderReport | null>(null);
   const [activeReportError, setActiveReportError] = useState<string | null>(null);
@@ -99,18 +152,14 @@ function App() {
   const filteredGroups = data.groups
     .map((group) => ({
       ...group,
-      materials: group.materials.filter(
-        (material) => {
-          if (materialSearchTerms.length === 0) {
-            return true;
-          }
-          const lowerName = material.name.toLocaleLowerCase();
-          const lowerDisplayPath = material.displayPath.toLocaleLowerCase();
-          return materialSearchTerms.some(
-            (term) => lowerName.includes(term) || lowerDisplayPath.includes(term),
-          );
-        },
-      ),
+      materials: group.materials.filter((material) => {
+        if (materialSearchTerms.length === 0) {
+          return true;
+        }
+        const lowerName = material.name.toLocaleLowerCase();
+        const lowerDisplayPath = material.displayPath.toLocaleLowerCase();
+        return materialSearchTerms.some((term) => lowerName.includes(term) || lowerDisplayPath.includes(term));
+      }),
     }))
     .filter((group) => group.materials.length > 0);
   const filteredMaterials = filteredGroups.flatMap((group) =>
@@ -221,18 +270,38 @@ function App() {
     });
   };
 
-  const updateFilters = (next: { materials: string | undefined }) => {
+  const updateFilters = (next: { materials?: string | undefined; renderers?: string | undefined }) => {
     navigate({
       replace: true,
       search: (previous) => ({
         ...previous,
-        materials: next.materials,
+        ...next,
       }),
     });
   };
 
   const handleMaterialSearchChange = (value: string) => {
     setMaterialFilterInput(value);
+  };
+
+  const updateSelectedRenderers = (nextSelectedRenderers: string[]) => {
+    updateFilters({
+      renderers: toRendererSearchValue(nextSelectedRenderers, data.renderers),
+    });
+  };
+
+  const handleRendererToggle = (rendererName: string, enabled: boolean) => {
+    const nextSelectedRendererSet = new Set(selectedRenderers);
+    if (enabled) {
+      nextSelectedRendererSet.add(rendererName);
+    } else {
+      nextSelectedRendererSet.delete(rendererName);
+    }
+    updateSelectedRenderers(data.renderers.filter((candidate) => nextSelectedRendererSet.has(candidate)));
+  };
+
+  const handleSelectAllRenderers = () => {
+    updateSelectedRenderers(data.renderers);
   };
 
   useEffect(() => {
@@ -256,115 +325,125 @@ function App() {
   return (
     <>
       <Header
+        availableRenderers={data.renderers}
         materialFilter={materialFilterInput}
         onMaterialFilterChange={handleMaterialSearchChange}
+        onRendererToggle={handleRendererToggle}
+        onSelectAllRenderers={handleSelectAllRenderers}
+        selectedRenderers={selectedRenderers}
         shownMaterialCount={shownMaterialCount}
         totalMaterialCount={totalMaterialCount}
       />
-      <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-8 px-4 py-6 sm:px-6">
+      <main className="mx-auto flex w-full max-w-none flex-col gap-8 px-4 py-6 sm:px-6">
         <section>
-        <p className="max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          This viewer lists{' '}
-          <a
-            className="underline underline-offset-2 hover:no-underline"
-            href="https://materialx.org/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            MaterialX
-          </a>{' '}
-          sample materials and compares renderer reference renders side-by-side so you can quickly spot visual
-          differences and view render log/error output (click the <Info className="size-4 inline-block" /> icons).
-        </p>
-        <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          <p className="font-medium text-foreground">Enabled renderers:</p>
-          <ul className="mt-1 list-disc space-y-1 pl-5">
-            {data.renderers.map((rendererName) => {
-              const metadata = getRendererMetadata(rendererName);
-              return (
-                <li key={rendererName}>
-                  <code className="font-semibold text-foreground">{rendererName}</code>
-                  {metadata ? (
-                    <>
-                      {' - '}
-                      <a
-                        className="underline underline-offset-2 hover:no-underline"
-                        href={metadata.packageUrl}
-                        target="_blank"
-                      >
-                        {metadata.packageName}
-                      </a>{' '}
-                      - {metadata.observerDescription}
-                    </>
-                  ) : (
-                    ' - Renderer is enabled but has no description metadata yet.'
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          <p>Want to contribute?</p>
-          <ul className="mt-1 list-disc space-y-1 pl-5">
-            <li>
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-fidelity"
-                target="_blank"
-              >
-                Add your own renderer here.
-              </a>
-            </li>
-            <li>
-              <a
-                className="underline underline-offset-2 hover:no-underline"
-                href="https://github.com/bhouston/material-samples"
-                target="_blank"
-              >
-                Add more reference samples here.
-              </a>
-            </li>
-          </ul>
-        </div>
-        <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-          This is an independent project maintained by{' '}
-          <a className="underline underline-offset-2 hover:no-underline" href="https://ben3d.ca" target="_blank">
-            Ben Houston
-          </a>
-          , and sponsored by{' '}
-          <a
-            className="underline underline-offset-2 hover:no-underline"
-            href="https://landofassets.com"
-            target="_blank"
-          >
-            Land of Assets
-          </a>
-          .
-        </p>
-      </section>
-
-      {data.errors.length > 0 && (
-        <section className="rounded-xl border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-          <h2 className="text-base font-semibold">Configuration warnings</h2>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {data.errors.map((errorMessage) => (
-              <li key={errorMessage}>{errorMessage}</li>
-            ))}
-          </ul>
+          <p className="max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+            This viewer lists{' '}
+            <a
+              className="underline underline-offset-2 hover:no-underline"
+              href="https://materialx.org/"
+              rel="noreferrer"
+              target="_blank"
+            >
+              MaterialX
+            </a>{' '}
+            sample materials and compares renderer reference renders side-by-side so you can quickly spot visual
+            differences and view render log/error output (click the <Info className="size-4 inline-block" /> icons).
+          </p>
+          <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+            <p className="font-medium text-foreground">Enabled renderers:</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {data.renderers.map((rendererName) => {
+                const metadata = getRendererMetadata(rendererName);
+                return (
+                  <li key={rendererName}>
+                    <code className="font-semibold text-foreground">{rendererName}</code>
+                    {metadata ? (
+                      <>
+                        {' - '}
+                        <a
+                          className="underline underline-offset-2 hover:no-underline"
+                          href={metadata.packageUrl}
+                          target="_blank"
+                        >
+                          {metadata.packageName}
+                        </a>{' '}
+                        - {metadata.observerDescription}
+                      </>
+                    ) : (
+                      ' - Renderer is enabled but has no description metadata yet.'
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+            <p>Want to contribute?</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              <li>
+                <a
+                  className="underline underline-offset-2 hover:no-underline"
+                  href="https://github.com/bhouston/material-fidelity"
+                  target="_blank"
+                >
+                  Add your own renderer here.
+                </a>
+              </li>
+              <li>
+                <a
+                  className="underline underline-offset-2 hover:no-underline"
+                  href="https://github.com/bhouston/material-samples"
+                  target="_blank"
+                >
+                  Add more reference samples here.
+                </a>
+              </li>
+            </ul>
+          </div>
+          <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
+            This is an independent project maintained by{' '}
+            <a className="underline underline-offset-2 hover:no-underline" href="https://ben3d.ca" target="_blank">
+              Ben Houston
+            </a>
+            , and sponsored by{' '}
+            <a
+              className="underline underline-offset-2 hover:no-underline"
+              href="https://landofassets.com"
+              target="_blank"
+            >
+              Land of Assets
+            </a>
+            .
+          </p>
         </section>
-      )}
+
+        {data.errors.length > 0 && (
+          <section className="rounded-xl border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            <h2 className="text-base font-semibold">Configuration warnings</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {data.errors.map((errorMessage) => (
+                <li key={errorMessage}>{errorMessage}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="pt-2">
-          {filteredMaterials.map((material) => (
-            <MaterialRow
-              key={material.id}
-              material={material}
-              onOpenReport={setActiveReport}
-              onTrackMaterialAction={trackMaterialAction}
-              rendererGroups={data.rendererGroups}
-            />
-          ))}
+          {selectedRenderers.length > 0 ? (
+            filteredMaterials.map((material) => (
+              <MaterialRow
+                key={material.id}
+                material={material}
+                onOpenReport={setActiveReport}
+                onTrackMaterialAction={trackMaterialAction}
+                rendererGroups={visibleRendererGroups}
+              />
+            ))
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+              No renderers selected. Use the renderer filter in the header to enable one or more renderers.
+            </div>
+          )}
         </section>
 
         {activeReport ? (
@@ -397,65 +476,65 @@ function App() {
               </header>
 
               <div className="space-y-4 px-5 py-4 text-sm">
-              {isReportLoading ? <p className="text-muted-foreground">Loading report...</p> : null}
+                {isReportLoading ? <p className="text-muted-foreground">Loading report...</p> : null}
 
-              {activeReportError ? (
-                <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
-                  {activeReportError}
-                </p>
-              ) : null}
+                {activeReportError ? (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
+                    {activeReportError}
+                  </p>
+                ) : null}
 
-              {activeReportData ? (
-                <>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-                      <p className="font-medium text-foreground">{activeReportData.status ?? 'unknown'}</p>
-                    </div>
-                  </div>
-
-                  {activeReportData.error ? (
-                    <section className="space-y-2">
-                      <h4 className="font-semibold text-foreground">Error</h4>
-                      <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
-                        <p className="font-medium text-destructive">
-                          {activeReportData.error.name ? `${activeReportData.error.name}: ` : ''}
-                          {activeReportData.error.message ?? 'Unknown error'}
-                        </p>
-                        {activeReportData.error.stack ? (
-                          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-destructive">
-                            {activeReportData.error.stack}
-                          </pre>
-                        ) : null}
+                {activeReportData ? (
+                  <>
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+                        <p className="font-medium text-foreground">{activeReportData.status ?? 'unknown'}</p>
                       </div>
-                    </section>
-                  ) : null}
+                    </div>
 
-                  {(activeReportData.validationIssues?.length || activeReportData.issues?.length) && (
+                    {activeReportData.error ? (
+                      <section className="space-y-2">
+                        <h4 className="font-semibold text-foreground">Error</h4>
+                        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
+                          <p className="font-medium text-destructive">
+                            {activeReportData.error.name ? `${activeReportData.error.name}: ` : ''}
+                            {activeReportData.error.message ?? 'Unknown error'}
+                          </p>
+                          {activeReportData.error.stack ? (
+                            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-destructive">
+                              {activeReportData.error.stack}
+                            </pre>
+                          ) : null}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {(activeReportData.validationIssues?.length || activeReportData.issues?.length) && (
+                      <section className="space-y-2">
+                        <h4 className="font-semibold text-foreground">Validation issues</h4>
+                        <ul className="space-y-2">
+                          {(activeReportData.validationIssues ?? activeReportData.issues ?? []).map((issue, index) => (
+                            <li
+                              key={`${issue.location ?? 'issue'}-${index}`}
+                              className="rounded-md border border-border px-3 py-2"
+                            >
+                              <p className="font-medium text-foreground">
+                                {issue.level ?? 'issue'} {issue.location ? `- ${issue.location}` : ''}
+                              </p>
+                              <p className="mt-1 text-muted-foreground">{issue.message ?? 'No message provided.'}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
                     <section className="space-y-2">
-                      <h4 className="font-semibold text-foreground">Validation issues</h4>
-                      <ul className="space-y-2">
-                        {(activeReportData.validationIssues ?? activeReportData.issues ?? []).map((issue, index) => (
-                          <li
-                            key={`${issue.location ?? 'issue'}-${index}`}
-                            className="rounded-md border border-border px-3 py-2"
-                          >
-                            <p className="font-medium text-foreground">
-                              {issue.level ?? 'issue'} {issue.location ? `- ${issue.location}` : ''}
-                            </p>
-                            <p className="mt-1 text-muted-foreground">{issue.message ?? 'No message provided.'}</p>
-                          </li>
-                        ))}
-                      </ul>
+                      <h4 className="font-semibold text-foreground">Log messages</h4>
+                      <RenderLogViewer logs={activeReportData.logs} />
                     </section>
-                  )}
-
-                  <section className="space-y-2">
-                    <h4 className="font-semibold text-foreground">Log messages</h4>
-                    <RenderLogViewer logs={activeReportData.logs} />
-                  </section>
-                </>
-              ) : null}
+                  </>
+                ) : null}
               </div>
             </section>
           </div>
