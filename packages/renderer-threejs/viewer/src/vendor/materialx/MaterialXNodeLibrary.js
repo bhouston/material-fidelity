@@ -194,11 +194,7 @@ const mx_cell_noise_vec3_materialx = Fn(([positionInput]) => {
   const hash1 = mx_bjfinal_materialx(add(mixedA, uint(1)), mixedB, mixedC);
   const hash2 = mx_bjfinal_materialx(add(mixedA, uint(2)), mixedB, mixedC);
 
-  return vec3(
-    mx_bits_to_01_materialx(hash0),
-    mx_bits_to_01_materialx(hash1),
-    mx_bits_to_01_materialx(hash2),
-  );
+  return vec3(mx_bits_to_01_materialx(hash0), mx_bits_to_01_materialx(hash1), mx_bits_to_01_materialx(hash2));
 });
 
 // Match MaterialX smoothstep semantics for degenerate ranges:
@@ -229,7 +225,10 @@ const mx_blackbody = (temperature = 5000) => {
   const t = div(float(1000), temperatureKelvin);
   const t2 = mul(t, t);
   const t3 = mul(t2, t);
-  const lowX = add(add(mul(float(-0.2661239), t3), mul(float(-0.234358), t2)), add(mul(float(0.8776956), t), float(0.17991)));
+  const lowX = add(
+    add(mul(float(-0.2661239), t3), mul(float(-0.234358), t2)),
+    add(mul(float(0.8776956), t), float(0.17991)),
+  );
   const highX = add(
     add(mul(float(-3.0258469), t3), mul(float(2.1070379), t2)),
     add(mul(float(0.2226347), t), float(0.24039)),
@@ -254,9 +253,18 @@ const mx_blackbody = (temperature = 5000) => {
   const safeYc = max(yc, float(1e-6));
   const xyz = vec3(div(xc, safeYc), float(1), div(sub(sub(float(1), xc), yc), safeYc));
   const rgb = vec3(
-    add(add(mul(float(3.2406), element(xyz, 0)), mul(float(-1.5372), element(xyz, 1))), mul(float(-0.4986), element(xyz, 2))),
-    add(add(mul(float(-0.9689), element(xyz, 0)), mul(float(1.8758), element(xyz, 1))), mul(float(0.0415), element(xyz, 2))),
-    add(add(mul(float(0.0557), element(xyz, 0)), mul(float(-0.204), element(xyz, 1))), mul(float(1.057), element(xyz, 2))),
+    add(
+      add(mul(float(3.2406), element(xyz, 0)), mul(float(-1.5372), element(xyz, 1))),
+      mul(float(-0.4986), element(xyz, 2)),
+    ),
+    add(
+      add(mul(float(-0.9689), element(xyz, 0)), mul(float(1.8758), element(xyz, 1))),
+      mul(float(0.0415), element(xyz, 2)),
+    ),
+    add(
+      add(mul(float(0.0557), element(xyz, 0)), mul(float(-0.204), element(xyz, 1))),
+      mul(float(1.057), element(xyz, 2)),
+    ),
   );
   const clampedRgb = max(rgb, vec3(0, 0, 0));
   const validYcMask = step(float(1e-6), yc);
@@ -363,7 +371,10 @@ const mx_worley_noise_float_materialx_2d = Fn(([texcoordInput, jitterInput, styl
     Loop({ start: -1, end: int(1), name: 'y', condition: '<=' }, ({ y }) => {
       const cell = vec2(float(x), float(y)).toVar();
       const seed = vec2(cell.x.add(float(X)), cell.y.add(float(Y))).toVar();
-      const off = vec2(mx_cell_noise_float(vec3(seed.x, seed.y, 0)), mx_cell_noise_float(vec3(seed.x, seed.y, 1))).toVar();
+      const off = vec2(
+        mx_cell_noise_float(vec3(seed.x, seed.y, 0)),
+        mx_cell_noise_float(vec3(seed.x, seed.y, 1)),
+      ).toVar();
       off.subAssign(0.5);
       off.mulAssign(jitter);
       off.addAssign(0.5);
@@ -386,8 +397,25 @@ const mx_worley_noise_float_materialx_2d = Fn(([texcoordInput, jitterInput, styl
   return sqdist;
 });
 
-const mx_fractal_noise_float_materialx_2d = (texcoord, octaves, lacunarity, diminish, amplitude) =>
-  mx_fractal_noise_float(vec3(element(texcoord, 0), element(texcoord, 1), 0), octaves, lacunarity, diminish, amplitude);
+const mx_fractal_noise_float_materialx_2d = Fn(
+  ([texcoordInput, octavesInput, lacunarityInput, diminishInput, amplitudeInput]) => {
+    const texcoord = vec2(texcoordInput).toVar();
+    const octaves = int(octavesInput).toVar();
+    const lacunarity = float(lacunarityInput).toVar();
+    const diminish = float(diminishInput).toVar();
+    const amplitude = float(amplitudeInput).toVar();
+    const result = float(0).toVar();
+    const octaveAmplitude = float(1).toVar();
+
+    Loop(octaves, () => {
+      result.addAssign(mul(octaveAmplitude, mx_noise_float(texcoord, float(1), float(0))));
+      octaveAmplitude.mulAssign(diminish);
+      texcoord.mulAssign(lacunarity);
+    });
+
+    return mul(result, amplitude);
+  },
+);
 
 const mx_unifiednoise2d_materialx = Fn(
   ([
@@ -471,12 +499,7 @@ const mx_unifiednoise3d_materialx = (
     typeFloat,
     float(3),
     fractal,
-    mx_ifequal_materialx(
-      typeFloat,
-      float(2),
-      worley,
-      mx_ifequal_materialx(typeFloat, float(1), cell, perlin),
-    ),
+    mx_ifequal_materialx(typeFloat, float(2), worley, mx_ifequal_materialx(typeFloat, float(1), cell, perlin)),
   );
   const ranged = add(outmin, mul(switched, sub(outmax, outmin)));
   const clamped = clamp(ranged, outmin, outmax);
@@ -604,7 +627,14 @@ const mx_rotate2d_materialx = (inNode, amount = 0) => {
   return vec2(add(mul(ca, x), mul(sa, y)), sub(mul(ca, y), mul(sa, x)));
 };
 
-const mx_place2d_materialx = (texcoord, pivot = vec2(0, 0), scale = vec2(1, 1), rotate = 0, offset = vec2(0, 0), operationorder = 0) => {
+const mx_place2d_materialx = (
+  texcoord,
+  pivot = vec2(0, 0),
+  scale = vec2(1, 1),
+  rotate = 0,
+  offset = vec2(0, 0),
+  operationorder = 0,
+) => {
   const centered = sub(texcoord, pivot);
   const srt = add(sub(mx_rotate2d_materialx(div(centered, scale), rotate), offset), pivot);
   const trs = add(div(mx_rotate2d_materialx(sub(centered, offset), rotate), scale), pivot);
@@ -1166,7 +1196,10 @@ const MXElements = [
     in1: defaultFloat(0),
     in2: defaultFloat(0),
   }),
-  new MXElement('rotate2d', mx_rotate2d_materialx, ['in', 'amount'], { in: defaultVec2(0, 0), amount: defaultFloat(0) }),
+  new MXElement('rotate2d', mx_rotate2d_materialx, ['in', 'amount'], {
+    in: defaultVec2(0, 0),
+    amount: defaultFloat(0),
+  }),
   new MXElement('rotate3d', mx_rotate3d_materialx, ['in', 'amount', 'axis'], {
     in: defaultVec3(0, 0, 0),
     amount: defaultFloat(0),
