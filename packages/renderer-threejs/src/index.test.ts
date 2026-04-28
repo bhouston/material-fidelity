@@ -38,6 +38,11 @@ async function createFile(filePath: string): Promise<void> {
   await writeFile(filePath, 'x', 'utf8');
 }
 
+function hasDisposeEvaluation(page: { evaluate: { mock: { calls: unknown[][] } } }): boolean {
+  const calls = page.evaluate.mock.calls;
+  return calls.some((call) => String(call[0]).includes('__MTLX_DISPOSE_SCENE__'));
+}
+
 beforeEach(() => {
   createServerMock.mockReset();
   launchMock.mockReset();
@@ -105,7 +110,11 @@ describe('threejs renderer', () => {
     launchMock.mockResolvedValueOnce(probeBrowser).mockResolvedValueOnce(browser);
 
     const renderer = createRenderer({ thirdPartyRoot });
-    await renderer.start();
+    await renderer.start({
+      modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
+      environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
+      backgroundColor: '0,0,0',
+    });
 
     const materialPath = path.join(samplesRoot, 'materials', 'example', 'example.mtlx');
     const outputOne = path.join(samplesRoot, 'materials', 'example', 'one.png');
@@ -115,22 +124,11 @@ describe('threejs renderer', () => {
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputOne,
-      modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
-      environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
-      backgroundColor: '0,0,0',
     });
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputTwo,
-      modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
-      environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
-      backgroundColor: '0,0,0',
     });
-
-    const hasDisposeEvaluation = (page: typeof firstPage): boolean => {
-      const calls = page.evaluate.mock.calls as unknown[][];
-      return calls.some((call) => String(call[0]).includes('__MTLX_DISPOSE_SCENE__'));
-    };
 
     expect(browserContext.newPage).toHaveBeenCalledTimes(2);
     expect(hasDisposeEvaluation(firstPage)).toBe(true);

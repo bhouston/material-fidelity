@@ -13,6 +13,7 @@ import {
   type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
+  type RendererStartOptions,
 } from '@material-fidelity/core';
 
 interface RuntimeState {
@@ -105,6 +106,7 @@ class MaterialXJsRenderer implements FidelityRenderer {
   private readonly thirdPartyRoot: string;
   private prerequisitesValidated = false;
   private runtimeState: RuntimeState | undefined;
+  private startOptions: RendererStartOptions | undefined;
 
   public constructor(context: RendererContext) {
     this.thirdPartyRoot = context.thirdPartyRoot;
@@ -135,7 +137,7 @@ class MaterialXJsRenderer implements FidelityRenderer {
     }
   }
 
-  public async start(): Promise<void> {
+  public async start(options: RendererStartOptions): Promise<void> {
     if (this.runtimeState) {
       return;
     }
@@ -203,6 +205,7 @@ class MaterialXJsRenderer implements FidelityRenderer {
       context,
       server,
     };
+    this.startOptions = options;
   }
 
   public async shutdown(): Promise<void> {
@@ -212,11 +215,12 @@ class MaterialXJsRenderer implements FidelityRenderer {
 
     const { context, browser, server } = this.runtimeState;
     this.runtimeState = undefined;
+    this.startOptions = undefined;
     await Promise.allSettled([context.close(), browser.close(), server.close()]);
   }
 
   public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
-    if (!this.runtimeState) {
+    if (!this.runtimeState || !this.startOptions) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
@@ -270,10 +274,10 @@ class MaterialXJsRenderer implements FidelityRenderer {
 
       const url = new URL('/index.html', this.runtimeState.baseUrl);
       url.searchParams.set('mtlxPath', toFsUrlPath(options.mtlxPath));
-      url.searchParams.set('modelPath', toFsUrlPath(options.modelPath));
-      url.searchParams.set('environmentHdrPath', toFsUrlPath(options.environmentHdrPath));
+      url.searchParams.set('modelPath', toFsUrlPath(this.startOptions.modelPath));
+      url.searchParams.set('environmentHdrPath', toFsUrlPath(this.startOptions.environmentHdrPath));
       url.searchParams.set('environmentRotationDegrees', String(VIEWER_ENVIRONMENT_ROTATION_DEGREES));
-      url.searchParams.set('backgroundColor', options.backgroundColor);
+      url.searchParams.set('backgroundColor', this.startOptions.backgroundColor);
 
       await page.goto(url.toString(), { waitUntil: 'networkidle' });
       await Promise.race([

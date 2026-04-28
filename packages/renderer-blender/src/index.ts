@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { access, mkdir } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { constants as fsConstants, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -12,6 +13,7 @@ import {
   type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
+  type RendererStartOptions,
 } from '@material-fidelity/core';
 
 const BLENDER_EXECUTABLE_ENV = 'BLENDER_EXECUTABLE';
@@ -204,6 +206,9 @@ class BlenderRenderer implements FidelityRenderer {
   private readonly thirdPartyRoot: string;
   private executable: string | undefined;
   private prerequisitesValidated = false;
+  private templateDirectory: string | undefined;
+  private templatePath: string | undefined;
+  private startOptions: RendererStartOptions | undefined;
 
   public constructor(context: RendererContext) {
     this.thirdPartyRoot = context.thirdPartyRoot;
@@ -247,8 +252,8 @@ class BlenderRenderer implements FidelityRenderer {
     }
   }
 
-  public async start(): Promise<void> {
-    if (this.executable && this.prerequisitesValidated) {
+  public async start(options: RendererStartOptions): Promise<void> {
+    if (this.executable && this.prerequisitesValidated && this.templatePath) {
       return;
     }
 
@@ -256,12 +261,59 @@ class BlenderRenderer implements FidelityRenderer {
     if (!checkResult.success) {
       throw new Error(checkResult.message ?? 'Blender prerequisites are not satisfied.');
     }
+
+    if (!this.executable) {
+      throw new Error('Blender executable was not resolved during prerequisite validation.');
+    }
+
+    const scriptPath = join(this.packageRoot, 'blender', 'render_materialx.py');
+    const templateDirectory = await mkdtemp(join(tmpdir(), 'material-fidelity-blender-'));
+    const templatePath = join(templateDirectory, 'template.blend');
+    const args = [
+      '--background',
+      '--factory-startup',
+      '--python',
+      scriptPath,
+      '--',
+      '--template-output-path',
+      templatePath,
+      '--model-path',
+      options.modelPath,
+      '--environment-hdr-path',
+      options.environmentHdrPath,
+      '--background-color',
+      options.backgroundColor,
+      '--width',
+      String(REFERENCE_IMAGE_WIDTH),
+      '--height',
+      String(REFERENCE_IMAGE_HEIGHT),
+      '--third-party-root',
+      this.thirdPartyRoot,
+    ];
+
+    try {
+      await execute(this.executable, args);
+      this.templateDirectory = templateDirectory;
+      this.templatePath = templatePath;
+      this.startOptions = options;
+    } catch (error) {
+      await rm(templateDirectory, { recursive: true, force: true });
+      throw error;
+    }
   }
 
-  public async shutdown(): Promise<void> {}
+  public async shutdown(): Promise<void> {
+    const templateDirectory = this.templateDirectory;
+    this.templateDirectory = undefined;
+    this.templatePath = undefined;
+    this.startOptions = undefined;
+    if (templateDirectory) {
+      await rm(templateDirectory, { recursive: true, force: true });
+    }
+  }
 
   public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
-    if (!this.executable) {
+    if (!this.executable || !this.templatePath || !this.startOptions) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
@@ -274,7 +326,7 @@ class BlenderRenderer implements FidelityRenderer {
     const scriptPath = join(this.packageRoot, 'blender', 'render_materialx.py');
     const args = [
       '--background',
-      '--factory-startup',
+      this.templatePath,
       '--python',
       scriptPath,
       '--',
@@ -282,12 +334,8 @@ class BlenderRenderer implements FidelityRenderer {
       options.mtlxPath,
       '--output-png-path',
       options.outputPngPath,
-      '--model-path',
-      options.modelPath,
-      '--environment-hdr-path',
-      options.environmentHdrPath,
       '--background-color',
-      options.backgroundColor,
+      this.startOptions.backgroundColor,
       '--width',
       String(REFERENCE_IMAGE_WIDTH),
       '--height',

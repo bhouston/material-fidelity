@@ -260,7 +260,11 @@ export async function createReferences(options: CreateReferencesOptions): Promis
   let shutdownError: Error | undefined;
   try {
     for (const renderer of selectedRenderers) {
-      await renderer.start();
+      await renderer.start({
+        modelPath,
+        environmentHdrPath: hdrPath,
+        backgroundColor: DEFAULT_BACKGROUND_COLOR,
+      });
       startedRenderers.push(renderer);
     }
 
@@ -301,9 +305,6 @@ export async function createReferences(options: CreateReferencesOptions): Promis
             const renderResult = await renderer.generateImage({
               mtlxPath: materialPath,
               outputPngPath: outputTempPngPath,
-              environmentHdrPath: hdrPath,
-              modelPath,
-              backgroundColor: DEFAULT_BACKGROUND_COLOR,
             });
             logs = normalizeRenderLogs([...renderResult.logs]);
             await rm(legacyWebpPath, { force: true });

@@ -10,6 +10,7 @@ import {
   type GenerateImageResult,
   type RenderLogEntry,
   type RendererPrerequisiteCheckResult,
+  type RendererStartOptions,
 } from '@material-fidelity/core';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
@@ -98,6 +99,7 @@ class MaterialXViewRenderer implements FidelityRenderer {
   public readonly category = 'raytracer';
   public readonly emptyReferenceImagePath = fileURLToPath(new URL('../materialxview-empty.png', import.meta.url));
   private executable: string | undefined;
+  private startOptions: RendererStartOptions | undefined;
 
   public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
     try {
@@ -109,7 +111,8 @@ class MaterialXViewRenderer implements FidelityRenderer {
     }
   }
 
-  public async start(): Promise<void> {
+  public async start(options: RendererStartOptions): Promise<void> {
+    this.startOptions = options;
     if (this.executable) {
       return;
     }
@@ -120,10 +123,12 @@ class MaterialXViewRenderer implements FidelityRenderer {
     }
   }
 
-  public async shutdown(): Promise<void> {}
+  public async shutdown(): Promise<void> {
+    this.startOptions = undefined;
+  }
 
   public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
-    if (!this.executable) {
+    if (!this.executable || !this.startOptions) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
@@ -137,13 +142,13 @@ class MaterialXViewRenderer implements FidelityRenderer {
       '--material',
       options.mtlxPath,
       '--mesh',
-      options.modelPath,
+      this.startOptions.modelPath,
       '--envRad',
-      options.environmentHdrPath,
+      this.startOptions.environmentHdrPath,
       '--drawEnvironment',
       'true',
       '--screenColor',
-      options.backgroundColor,
+      this.startOptions.backgroundColor,
       '--screenWidth',
       String(REFERENCE_IMAGE_WIDTH),
       '--screenHeight',

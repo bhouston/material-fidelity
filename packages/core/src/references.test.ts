@@ -74,6 +74,7 @@ function createTrackingRenderer(base64Png: string, rendererName = 'fake') {
   const state = {
     started: false,
     startCalls: 0,
+    startOptions: undefined as Parameters<FidelityRenderer['start']>[0] | undefined,
   };
   const emptyReferenceImagePath = path.join(tmpdir(), `fidelity-empty-reference-${rendererName}.png`);
   const renderer: FidelityRenderer = {
@@ -85,9 +86,10 @@ function createTrackingRenderer(base64Png: string, rendererName = 'fake') {
       await writeFile(emptyReferenceImagePath, Buffer.from(BLACK_PIXEL_PNG_BASE64, 'base64'));
       return { success: true };
     },
-    async start() {
+    async start(options) {
       state.started = true;
       state.startCalls += 1;
+      state.startOptions = options;
     },
     async shutdown() {},
     async generateImage(options) {
@@ -791,6 +793,11 @@ export function createAdapter() {
     await expect(access(path.join(materialDir, 'fake.json'))).resolves.toBeUndefined();
     expect(state.startCalls).toBe(1);
     expect(state.started).toBe(true);
+    expect(state.startOptions).toEqual({
+      modelPath: path.join(viewerDir, 'ShaderBall.glb'),
+      environmentHdrPath: path.join(viewerDir, 'san_giuseppe_bridge_2k.hdr'),
+      backgroundColor: '0,0,0',
+    });
   });
 
   it('marks unsupported node categories as a task failure and continues', async () => {

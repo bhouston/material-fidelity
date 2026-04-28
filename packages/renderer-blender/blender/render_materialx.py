@@ -23,34 +23,69 @@ def main() -> int:
     args = parse_args(sys.argv)
     warnings: list[str] = []
 
+    if args.template_output_path:
+        create_template(args, warnings)
+        return 0
+
+    render_from_template(args, warnings)
+    return 0
+
+
+def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
     clear_scene()
-    configure_render(args.width, args.height, args.output_png_path, args.background_color)
+    configure_render(args.width, args.height, None, args.background_color)
     imported_objects = import_model(args.model_path)
-    normalized_root = recenter_and_normalize(imported_objects)
+    recenter_and_normalize(imported_objects)
+    setup_camera()
+    setup_environment(args.environment_hdr_path, args.background_color, warnings)
+    print(json.dumps({"event": "blender-template-create", "warnings": warnings}))
+    bpy.ops.wm.save_as_mainfile(filepath=args.template_output_path)
+    print(json.dumps({"event": "blender-template-finish", "output": args.template_output_path, "warnings": warnings}))
+
+
+def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
+    configure_render(args.width, args.height, args.output_png_path, args.background_color)
+    normalized_root = find_normalized_root()
     material_result = load_materialx_as_blender_material(args.mtlx_path)
     warnings.extend(material_result.warnings)
     apply_material(normalized_root, material_result.material)
-    setup_camera()
-    setup_environment(args.environment_hdr_path, args.background_color, warnings)
-
     print(json.dumps({"event": "blender-render-start", "warnings": warnings}))
     bpy.ops.render.render(write_still=True)
     print(json.dumps({"event": "blender-render-finish", "output": args.output_png_path, "warnings": warnings}))
-    return 0
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     passthrough_args = argv[argv.index("--") + 1 :] if "--" in argv else []
     parser = argparse.ArgumentParser(description="Render a MaterialX material on the fidelity shader ball in Blender.")
-    parser.add_argument("--mtlx-path", required=True)
-    parser.add_argument("--output-png-path", required=True)
-    parser.add_argument("--model-path", required=True)
-    parser.add_argument("--environment-hdr-path", required=True)
+    parser.add_argument("--mtlx-path")
+    parser.add_argument("--output-png-path")
+    parser.add_argument("--model-path")
+    parser.add_argument("--environment-hdr-path")
+    parser.add_argument("--template-output-path")
     parser.add_argument("--background-color", required=True)
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--third-party-root")
-    return parser.parse_args(passthrough_args)
+    args = parser.parse_args(passthrough_args)
+
+    if args.template_output_path:
+        required_template_args = {
+            "--model-path": args.model_path,
+            "--environment-hdr-path": args.environment_hdr_path,
+        }
+        missing_template_args = [name for name, value in required_template_args.items() if not value]
+        if missing_template_args:
+            parser.error(f"Template creation requires: {', '.join(missing_template_args)}")
+        return args
+
+    required_render_args = {
+        "--mtlx-path": args.mtlx_path,
+        "--output-png-path": args.output_png_path,
+    }
+    missing_render_args = [name for name, value in required_render_args.items() if not value]
+    if missing_render_args:
+        parser.error(f"Template rendering requires: {', '.join(missing_render_args)}")
+    return args
 
 
 def clear_scene() -> None:
@@ -58,16 +93,26 @@ def clear_scene() -> None:
     bpy.ops.object.delete()
 
 
-def configure_render(width: int, height: int, output_png_path: str, background_color: str) -> None:
+def configure_render(width: int, height: int, output_png_path: str | None, background_color: str) -> None:
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
-    scene.cycles.samples = 64
-    scene.cycles.use_denoising = False
+    scene.cycles.samples = 32
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = 0.02
+    scene.cycles.use_denoising = True
+    scene.cycles.max_bounces = 4
+    scene.cycles.diffuse_bounces = 2
+    scene.cycles.glossy_bounces = 2
+    scene.cycles.transmission_bounces = 4
+    scene.cycles.transparent_max_bounces = 4
+    scene.cycles.caustics_reflective = False
+    scene.cycles.caustics_refractive = False
     scene.render.resolution_x = width
     scene.render.resolution_y = height
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = False
-    scene.render.filepath = output_png_path
+    if output_png_path is not None:
+        scene.render.filepath = output_png_path
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     scene.view_settings.view_transform = "Standard"
@@ -127,6 +172,13 @@ def recenter_and_normalize(objects: list[bpy.types.Object]) -> bpy.types.Object:
     root.location = (-center.x * scale, -center.y * scale, -center.z * scale)
     for obj in mesh_objects:
         obj.parent = root
+    return root
+
+
+def find_normalized_root() -> bpy.types.Object:
+    root = bpy.data.objects.get("Normalized_ShaderBall")
+    if root is None:
+        raise RuntimeError("Template scene is missing Normalized_ShaderBall.")
     return root
 
 

@@ -1,9 +1,6 @@
 export interface GenerateImageOptions {
   mtlxPath: string;
   outputPngPath: string;
-  modelPath: string;
-  environmentHdrPath: string;
-  backgroundColor: string;
 }
 
 export interface RenderLogEntry {
@@ -14,6 +11,12 @@ export interface RenderLogEntry {
 
 export interface GenerateImageResult {
   logs: RenderLogEntry[];
+}
+
+export interface RendererStartOptions {
+  modelPath: string;
+  environmentHdrPath: string;
+  backgroundColor: string;
 }
 
 export interface RendererPrerequisiteCheckResult {
@@ -29,7 +32,7 @@ export interface FidelityRenderer {
   category: RendererCategory;
   emptyReferenceImagePath: string;
   checkPrerequisites: () => Promise<RendererPrerequisiteCheckResult> | RendererPrerequisiteCheckResult;
-  start: () => Promise<void>;
+  start: (options: RendererStartOptions) => Promise<void>;
   shutdown: () => Promise<void>;
   generateImage: (options: GenerateImageOptions) => Promise<GenerateImageResult>;
 }

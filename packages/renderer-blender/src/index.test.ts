@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,6 +64,37 @@ function mockSpawnExit(code: number, stdout = '', stderr = ''): void {
   });
 }
 
+function mockSpawnExitSequence(results: Array<{ code: number; stdout?: string; stderr?: string }>): void {
+  for (const result of results) {
+    spawnMock.mockImplementationOnce(() => {
+      const process = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter;
+        stderr: EventEmitter;
+      };
+      process.stdout = new EventEmitter();
+      process.stderr = new EventEmitter();
+      queueMicrotask(() => {
+        if (result.stdout) {
+          process.stdout.emit('data', Buffer.from(result.stdout));
+        }
+        if (result.stderr) {
+          process.stderr.emit('data', Buffer.from(result.stderr));
+        }
+        process.emit('close', result.code);
+      });
+      return process;
+    });
+  }
+}
+
+function getArgValue(args: string[], name: string): string {
+  const value = args[args.indexOf(name) + 1];
+  if (!value) {
+    throw new Error(`Missing argument value for ${name}`);
+  }
+  return value;
+}
+
 beforeEach(() => {
   spawnMock.mockReset();
   spawnSyncMock.mockReset();
@@ -111,26 +142,21 @@ describe('blender renderer', () => {
     await Promise.all([createFile(materialPath), createFile(modelPath), createFile(environmentHdrPath)]);
 
     const renderer = createRenderer({ thirdPartyRoot });
-    await renderer.start();
+    await renderer.start({ modelPath, environmentHdrPath, backgroundColor: '0,0,0' });
     const result = await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputPath,
-      modelPath,
-      environmentHdrPath,
-      backgroundColor: '0,0,0',
     });
 
-    expect(spawnMock).toHaveBeenCalledTimes(1);
-    const [executable, args] = spawnMock.mock.calls[0] as [string, string[]];
-    expect(executable).toBe('blender');
-    expect(args).toEqual(
+    expect(spawnMock).toHaveBeenCalledTimes(2);
+    const [templateExecutable, templateArgs] = spawnMock.mock.calls[0] as [string, string[]];
+    expect(templateExecutable).toBe('blender');
+    expect(templateArgs).toEqual(
       expect.arrayContaining([
         '--background',
         '--factory-startup',
-        '--mtlx-path',
-        materialPath,
-        '--output-png-path',
-        outputPath,
+        '--template-output-path',
+        expect.stringMatching(/template\.blend$/),
         '--model-path',
         modelPath,
         '--environment-hdr-path',
@@ -141,38 +167,64 @@ describe('blender renderer', () => {
         thirdPartyRoot,
       ]),
     );
+
+    const templatePath = getArgValue(templateArgs, '--template-output-path');
+    const [renderExecutable, renderArgs] = spawnMock.mock.calls[1] as [string, string[]];
+    expect(renderExecutable).toBe('blender');
+    expect(renderArgs).toEqual(
+      expect.arrayContaining([
+        '--background',
+        templatePath,
+        '--mtlx-path',
+        materialPath,
+        '--output-png-path',
+        outputPath,
+        '--background-color',
+        '0,0,0',
+        '--third-party-root',
+        thirdPartyRoot,
+      ]),
+    );
+    expect(renderArgs).not.toContain('--model-path');
+    expect(renderArgs).not.toContain('--environment-hdr-path');
     expect(result.logs.map((entry: { message: string }) => entry.message)).toEqual(['render started', 'render finished']);
   });
 
   it('requires PNG output paths', async () => {
     mockSuccessfulPrerequisites();
+    mockSpawnExit(0, 'template created\n');
     const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
-    await renderer.start();
+    await renderer.start({
+      modelPath: '/tmp/model.glb',
+      environmentHdrPath: '/tmp/environment.hdr',
+      backgroundColor: '0,0,0',
+    });
 
     await expect(
       renderer.generateImage({
         mtlxPath: '/tmp/material.mtlx',
         outputPngPath: '/tmp/output.webp',
-        modelPath: '/tmp/model.glb',
-        environmentHdrPath: '/tmp/environment.hdr',
-        backgroundColor: '0,0,0',
       }),
     ).rejects.toThrow('Output image must be .png');
   });
 
   it('attaches renderer logs to Blender failures', async () => {
     mockSuccessfulPrerequisites();
-    mockSpawnExit(1, 'render started\n', 'render failed\n');
+    mockSpawnExitSequence([
+      { code: 0, stdout: 'template created\n' },
+      { code: 1, stdout: 'render started\n', stderr: 'render failed\n' },
+    ]);
     const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
-    await renderer.start();
+    await renderer.start({
+      modelPath: '/tmp/model.glb',
+      environmentHdrPath: '/tmp/environment.hdr',
+      backgroundColor: '0,0,0',
+    });
 
     await expect(
       renderer.generateImage({
         mtlxPath: '/tmp/material.mtlx',
         outputPngPath: '/tmp/output.png',
-        modelPath: '/tmp/model.glb',
-        environmentHdrPath: '/tmp/environment.hdr',
-        backgroundColor: '0,0,0',
       }),
     ).rejects.toMatchObject({
       message: 'render failed',
@@ -181,5 +233,25 @@ describe('blender renderer', () => {
         { level: 'warning', source: 'renderer', message: 'render failed' },
       ],
     });
+  });
+
+  it('removes the temporary template directory during shutdown', async () => {
+    mockSuccessfulPrerequisites();
+    mockSpawnExit(0, 'template created\n');
+    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    await renderer.start({
+      modelPath: '/tmp/model.glb',
+      environmentHdrPath: '/tmp/environment.hdr',
+      backgroundColor: '0,0,0',
+    });
+
+    const [, templateArgs] = spawnMock.mock.calls[0] as [string, string[]];
+    const templatePath = getArgValue(templateArgs, '--template-output-path');
+    const templateDirectory = path.dirname(templatePath);
+    await expect(access(templateDirectory)).resolves.toBeUndefined();
+
+    await renderer.shutdown();
+
+    await expect(access(templateDirectory)).rejects.toThrow();
   });
 });

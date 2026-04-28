@@ -13,6 +13,7 @@ import {
   type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
+  type RendererStartOptions,
 } from '@material-fidelity/core';
 
 interface RuntimeState {
@@ -128,6 +129,7 @@ class ThreeJsRenderer implements FidelityRenderer {
   private readonly materialXLoaderVariant: MaterialXLoaderVariant;
   private prerequisitesValidated = false;
   private runtimeState: RuntimeState | undefined;
+  private startOptions: RendererStartOptions | undefined;
 
   public constructor(
     context: RendererContext,
@@ -170,7 +172,7 @@ class ThreeJsRenderer implements FidelityRenderer {
     }
   }
 
-  public async start(): Promise<void> {
+  public async start(options: RendererStartOptions): Promise<void> {
     if (this.runtimeState) {
       return;
     }
@@ -182,12 +184,7 @@ class ThreeJsRenderer implements FidelityRenderer {
       }
     }
 
-    const samplesRoot = join(this.thirdPartyRoot, 'material-samples');
-    const viewerRoot = join(samplesRoot, 'viewer');
-    const envPath = join(viewerRoot, VIEWER_HDR_FILENAME);
-    const modelPath = join(viewerRoot, VIEWER_MODEL_FILENAME);
-
-    await Promise.all([assertFileExists(envPath), assertFileExists(modelPath)]);
+    await Promise.all([assertFileExists(options.environmentHdrPath), assertFileExists(options.modelPath)]);
 
     const viewerAppRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'viewer');
     const server = await createServer({
@@ -224,6 +221,7 @@ class ThreeJsRenderer implements FidelityRenderer {
       context,
       server,
     };
+    this.startOptions = options;
   }
 
   public async shutdown(): Promise<void> {
@@ -233,11 +231,12 @@ class ThreeJsRenderer implements FidelityRenderer {
 
     const { context, browser, server } = this.runtimeState;
     this.runtimeState = undefined;
+    this.startOptions = undefined;
     await Promise.allSettled([context.close(), browser.close(), server.close()]);
   }
 
   public async generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
-    if (!this.runtimeState) {
+    if (!this.runtimeState || !this.startOptions) {
       throw new Error('Renderer has not been started. Call start() before generateImage().');
     }
 
@@ -291,10 +290,10 @@ class ThreeJsRenderer implements FidelityRenderer {
 
       const url = new URL('/index.html', this.runtimeState.baseUrl);
       url.searchParams.set('mtlxPath', toFsUrlPath(options.mtlxPath));
-      url.searchParams.set('modelPath', toFsUrlPath(options.modelPath));
-      url.searchParams.set('environmentHdrPath', toFsUrlPath(options.environmentHdrPath));
+      url.searchParams.set('modelPath', toFsUrlPath(this.startOptions.modelPath));
+      url.searchParams.set('environmentHdrPath', toFsUrlPath(this.startOptions.environmentHdrPath));
       url.searchParams.set('environmentRotationDegrees', String(VIEWER_ENVIRONMENT_ROTATION_DEGREES));
-      url.searchParams.set('backgroundColor', options.backgroundColor);
+      url.searchParams.set('backgroundColor', this.startOptions.backgroundColor);
       url.searchParams.set('materialXLoaderVariant', this.materialXLoaderVariant);
 
       await page.goto(url.toString(), { waitUntil: 'networkidle' });

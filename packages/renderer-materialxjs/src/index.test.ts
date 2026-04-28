@@ -102,7 +102,11 @@ describe('materialxjs renderer', () => {
     launchMock.mockResolvedValueOnce(probeBrowser).mockResolvedValueOnce(browser);
 
     const renderer = createRenderer({ thirdPartyRoot });
-    await renderer.start();
+    await renderer.start({
+      modelPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'ShaderBall.glb'),
+      environmentHdrPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
+      backgroundColor: '0,0,0',
+    });
 
     const materialPath = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'example.mtlx');
     const outputOne = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example', 'one.png');
@@ -112,16 +116,10 @@ describe('materialxjs renderer', () => {
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputOne,
-      modelPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'ShaderBall.glb'),
-      environmentHdrPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
-      backgroundColor: '0,0,0',
     });
     await renderer.generateImage({
       mtlxPath: materialPath,
       outputPngPath: outputTwo,
-      modelPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'ShaderBall.glb'),
-      environmentHdrPath: path.join(thirdPartyRoot, 'material-samples', 'viewer', 'san_giuseppe_bridge_2k.hdr'),
-      backgroundColor: '0,0,0',
     });
 
     expect(browserContext.newPage).toHaveBeenCalledTimes(2);
