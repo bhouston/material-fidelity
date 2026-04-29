@@ -54,6 +54,9 @@ _IMPORT_TIMINGS_MS["total_before_main"] = round((time.perf_counter() - _SCRIPT_S
 
 IDEAL_MESH_SPHERE_RADIUS = 2.0
 ENVIRONMENT_ROTATION_DEGREES = 90.0
+# Keep Cycles shadow rays off for the shader ball so Blender renders line up with
+# the shadow-map-free reference renderers. Set this to True to restore shadows.
+MESH_SHADOWS_ENABLED = False
 CYCLES_RENDER_PROFILE: Literal["default", "fast"] = "fast"
 CYCLES_RENDER_PROFILES = {
     "default": {
@@ -104,7 +107,8 @@ def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
         args.background_color,
     )
     imported_objects = time_call(timings, "import_model", import_model, args.model_path)
-    time_call(timings, "recenter_and_normalize", recenter_and_normalize, imported_objects)
+    normalized_root = time_call(timings, "recenter_and_normalize", recenter_and_normalize, imported_objects)
+    time_call(timings, "configure_mesh_shadow_visibility", configure_mesh_shadow_visibility, normalized_root)
     time_call(timings, "setup_camera", setup_camera)
     time_call(
         timings,
@@ -375,6 +379,12 @@ def apply_material(root: bpy.types.Object, material: bpy.types.Material) -> None
     for obj in targets:
         obj.data.materials.clear()
         obj.data.materials.append(material)
+
+
+def configure_mesh_shadow_visibility(root: bpy.types.Object) -> None:
+    for obj in iter_descendants(root):
+        if obj.type == "MESH":
+            obj.visible_shadow = MESH_SHADOWS_ENABLED
 
 
 def iter_descendants(root: bpy.types.Object) -> list[bpy.types.Object]:

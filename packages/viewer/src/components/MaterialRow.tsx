@@ -1,4 +1,5 @@
 import { DownloadIcon, ExternalLink, Info } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { MaterialViewModel, RendererCategoryGroupViewModel } from '#/lib/material-index';
 import { getRendererMetadata } from '#/lib/renderer-metadata';
 
@@ -16,8 +17,67 @@ interface MaterialRowProps {
   onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
+function formatMetricValue(value: number | null, digits = 3): string {
+  return value === null ? 'n/a' : value.toFixed(digits);
+}
+
+function RendererMetrics({ metrics }: { metrics: MaterialViewModel['metrics'][string] }) {
+  if (!metrics) {
+    return <p className="text-center text-[11px] text-muted-foreground">metrics missing</p>;
+  }
+
+  return (
+    <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
+      <div className="flex justify-between gap-1">
+        <dt>SSIM</dt>
+        <dd className="font-mono text-foreground">{formatMetricValue(metrics.ssim)}</dd>
+      </div>
+      <div className="flex justify-between gap-1">
+        <dt>PSNR</dt>
+        <dd className="font-mono text-foreground">{formatMetricValue(metrics.psnr, 1)}</dd>
+      </div>
+      <div className="flex justify-between gap-1">
+        <dt>RMS</dt>
+        <dd className="font-mono text-foreground">{formatMetricValue(metrics.normalizedRgbRms)}</dd>
+      </div>
+      <div className="flex justify-between gap-1">
+        <dt>VMAF</dt>
+        <dd className="font-mono text-foreground">{formatMetricValue(metrics.vmaf, 1)}</dd>
+      </div>
+    </dl>
+  );
+}
+
 export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, onOpenReport }: MaterialRowProps) {
   const materialId = toAnchorId(material.id);
+  const rowContentRef = useRef<HTMLDivElement | null>(null);
+  const [shouldRenderContent, setShouldRenderContent] = useState(false);
+
+  useEffect(() => {
+    const rowContent = rowContentRef.current;
+    if (!rowContent || shouldRenderContent) {
+      return;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      setShouldRenderContent(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldRenderContent(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '900px 0px' },
+    );
+    observer.observe(rowContent);
+    return () => {
+      observer.disconnect();
+    };
+  }, [shouldRenderContent]);
 
   return (
     <article className="border-b border-border py-4 last:border-b-0">
@@ -54,13 +114,27 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
         </div>
       </div>
 
-      <div className="mt-3 -mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+      <div className="mt-3 -mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6" ref={rowContentRef}>
         <div className="flex w-max min-w-full justify-start gap-4 lg:justify-center">
           {rendererGroups.map((rendererGroup, groupIndex) => (
             <div key={rendererGroup.category} className="flex flex-none items-stretch gap-4">
               {rendererGroup.renderers.map((rendererName) => {
+                if (!shouldRenderContent) {
+                  return (
+                    <figure key={rendererName} className="flex w-[170px] flex-none flex-col gap-2 sm:w-[200px]">
+                      <div className="flex aspect-square w-full items-center justify-center border border-dashed border-border bg-muted/20 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        not loaded
+                      </div>
+                      <figcaption className="text-center text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">{rendererName}</p>
+                      </figcaption>
+                    </figure>
+                  );
+                }
+
                 const imageUrl = material.images[rendererName];
                 const reportUrl = material.reports[rendererName];
+                const metrics = material.metrics[rendererName] ?? null;
                 const metadata = getRendererMetadata(rendererName);
                 return (
                   <figure key={rendererName} className="flex w-[170px] flex-none flex-col gap-2 sm:w-[200px]">
@@ -88,6 +162,7 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
                         </button>
                       ) : null}
                     </div>
+                    <RendererMetrics metrics={metrics} />
                     <figcaption className="text-center text-xs text-muted-foreground">
                       <p className="font-medium text-foreground">{rendererName}</p>
                       <p>{metadata?.observerDescription ?? 'Renderer description unavailable.'}</p>

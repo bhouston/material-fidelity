@@ -53,6 +53,20 @@ pnpm cli render --renderers materialxjs --materials open_pbr
 
 This command writes `<renderer-name>.png` in each directory containing a `.mtlx` material file.
 
+Calculate visual similarity metrics against each material's `materialxview.png` reference:
+
+```bash
+# all renderers, all materials
+pnpm cli metrics
+```
+
+```bash
+# only calculate metrics for selected renderers/materials
+pnpm cli metrics --renderers materialxjs,threejs-new --materials open_pbr
+```
+
+This command writes `metrics.json` in each directory containing a `.mtlx` material file and a `materialxview.png` reference. Each file is keyed by renderer name and contains `ssim`, `psnr`, `normalizedRgbRms`, and `vmaf` values. VMAF is calculated when `ffmpeg` with `libvmaf` is available on `PATH`; otherwise the command continues with the still-image metrics and writes `vmaf: null`.
+
 Currently supported renderers:
 
 - `materialxview` (`@material-fidelity/renderer-materialxview`)
@@ -69,6 +83,8 @@ Optional flags:
 - `--materials <selector[,selector...]>` optional material filter; matches against each material directory name only (leaf directory), supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
 - `--concurrency <number>` optional render concurrency; defaults to the recommended available parallelism, with a minimum of `1`
 - `--skip-existing` only render renderer/material pairs whose `<renderer-name>.png` output does not already exist
+
+The `metrics` command supports the same `--renderers`, `--materials`, and `--concurrency` filters, plus `--no-vmaf` to skip VMAF calculation.
 
 ## Material Organization
 
@@ -164,6 +180,7 @@ pnpm viewer
 The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-io-mtlx`, `materialxjs`, `threejs-current`, `threejs-new`).
 
 The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
+If a material directory contains `metrics.json`, the viewer displays each renderer's metrics beneath its image. Material rows render lightweight placeholders until they are near the viewport, then load the image tiles, render reports, and metrics for smoother browsing.
 
 Optional viewer environment variables:
 

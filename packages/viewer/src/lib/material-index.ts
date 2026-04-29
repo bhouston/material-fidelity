@@ -1,4 +1,4 @@
-import { access, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
   createIoBlenderMtlxRenderer,
@@ -27,6 +27,7 @@ const RENDERER_NAME_ORDER = [
   'threejs-current',
   'threejs-new',
 ] as const;
+const METRICS_FILE_NAME = 'metrics.json';
 type RendererCategory = (typeof RENDERER_CATEGORY_ORDER)[number];
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
   pathtracer: 'Pathtracers',
@@ -63,6 +64,14 @@ export interface MaterialViewModel {
   downloadMtlxZipUrl: string;
   images: Record<string, string | null>;
   reports: Record<string, string | null>;
+  metrics: Record<string, RendererMetricsViewModel | null>;
+}
+
+export interface RendererMetricsViewModel {
+  ssim: number | null;
+  psnr: number | null;
+  normalizedRgbRms: number | null;
+  vmaf: number | null;
 }
 
 export interface MaterialTypeGroupViewModel {
@@ -188,6 +197,59 @@ async function resolveReferenceReportCandidatePath(
   }
 
   return undefined;
+}
+
+function isMetricValue(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function parseRendererMetrics(value: unknown): RendererMetricsViewModel | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    !isMetricValue(candidate.ssim) ||
+    !isMetricValue(candidate.psnr) ||
+    !isMetricValue(candidate.normalizedRgbRms) ||
+    !isMetricValue(candidate.vmaf)
+  ) {
+    return null;
+  }
+
+  return {
+    ssim: candidate.ssim,
+    psnr: candidate.psnr,
+    normalizedRgbRms: candidate.normalizedRgbRms,
+    vmaf: candidate.vmaf,
+  };
+}
+
+async function readMetricsFile(materialDirectory: string): Promise<Record<string, RendererMetricsViewModel>> {
+  const metricsPath = path.join(materialDirectory, METRICS_FILE_NAME);
+  if (!(await directoryExists(metricsPath))) {
+    return {};
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(metricsPath, 'utf8')) as unknown;
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return {};
+  }
+
+  const metrics: Record<string, RendererMetricsViewModel> = {};
+  for (const [rendererName, rawMetrics] of Object.entries(parsed)) {
+    const rendererMetrics = parseRendererMetrics(rawMetrics);
+    if (rendererMetrics) {
+      metrics[rendererName] = rendererMetrics;
+    }
+  }
+  return metrics;
 }
 
 async function discoverMaterialFiles(rootDir: string): Promise<string[]> {
@@ -415,6 +477,10 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
         }),
       ),
     );
+    const metricsFile = await readMetricsFile(descriptor.absoluteDirectory);
+    const metrics = Object.fromEntries(
+      renderers.map((rendererName) => [rendererName, metricsFile[rendererName] ?? null] as const),
+    );
 
     const material: MaterialViewModel = {
       id: descriptor.relativeDirectory,
@@ -426,6 +492,7 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
       downloadMtlxZipUrl: toMaterialZipUrl(descriptor.apiType, descriptor.apiName),
       images,
       reports,
+      metrics,
     };
     const group = grouped.get(descriptor.type) ?? [];
     group.push(material);
