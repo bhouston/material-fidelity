@@ -242,9 +242,14 @@ function collectOutputLines(value: string, level: RenderLogEntry['level']): Rend
 }
 
 function shouldIncludeRendererLogMessage(message: string): boolean {
+  const event = parseRendererJsonEvent(message);
   return !(
     /^\d{2}:\d{2}\.\d{3}\s+blend\s+\|\s+Read blend:/.test(message) ||
-    /^\d{2}:\d{2}\.\d{3}\s+render\s+\|\s+Saved:/.test(message)
+    /^\d{2}:\d{2}\.\d{3}\s+render\s+\|\s+Saved:/.test(message) ||
+    (typeof event?.event === 'string' &&
+      (event.event.endsWith('-render-start') ||
+        event.event.endsWith('-render-timing') ||
+        event.event.endsWith('-render-finish')))
   );
 }
 

@@ -161,7 +161,7 @@ def load_materialx_with_io_blender_mtlx(
 
     material = bpy.data.materials.new("MaterialX_IO_MTLX")
     material.mtlx_document = str(Path(mtlx_path).resolve())
-    if not material.use_nodes or material.node_tree is None:
+    if material.node_tree is None:
         raise RuntimeError(f"io_blender_mtlx did not generate Blender nodes for: {mtlx_path}")
     return material
 
