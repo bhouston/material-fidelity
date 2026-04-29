@@ -264,7 +264,10 @@ def compile_vector_math(context: CompileContext, node: Any, output_name: str, sc
         context.material.node_tree.links.new(input1.socket, vector_node.inputs[0])
         context.material.node_tree.links.new(input2.socket, vector_node.inputs[1])
     socket = vector_node.outputs.get(vector_output_name)
-    return CompiledSocket(socket, output_type) if socket is not None else None
+    if socket is None:
+        return None
+    semantic = "unit_vector" if node_category == "normalize" else None
+    return CompiledSocket(socket, output_type, semantic)
 
 
 def compile_rotate2d(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
@@ -321,6 +324,7 @@ def compile_rotate3d(context: CompileContext, node: Any, output_name: str, scope
     axis_components = [ax, ay, az]
     rotated = []
     for index in range(3):
+        # Rodrigues' rotation formula: v*cos(theta) + (k x v)*sin(theta) + k*(k dot v)*(1 - cos(theta)).
         source_part = math_socket(context, "MULTIPLY", source_components[index], cosine)
         cross_part = math_socket(context, "MULTIPLY", cross[index], sine)
         axis_part = math_socket(
@@ -329,6 +333,6 @@ def compile_rotate3d(context: CompileContext, node: Any, output_name: str, scope
             axis_components[index],
             math_socket(context, "MULTIPLY", dot_axis_source, one_minus_cosine),
         )
-        rotated.append(math_socket(context, "ADD", math_socket(context, "SUBTRACT", source_part, cross_part), axis_part))
+        rotated.append(math_socket(context, "ADD", math_socket(context, "ADD", source_part, cross_part), axis_part))
 
     return combine_components(context, rotated, "vector3")

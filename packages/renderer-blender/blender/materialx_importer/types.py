@@ -17,6 +17,7 @@ class MaterialImportResult:
 class CompiledSocket:
     socket: bpy.types.NodeSocket
     type_name: str
+    semantic: str | None = None
 
 
 @dataclass
@@ -37,4 +38,5 @@ class CompileContext:
     base_dir: Path
     warnings: list[str]
     cache: dict[tuple[str, str, str], CompiledValue] = field(default_factory=dict)
+    fallback_warnings: set[str] = field(default_factory=set)
     compiler: Any | None = None

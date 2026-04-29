@@ -22,7 +22,6 @@ from ..types import CompileContext, CompiledSocket
 from ..values import COMPONENT_TYPES, component_count, static_bool_input, static_int_input
 
 _MX_NODE_SUPPORT_CACHE: dict[str, bool] = {}
-_MX_FALLBACK_WARNINGS: set[str] = set()
 
 
 def register(registry) -> None:
@@ -252,9 +251,9 @@ def has_mx_node(context: CompileContext, node_type: str) -> bool:
 
 
 def warn_mx_fallback(context: CompileContext, category_name: str) -> None:
-    if category_name in _MX_FALLBACK_WARNINGS:
+    if category_name in context.fallback_warnings:
         return
-    _MX_FALLBACK_WARNINGS.add(category_name)
+    context.fallback_warnings.add(category_name)
     context.warnings.append(
         f"MaterialX noise node {category_name} is using Blender's approximate native fallback; "
         "use a Blender build with mx-prefixed noise nodes for parity."

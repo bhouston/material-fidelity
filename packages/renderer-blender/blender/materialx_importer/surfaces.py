@@ -13,7 +13,8 @@ from .blender_nodes import (
     set_scalar_socket,
     set_socket_default,
 )
-from .document import category, get_declaration_input, get_input, input_type_or_default, input_value, input_value_or_default, is_connected
+from .document import call_optional, category, get_declaration_input, get_input, input_type_or_default, input_value, input_value_or_default, is_connected
+from .nodes.geometry import materialx_direction_to_blender_world_socket, materialx_direction_value_to_blender
 from .types import CompileContext, CompiledSocket
 from .values import default_type_for_value, parse_color, parse_float, parse_vector
 
@@ -234,10 +235,15 @@ def connect_or_set_surface_input(
         return
 
     if is_connected(input_element):
-        compiled = compile_surface_input(context, input_element, input_name)
+        compiled = compile_surface_input(context, input_element, input_name, surface_scope(surface_node))
         if compiled is None:
             return
-        source_socket = component_socket(context, compiled, 0) if value_kind == "scalar" else compiled.socket
+        if value_kind == "scalar":
+            source_socket = component_socket(context, compiled, 0)
+        elif is_surface_direction_input(input_name):
+            source_socket = materialx_direction_to_blender_world_socket(context, compiled).socket
+        else:
+            source_socket = compiled.socket
         context.material.node_tree.links.new(source_socket, socket)
         return
 
@@ -252,7 +258,21 @@ def connect_or_set_surface_input(
     elif value_kind == "color":
         set_color_socket(principled, socket.name, parse_color(value))
     else:
-        set_socket_default(socket, parse_vector(value))
+        vector = parse_vector(value)
+        if is_surface_direction_input(input_name):
+            vector = materialx_direction_value_to_blender(tuple(vector))
+        set_socket_default(socket, vector)
+
+
+def is_surface_direction_input(input_name: str) -> bool:
+    return input_name in {
+        "normal",
+        "coat_normal",
+        "tangent",
+        "geometry_normal",
+        "geometry_coat_normal",
+        "geometry_tangent",
+    }
 
 
 def connect_weighted_color_input(
@@ -376,8 +396,13 @@ def principled_input(principled: bpy.types.Node, socket_names: tuple[str, ...]) 
     return None
 
 
-def compile_surface_input(context: CompileContext, input_element: Any, input_name: str) -> CompiledSocket | None:
-    compiled = context.compiler.compile_input(input_element) if context.compiler is not None else None
+def surface_scope(surface_node: Any) -> Any | None:
+    parent = call_optional(surface_node, "getParent")
+    return parent if category(parent) == "nodegraph" else None
+
+
+def compile_surface_input(context: CompileContext, input_element: Any, input_name: str, scope: Any | None) -> CompiledSocket | None:
+    compiled = context.compiler.compile_input(input_element, scope) if context.compiler is not None else None
     if isinstance(compiled, CompiledSocket):
         return compiled
     context.warnings.append(f"Unsupported connected surface input: {input_name}")
@@ -393,7 +418,7 @@ def surface_input_or_default(
 ) -> CompiledSocket:
     input_element = get_input(surface_node, input_name)
     if input_element is not None and context.compiler is not None:
-        compiled = context.compiler.compile_input(input_element)
+        compiled = context.compiler.compile_input(input_element, surface_scope(surface_node))
         if isinstance(compiled, CompiledSocket):
             return compiled
         if is_connected(input_element):
@@ -497,7 +522,7 @@ def apply_opacity_input(
 
     if is_connected(opacity):
         socket = principled.inputs.get("Alpha")
-        compiled = compile_surface_input(context, opacity, input_name)
+        compiled = compile_surface_input(context, opacity, input_name, surface_scope(surface_node))
         if socket is not None and compiled is not None:
             source_socket = component_socket(context, compiled, 0)
             context.material.node_tree.links.new(source_socket, socket)
@@ -516,9 +541,27 @@ def apply_opacity_input(
 
 
 def configure_alpha_material(material: bpy.types.Material, blend_method: str) -> None:
-    material.blend_method = blend_method
+    set_alpha_render_method(material, blend_method)
     if hasattr(material, "use_screen_refraction"):
         material.use_screen_refraction = True
+
+
+def set_alpha_render_method(material: bpy.types.Material, blend_method: str) -> None:
+    if hasattr(material, "surface_render_method"):
+        # Blender 4.2+ replaces blend_method with surface_render_method. It no longer has
+        # an exact alpha-clip mode, so dithered rendering is the closest material setting.
+        render_methods = ("DITHERED", "BLENDED") if blend_method == "CLIP" else ("BLENDED",)
+        for render_method in render_methods:
+            try:
+                material.surface_render_method = render_method
+                return
+            except (AttributeError, TypeError, ValueError):
+                pass
+
+    try:
+        material.blend_method = blend_method
+    except (AttributeError, TypeError, ValueError):
+        pass
 
 
 def get_principled_node(material: bpy.types.Material) -> bpy.types.Node | None:

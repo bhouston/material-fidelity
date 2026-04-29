@@ -16,6 +16,7 @@ from ..blender_nodes import (
 from ..document import attribute, category, get_input, input_value, type_name
 from ..types import CompileContext, CompiledSocket
 from ..values import parse_float, resolve_asset_path
+from .geometry import blender_world_direction_to_materialx_socket
 
 
 def register(registry) -> None:
@@ -24,6 +25,7 @@ def register(registry) -> None:
     registry.register("gltf_normalmap", compile_gltf_normalmap)
     registry.register("place2d", compile_place2d)
     registry.register("normalmap", compile_normalmap)
+    registry.register("heighttonormal", compile_heighttonormal)
     registry.register("circle", compile_circle)
     registry.register("checkerboard", compile_checkerboard)
     registry.register("bump", compile_bump)
@@ -85,7 +87,11 @@ def compile_gltf_normalmap(context: CompileContext, image_node: Any, output_name
     context.material.node_tree.links.new(color_socket, normal_map.inputs["Color"])
     connect_or_set_input(context, image_node, "scale", normal_map.inputs["Strength"], 1.0, scope)
     socket = normal_map.outputs.get("Normal")
-    return CompiledSocket(socket, "vector3") if socket is not None else None
+    if socket is None:
+        return None
+    compiled = blender_world_direction_to_materialx_socket(context, socket)
+    compiled.semantic = "normal"
+    return compiled
 
 
 def create_image_texture_node(
@@ -260,11 +266,31 @@ def compile_place2d(context: CompileContext, node: Any, output_name: str, scope:
 
 
 def compile_normalmap(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    source = input_socket(context, node, "in", (0.5, 0.5, 1.0), scope)
+    if source.semantic == "normal":
+        return source
+
     normal_map = context.material.node_tree.nodes.new(type="ShaderNodeNormalMap")
-    connect_or_set_input(context, node, "in", normal_map.inputs["Color"], (0.5, 0.5, 1.0), scope)
+    context.material.node_tree.links.new(source.socket, normal_map.inputs["Color"])
     connect_or_set_input(context, node, "scale", normal_map.inputs["Strength"], 1.0, scope)
     socket = normal_map.outputs.get("Normal")
-    return CompiledSocket(socket, "vector3") if socket is not None else None
+    if socket is None:
+        return None
+    compiled = blender_world_direction_to_materialx_socket(context, socket)
+    compiled.semantic = "normal"
+    return compiled
+
+
+def compile_heighttonormal(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    bump = context.material.node_tree.nodes.new(type="ShaderNodeBump")
+    connect_or_set_input(context, node, "in", bump.inputs["Height"], 0.0, scope)
+    connect_or_set_input(context, node, "scale", bump.inputs["Strength"], 1.0, scope)
+    socket = bump.outputs.get("Normal")
+    if socket is None:
+        return None
+    compiled = blender_world_direction_to_materialx_socket(context, socket)
+    compiled.semantic = "normal"
+    return compiled
 
 
 def compile_circle(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
@@ -330,4 +356,8 @@ def compile_bump(context: CompileContext, node: Any, output_name: str, scope: An
     if normal_input is not None:
         connect_or_set_input(context, node, "normal", normal_input, (0.0, 0.0, 1.0), scope)
     socket = bump.outputs.get("Normal")
-    return CompiledSocket(socket, "vector3") if socket is not None else None
+    if socket is None:
+        return None
+    compiled = blender_world_direction_to_materialx_socket(context, socket)
+    compiled.semantic = "normal"
+    return compiled

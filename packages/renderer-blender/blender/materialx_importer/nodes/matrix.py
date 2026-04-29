@@ -8,6 +8,7 @@ from ..blender_nodes import combine_components, component_socket, constant_socke
 from ..document import attribute, get_input, input_value, is_connected, type_name
 from ..types import CompileContext, CompiledMatrix, CompiledSocket
 from ..values import identity_matrix_values, matrix_size, parse_matrix
+from .geometry import blender_direction_to_materialx_socket, materialx_direction_to_blender_socket
 
 
 VECTOR_OUTPUTS = {
@@ -121,6 +122,20 @@ def compile_space_transform(context: CompileContext, node: Any, output_name: str
     from_space = _space_input(node, "fromspace")
     to_space = _space_input(node, "tospace")
 
+    if category == "transformnormal":
+        blender_source = materialx_direction_to_blender_socket(context, source)
+        if from_space is None or to_space is None or from_space == "" or to_space == "" or from_space == to_space:
+            socket = blender_source.socket
+        else:
+            transform = context.material.node_tree.nodes.new(type="ShaderNodeVectorTransform")
+            transform.vector_type = "NORMAL"
+            transform.convert_from = from_space
+            transform.convert_to = to_space
+            context.material.node_tree.links.new(blender_source.socket, transform.inputs["Vector"])
+            socket = transform.outputs["Vector"]
+        compiled = blender_direction_to_materialx_socket(context, socket)
+        return _select_vector_output(context, compiled, output_name)
+
     if from_space is None or to_space is None or from_space == "" or to_space == "" or from_space == to_space:
         socket = source.socket
     else:
@@ -130,12 +145,6 @@ def compile_space_transform(context: CompileContext, node: Any, output_name: str
         transform.convert_to = to_space
         context.material.node_tree.links.new(source.socket, transform.inputs["Vector"])
         socket = transform.outputs["Vector"]
-
-    if category == "transformnormal":
-        vector_math = context.material.node_tree.nodes.new(type="ShaderNodeVectorMath")
-        vector_math.operation = "NORMALIZE"
-        context.material.node_tree.links.new(socket, vector_math.inputs[0])
-        socket = vector_math.outputs["Vector"]
 
     return _select_vector_output(context, CompiledSocket(socket, "vector3"), output_name)
 
@@ -202,8 +211,8 @@ def _matrix_vector_product(
     output_count: int,
 ) -> list[bpy.types.NodeSocket]:
     return [
-        _sum_sockets(context, [math_socket(context, "MULTIPLY", vector[row], rows[row][column]) for row in range(len(vector))])
-        for column in range(output_count)
+        _sum_sockets(context, [math_socket(context, "MULTIPLY", rows[row][column], vector[column]) for column in range(len(vector))])
+        for row in range(output_count)
     ]
 
 
