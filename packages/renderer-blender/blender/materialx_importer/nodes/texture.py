@@ -25,6 +25,7 @@ def register(registry) -> None:
     registry.register("place2d", compile_place2d)
     registry.register("normalmap", compile_normalmap)
     registry.register("circle", compile_circle)
+    registry.register("checkerboard", compile_checkerboard)
     registry.register("bump", compile_bump)
 
 
@@ -289,6 +290,36 @@ def compile_circle(context: CompileContext, node: Any, output_name: str, scope: 
     outside = math_socket(context, "LESS_THAN", radius_square, dist_square)
     inside = math_socket(context, "SUBTRACT", constant_socket(context, 1.0, "float").socket, outside)
     return CompiledSocket(inside, "float")
+
+
+def compile_checkerboard(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    texcoord = image_texcoord_socket(context, node, scope)
+    uvtiling = input_socket(context, node, "uvtiling", (8.0, 8.0), scope)
+    uvoffset = input_socket(context, node, "uvoffset", (0.0, 0.0), scope)
+    color1 = input_socket(context, node, "color1", (1.0, 1.0, 1.0), scope)
+    color2 = input_socket(context, node, "color2", (0.0, 0.0, 0.0), scope)
+
+    tiled_components = []
+    for index in range(2):
+        tiled = math_socket(
+            context,
+            "MULTIPLY",
+            component_socket(context, texcoord, index),
+            component_socket(context, uvtiling, index),
+        )
+        shifted = math_socket(context, "SUBTRACT", tiled, component_socket(context, uvoffset, index))
+        tiled_components.append(math_socket(context, "FLOOR", shifted, None))
+
+    checker_index = math_socket(context, "ADD", tiled_components[0], tiled_components[1])
+    mix_factor = math_socket(context, "MODULO", checker_index, constant_socket(context, 2.0, "float").socket)
+    output_type = type_name(node) or "color3"
+    components = []
+    for index in range(3):
+        one_minus_mix = math_socket(context, "SUBTRACT", constant_socket(context, 1.0, "float").socket, mix_factor)
+        color2_part = math_socket(context, "MULTIPLY", component_socket(context, color2, index), one_minus_mix)
+        color1_part = math_socket(context, "MULTIPLY", component_socket(context, color1, index), mix_factor)
+        components.append(math_socket(context, "ADD", color2_part, color1_part))
+    return combine_components(context, components, output_type)
 
 
 def compile_bump(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:

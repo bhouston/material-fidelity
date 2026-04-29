@@ -26,6 +26,8 @@ from ..values import component_count
 
 def register(registry) -> None:
     registry.register("saturate", compile_saturate)
+    registry.register("luminance", compile_luminance)
+    registry.register("contrast", compile_contrast)
     registry.register("rgbtohsv", compile_rgbtohsv)
     registry.register("hsvtorgb", compile_hsvtorgb)
     registry.register("unpremult", compile_unpremult)
@@ -43,6 +45,32 @@ def compile_saturate(context: CompileContext, node: Any, output_name: str, scope
         mix_component(context, luminance, component_socket(context, source, index), amount.socket)
         for index in range(component_count(output_type))
     ]
+    return combine_components(context, components, output_type)
+
+
+def compile_luminance(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    output_type = type_name(node) or "color3"
+    source = input_socket(context, node, "in", (0.0, 0.0, 0.0), scope)
+    coeffs = input_socket(context, node, "lumacoeffs", (0.2722287, 0.6740818, 0.0536895), scope)
+    luminance = luminance_component(context, source, coeffs)
+    return combine_components(context, [luminance for _ in range(component_count(output_type))], output_type)
+
+
+def compile_contrast(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    output_type = type_name(node) or "float"
+    source = input_socket(context, node, "in", 0.0, scope)
+    amount = input_socket(context, node, "amount", 1.0, scope)
+    pivot = input_socket(context, node, "pivot", 0.5, scope)
+    components = []
+    for index in range(component_count(output_type)):
+        centered = math_socket(
+            context,
+            "SUBTRACT",
+            component_socket(context, source, index),
+            component_socket(context, pivot, index),
+        )
+        scaled = math_socket(context, "MULTIPLY", centered, component_socket(context, amount, index))
+        components.append(math_socket(context, "ADD", scaled, component_socket(context, pivot, index)))
     return combine_components(context, components, output_type)
 
 

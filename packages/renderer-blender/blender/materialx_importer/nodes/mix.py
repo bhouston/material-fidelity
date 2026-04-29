@@ -10,6 +10,7 @@ from ..blender_nodes import (
     constant_socket,
     input_socket,
     math_socket,
+    mix_component,
     step_component,
 )
 from ..document import category, type_name
@@ -22,6 +23,8 @@ def register(registry) -> None:
     registry.register("minus", compile_mix_like)
     registry.register("difference", compile_mix_like)
     registry.register("burn", compile_burn)
+    registry.register("dodge", compile_dodge)
+    registry.register("overlay", compile_overlay)
     registry.register_many({"ifgreater", "ifgreatereq", "ifequal"}, compile_conditional)
 
 
@@ -95,6 +98,76 @@ def compile_burn(context: CompileContext, node: Any, output_name: str, scope: An
     return combine_components(context, result_components, output_type)
 
 
+def compile_dodge(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    output_type = type_name(node) or "float"
+    fg = input_socket(context, node, "fg", 0.0, scope)
+    bg = input_socket(context, node, "bg", 0.0, scope)
+    mix_socket = input_socket(context, node, "mix", 1.0, scope)
+    one = constant_socket(context, 1.0, "float").socket
+    epsilon = constant_socket(context, 1e-6, "float").socket
+    result_components: list[bpy.types.NodeSocket] = []
+    for index in range(component_count(output_type)):
+        fg_component = component_socket(context, fg, index)
+        bg_component = component_socket(context, bg, index)
+        mix_component_socket = component_socket(context, mix_socket, index)
+        one_minus_fg = math_socket(context, "SUBTRACT", one, fg_component)
+        denominator_present = step_component(context, epsilon, math_socket(context, "ABSOLUTE", one_minus_fg, None))
+        safe_denominator = math_socket(
+            context,
+            "ADD",
+            math_socket(context, "MULTIPLY", one_minus_fg, denominator_present),
+            math_socket(context, "SUBTRACT", one, denominator_present),
+        )
+        dodged = math_socket(context, "DIVIDE", bg_component, safe_denominator)
+        dodged_part = math_socket(context, "MULTIPLY", mix_component_socket, dodged)
+        retained_part = math_socket(
+            context,
+            "MULTIPLY",
+            math_socket(context, "SUBTRACT", one, mix_component_socket),
+            bg_component,
+        )
+        result_components.append(
+            math_socket(context, "MULTIPLY", math_socket(context, "ADD", dodged_part, retained_part), denominator_present)
+        )
+    return combine_components(context, result_components, output_type)
+
+
+def compile_overlay(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    output_type = type_name(node) or "float"
+    fg = input_socket(context, node, "fg", 0.0, scope)
+    bg = input_socket(context, node, "bg", 0.0, scope)
+    mix_socket = input_socket(context, node, "mix", 1.0, scope)
+    one = constant_socket(context, 1.0, "float").socket
+    two = constant_socket(context, 2.0, "float").socket
+    half = constant_socket(context, 0.5, "float").socket
+    result_components: list[bpy.types.NodeSocket] = []
+    for index in range(component_count(output_type)):
+        fg_component = component_socket(context, fg, index)
+        bg_component = component_socket(context, bg, index)
+        mix_component_socket = component_socket(context, mix_socket, index)
+        low_branch = math_socket(context, "MULTIPLY", two, math_socket(context, "MULTIPLY", fg_component, bg_component))
+        high_branch = math_socket(
+            context,
+            "SUBTRACT",
+            one,
+            math_socket(
+                context,
+                "MULTIPLY",
+                two,
+                math_socket(
+                    context,
+                    "MULTIPLY",
+                    math_socket(context, "SUBTRACT", one, fg_component),
+                    math_socket(context, "SUBTRACT", one, bg_component),
+                ),
+            ),
+        )
+        use_high_branch = step_component(context, half, bg_component)
+        overlayed = mix_component(context, low_branch, high_branch, use_high_branch)
+        result_components.append(mix_component(context, bg_component, overlayed, mix_component_socket))
+    return combine_components(context, result_components, output_type)
+
+
 def compile_conditional(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
     node_category = category(node)
     value1 = input_socket(context, node, "value1", 1.0 if node_category != "ifequal" else 0.0, scope)
@@ -118,6 +191,9 @@ def compile_conditional(context: CompileContext, node: Any, output_name: str, sc
         condition = compare.outputs[0]
 
     output_type = type_name(node) or "float"
+    if output_type == "boolean":
+        return CompiledSocket(condition, "boolean")
+
     in1 = input_socket(context, node, "in1", 0.0, scope)
     in2 = input_socket(context, node, "in2", 0.0, scope)
     condition_value = CompiledSocket(condition, "float")

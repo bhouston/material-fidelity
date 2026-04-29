@@ -91,6 +91,7 @@ def register(registry) -> None:
     registry.register_categories(SCALAR_MATH_OPERATIONS.keys(), compile_math)
     registry.register("clamp", compile_clamp)
     registry.register_many({"range", "remap"}, compile_range)
+    registry.register("ln", compile_ln)
     registry.register("smoothstep", compile_smoothstep)
     registry.register("safepower", compile_safepower)
     registry.register("invert", compile_invert)
@@ -181,6 +182,17 @@ def compile_range(context: CompileContext, node: Any, output_name: str, scope: A
                 do_clamp,
             )
         )
+    return combine_components(context, components, output_type)
+
+
+def compile_ln(context: CompileContext, node: Any, output_name: str, scope: Any | None) -> CompiledSocket | None:
+    output_type = type_name(node) or "float"
+    source = input_socket(context, node, "in", 1.0, scope)
+    base = constant_socket(context, math.e, "float").socket
+    components = [
+        math_socket(context, "LOGARITHM", component_socket(context, source, index), base)
+        for index in range(component_count(output_type))
+    ]
     return combine_components(context, components, output_type)
 
 

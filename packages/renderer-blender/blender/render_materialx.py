@@ -151,12 +151,28 @@ def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
         args.background_color,
     )
     normalized_root = time_call(timings, "find_normalized_root", find_normalized_root)
-    material_result = time_call(
-        timings,
-        "load_materialx",
-        load_materialx_as_blender_material,
-        args.mtlx_path,
-    )
+    try:
+        material_result = time_call(
+            timings,
+            "load_materialx",
+            load_materialx_as_blender_material,
+            args.mtlx_path,
+        )
+    except Exception as exc:
+        timings["total"] = elapsed_ms(started_at)
+        print(
+            json.dumps(
+                {
+                    "event": f"{args.renderer_name}-render-import-failed",
+                    "mtlx_path": args.mtlx_path,
+                    "output": args.output_png_path,
+                    "error": str(exc),
+                    "warnings": warnings,
+                    "timings_ms": timings,
+                }
+            )
+        )
+        raise SystemExit(2) from None
     warnings.extend(material_result.warnings)
     time_call(
         timings,

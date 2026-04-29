@@ -24,6 +24,9 @@ import {
   dot,
   normalize,
   mx_atan2,
+  mx_ifgreater,
+  mx_ifgreatereq,
+  mx_ifequal,
 } from 'three/tsl';
 import { normalizeSpaceName } from '../MaterialXUtils.js';
 
@@ -34,13 +37,37 @@ const register = (registry, categories, handler) => {
 };
 
 const UV_FALLBACK_CATEGORIES = new Set(['noise2d', 'fractal2d', 'cellnoise2d', 'worleynoise2d', 'unifiednoise2d']);
+const SCALAR_TYPES = new Set(['boolean', 'integer', 'float']);
+const THREE_COMPONENT_TYPES = new Set(['vector2', 'vector3', 'vector4', 'color3', 'color4']);
 
 const compileConvertNode = (nodeX) => {
+  const input = nodeX.getNodeByName('in');
+  const inputElement = nodeX.getChildByName('in');
+  const inputType = inputElement ? inputElement.type : null;
   const nodeClass = nodeX.getClassFromType(nodeX.type) || float;
-  return nodeClass(nodeX.getNodeByName('in'));
+  if (SCALAR_TYPES.has(inputType) && THREE_COMPONENT_TYPES.has(nodeX.type)) {
+    const componentCount = nodeX.type === 'vector2' ? 2 : nodeX.type === 'vector3' || nodeX.type === 'color3' ? 3 : 4;
+    return nodeClass(...Array(componentCount).fill(input));
+  }
+  if (THREE_COMPONENT_TYPES.has(inputType) && SCALAR_TYPES.has(nodeX.type)) {
+    return nodeClass(element(input, 0));
+  }
+  return nodeClass(input);
 };
 
 const compileConstantNode = (nodeX) => nodeX.getNodeByName('value');
+
+const compileConditionalNode = (nodeX, conditionFunction) => {
+  const value1 = nodeX.getNodeByName('value1') || float(nodeX.element === 'ifequal' ? 0 : 1);
+  const value2 = nodeX.getNodeByName('value2') || float(0);
+  if (nodeX.type === 'boolean') {
+    return conditionFunction(value1, value2, float(0), float(1));
+  }
+  const in1 = nodeX.getNodeByName('in1') || float(0);
+  const in2 = nodeX.getNodeByName('in2') || float(0);
+  // TSL MaterialX condition helpers use the opposite branch ordering.
+  return conditionFunction(value1, value2, in2, in1);
+};
 
 const compileSpaceInputNode = (nodeX, objectNode, worldNode) => {
   const rawSpace = nodeX.getInputValueByName('space') ?? nodeX.getAttribute('space');
@@ -295,6 +322,9 @@ function createMaterialXCompileRegistry() {
   const registry = new Map();
   register(registry, ['convert'], (nodeX) => compileConvertNode(nodeX));
   register(registry, ['constant'], (nodeX) => compileConstantNode(nodeX));
+  register(registry, ['ifgreater'], (nodeX) => compileConditionalNode(nodeX, mx_ifgreater));
+  register(registry, ['ifgreatereq'], (nodeX) => compileConditionalNode(nodeX, mx_ifgreatereq));
+  register(registry, ['ifequal'], (nodeX) => compileConditionalNode(nodeX, mx_ifequal));
   register(registry, ['position'], (nodeX) => compileSpaceInputNode(nodeX, positionLocal, positionWorld));
   register(registry, ['normal'], (nodeX) => normalize(compileSpaceInputNode(nodeX, normalLocal, normalWorld)));
   register(registry, ['tangent'], (nodeX) => compileSpaceInputNode(nodeX, tangentLocal, tangentWorld));

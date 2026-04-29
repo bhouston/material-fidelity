@@ -238,7 +238,7 @@ function collectOutputLines(value: string, level: RenderLogEntry['level']): Rend
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .filter((message) => shouldIncludeRendererLogMessage(message))
-    .map((message) => ({ level, source: 'renderer', message }));
+    .map((message) => ({ level: classifyRendererLogLevel(message, level), source: 'renderer', message }));
 }
 
 function shouldIncludeRendererLogMessage(message: string): boolean {
@@ -248,7 +248,34 @@ function shouldIncludeRendererLogMessage(message: string): boolean {
   );
 }
 
+function classifyRendererLogLevel(message: string, fallback: RenderLogEntry['level']): RenderLogEntry['level'] {
+  const event = parseRendererJsonEvent(message);
+  if (event && typeof event.event === 'string' && event.event.endsWith('-render-import-failed')) {
+    return 'error';
+  }
+  return fallback;
+}
+
+function parseRendererJsonEvent(message: string): Record<string, unknown> | undefined {
+  if (!message.startsWith('{')) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(message);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function summarizeBlenderFailure(logs: RenderLogEntry[], code: number | null): string {
+  for (const entry of logs.toReversed()) {
+    const event = parseRendererJsonEvent(entry.message);
+    if (event && typeof event.event === 'string' && event.event.endsWith('-render-import-failed')) {
+      return typeof event.error === 'string' ? event.error : 'Blender MaterialX import failed.';
+    }
+  }
+
   const meaningfulFailure = logs
     .toReversed()
     .find(
@@ -422,7 +449,7 @@ function execute(
         if (!shouldIncludeRendererLogMessage(message)) {
           continue;
         }
-        logs.push({ level, source: 'renderer', message });
+        logs.push({ level: classifyRendererLogLevel(message, level), source: 'renderer', message });
       }
       return remainder;
     };
