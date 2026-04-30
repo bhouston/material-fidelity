@@ -3,22 +3,20 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import pLimit from 'p-limit';
-import { findFilesByExtension } from './fs-utils.js';
+import {
+  getMaterialsRoot,
+  getSamplesRootFromThirdParty,
+  materialMatchesSelector,
+  metricsPathForMaterialFile,
+} from '@material-fidelity/samples';
+import { findMtlxMaterialFiles } from '@material-fidelity/samples-io';
+import type { ImageSimilarityMetrics, MaterialMetricsFile } from '@material-fidelity/samples';
 import { calculateNormalizedRgbRms, readImageAsRawRgba } from './image-empty-check.js';
-import { materialMatchesSelector } from './material-selectors.js';
 
 const REFERENCE_RENDERER_NAME = 'materialxview';
-const METRICS_FILE_NAME = 'metrics.json';
 const VMAF_IDENTICAL_SCORE = 100;
 
-export interface ImageSimilarityMetrics {
-  ssim: number | null;
-  psnr: number | null;
-  normalizedRgbRms: number | null;
-  vmaf: number | null;
-}
-
-export type MaterialMetricsFile = Record<string, ImageSimilarityMetrics>;
+export type { ImageSimilarityMetrics, MaterialMetricsFile } from '@material-fidelity/samples';
 
 export interface CalculateMetricsOptions {
   thirdPartyRoot: string;
@@ -102,7 +100,7 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 function toMetricsPath(materialPath: string): string {
-  return path.join(path.dirname(materialPath), METRICS_FILE_NAME);
+  return metricsPathForMaterialFile(materialPath);
 }
 
 function toRendererImagePath(materialPath: string, rendererName: string): string {
@@ -283,8 +281,8 @@ async function calculateMetricsForMaterial(
 }
 
 export async function calculateMetrics(options: CalculateMetricsOptions): Promise<CalculateMetricsResult> {
-  const samplesRoot = path.join(options.thirdPartyRoot, 'material-samples');
-  const materialsRoot = path.join(samplesRoot, 'materials');
+  const samplesRoot = getSamplesRootFromThirdParty(options.thirdPartyRoot);
+  const materialsRoot = getMaterialsRoot(samplesRoot);
 
   if (!(await fileExists(samplesRoot))) {
     throw new Error(`Missing required material-samples directory at ${samplesRoot}.`);
@@ -293,7 +291,7 @@ export async function calculateMetrics(options: CalculateMetricsOptions): Promis
     throw new Error(`Missing required materials directory at ${materialsRoot}.`);
   }
 
-  const materialFiles = await findFilesByExtension(materialsRoot, '.mtlx');
+  const materialFiles = await findMtlxMaterialFiles(materialsRoot);
   if (materialFiles.length === 0) {
     throw new Error(`No .mtlx files found under ${materialsRoot}.`);
   }

@@ -1,14 +1,21 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { readFile } from 'node:fs/promises';
-import { resolveReferenceImagePath } from '#/lib/material-index';
+import { rendererPngPath } from '@material-fidelity/samples';
+import { pathExists, resolveMaterialDirectory, resolveSampleRoots } from '@material-fidelity/samples-io';
 import { referenceAssetGetResponse } from '#/lib/reference-asset-response.server';
 
 export const Route = createFileRoute('/api/reference-image/$materialType/$materialName/$adapter')({
   server: {
     handlers: {
       GET: async ({ params, request }) => {
-        const filePath = await resolveReferenceImagePath(params.materialType, params.materialName, params.adapter);
-        if (!filePath) {
+        const roots = resolveSampleRoots();
+        const materialDirectory = await resolveMaterialDirectory(roots.materialsRoot, params.materialType, params.materialName);
+        if (!materialDirectory) {
+          return new Response('Not found', { status: 404 });
+        }
+
+        const filePath = rendererPngPath(materialDirectory, params.adapter);
+        if (!(await pathExists(filePath))) {
           return new Response('Not found', { status: 404 });
         }
 

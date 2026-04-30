@@ -2,6 +2,7 @@ import path from 'node:path';
 import { access, writeFile } from 'node:fs/promises';
 import { readMaterialX, validateDocument } from '@material-viewer/materialx';
 import type { MaterialXDocument, MaterialXInput, MaterialXNode } from '@material-viewer/materialx';
+import { RenderValidationReportSchema, type RenderReportIssue } from '@material-fidelity/samples';
 
 const UNKNOWN_NODE_CATEGORY_PREFIX = 'Unknown node category "';
 
@@ -170,22 +171,26 @@ function createFailureJsonPath(materialPath: string, rendererName: string): stri
   return path.join(path.dirname(materialPath), `${rendererName}.json`);
 }
 
+function toRenderReportIssue(issue: PreflightIssue): RenderReportIssue {
+  return {
+    level: issue.level,
+    location: issue.location,
+    message: issue.message,
+  };
+}
+
 export async function writeValidationFailureReport(
   materialPath: string,
   rendererName: string,
   issues: PreflightIssue[],
 ): Promise<string> {
   const reportPath = createFailureJsonPath(materialPath, rendererName);
-  const report = {
+  const report = RenderValidationReportSchema.parse({
     rendererName,
     materialPath,
     status: 'validation_failed',
-    issues: issues.map((issue) => ({
-      level: issue.level,
-      location: issue.location,
-      message: issue.message,
-    })),
-  };
+    issues: issues.map(toRenderReportIssue),
+  });
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   return reportPath;
 }

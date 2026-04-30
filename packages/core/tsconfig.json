@@ -3,5 +3,5 @@
   "compilerOptions": {
     "composite": true
   },
-  "references": []
+  "references": [{ "path": "../samples" }, { "path": "../samples-io" }]
 }

@@ -10,11 +10,11 @@ import {
   type FidelityRenderer,
   type GenerateImageOptions,
   type GenerateImageResult,
-  type RenderLogEntry,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
   type RendererStartOptions,
 } from '@material-fidelity/core';
+import type { RenderLogEntry } from '@material-fidelity/samples';
 
 interface RuntimeState {
   baseUrl: string;

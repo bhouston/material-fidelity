@@ -3,6 +3,7 @@ import { access, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promise
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { PNG } from 'pngjs';
+import { parseRenderReport } from '@material-fidelity/samples';
 import { createReferences } from './references.js';
 import type { FidelityRenderer } from './types.js';
 
@@ -165,24 +166,19 @@ describe('createReferences', () => {
     await access(outputJsonPath);
     await expect(access(outputTempPngPath)).rejects.toThrow('ENOENT');
     await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
-    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
-      status: string;
-      error: unknown;
-      success?: unknown;
-      materialPath?: unknown;
-      outputPngPath?: unknown;
-      startedAt?: unknown;
-      completedAt?: unknown;
-      durationMs?: unknown;
-    };
+    const reportRecord = JSON.parse(await readFile(outputJsonPath, 'utf8')) as Record<string, unknown>;
+    const report = parseRenderReport(reportRecord);
     expect(report.status).toBe('success');
+    if (report.status === 'validation_failed') {
+      throw new Error('Expected successful render report.');
+    }
     expect(report.error).toBeNull();
-    expect(report.success).toBeUndefined();
-    expect(report.materialPath).toBeUndefined();
-    expect(report.outputPngPath).toBeUndefined();
-    expect(report.startedAt).toBeUndefined();
-    expect(report.completedAt).toBeUndefined();
-    expect(report.durationMs).toBeUndefined();
+    expect(reportRecord.success).toBeUndefined();
+    expect(reportRecord.materialPath).toBeUndefined();
+    expect(reportRecord.outputPngPath).toBeUndefined();
+    expect(reportRecord.startedAt).toBeUndefined();
+    expect(reportRecord.completedAt).toBeUndefined();
+    expect(reportRecord.durationMs).toBeUndefined();
     expect(result.rendererNames).toEqual(['fake']);
     expect(result.total).toBe(1);
     expect(result.attempted).toBe(1);
@@ -696,13 +692,17 @@ export function createAdapter() {
     await expect(access(path.join(materialDir, 'fake-temp.png'))).rejects.toThrow('ENOENT');
     await expect(access(path.join(materialDir, 'fake.webp'))).rejects.toThrow('ENOENT');
     await access(outputJsonPath);
-    const report = JSON.parse(await readFile(outputJsonPath, 'utf8')) as {
-      status: string;
-      error: { message: string; stack?: string };
-      success?: unknown;
-    };
+    const reportRecord = JSON.parse(await readFile(outputJsonPath, 'utf8')) as Record<string, unknown>;
+    const report = parseRenderReport(reportRecord);
     expect(report.status).toBe('failed');
-    expect(report.success).toBeUndefined();
+    expect(reportRecord.success).toBeUndefined();
+    if (report.status === 'validation_failed') {
+      throw new Error('Expected failed render report.');
+    }
+    expect(report.error).not.toBeNull();
+    if (report.error == null) {
+      throw new Error('Expected error details.');
+    }
     expect(report.error.message).toContain('Render output is empty');
     expect(report.error.stack).toBeTypeOf('string');
     expect(result.rendered).toBe(0);
@@ -1006,6 +1006,11 @@ export function createAdapter() {
           { level: 'debug', source: 'browser', message: '[vite] connecting...' },
           {
             level: 'info',
+            source: 'renderer',
+            message: 'Blender 5.2.0 Alpha (hash d9c16a560849 built 2026-04-29 00:31:54)',
+          },
+          {
+            level: 'info',
             source: 'browser',
             message: 'Download the React DevTools for a better development experience',
           },
@@ -1038,9 +1043,10 @@ export function createAdapter() {
       concurrency: 1,
     });
 
-    const report = JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as {
-      logs: Array<{ level: string; message: string }>;
-    };
+    const report = parseRenderReport(JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown);
+    if (report.status === 'validation_failed') {
+      throw new Error('Expected render result report.');
+    }
     expect(report.logs).toEqual([
       { level: 'info', source: 'renderer', message: 'render started' },
       { level: 'warning', source: 'renderer', message: 'minor warning' },
@@ -1081,9 +1087,10 @@ export function createAdapter() {
       { level: 'error', source: 'renderer', message: 'shader compile failed' },
     ]);
 
-    const report = JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as {
-      logs: Array<{ level: string; source: string; message: string }>;
-    };
+    const report = parseRenderReport(JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown);
+    if (report.status === 'validation_failed') {
+      throw new Error('Expected render result report.');
+    }
     expect(report.logs).toEqual([{ level: 'error', source: 'renderer', message: 'shader compile failed' }]);
   });
 });

@@ -2,6 +2,7 @@ import { DownloadIcon, ExternalLink, Info } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { MaterialViewModel, RendererCategoryGroupViewModel } from '#/lib/material-index';
 import { getRendererMetadata } from '#/lib/renderer-metadata';
+import { cn } from '#/lib/utils';
 
 function toAnchorId(value: string): string {
   return value
@@ -17,35 +18,111 @@ interface MaterialRowProps {
   onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
-function formatMetricValue(value: number | null, digits = 3): string {
-  return value === null ? 'n/a' : value.toFixed(digits);
+function formatMetricValue(value: number | null | undefined, digits = 3): string {
+  return value == null ? '-' : value.toFixed(digits);
+}
+
+type MetricSeverity = 'none' | 'warning' | 'error';
+
+function getMetricSeverity(metricName: 'ssim' | 'psnr' | 'normalizedRgbRms' | 'vmaf', value: number | null): MetricSeverity {
+  if (value === null) {
+    return 'none';
+  }
+
+  switch (metricName) {
+    case 'ssim':
+      if (value <= 0.9) {
+        return 'error';
+      }
+      if (value <= 0.95) {
+        return 'warning';
+      }
+      return 'none';
+    case 'psnr':
+      if (value <= 20) {
+        return 'error';
+      }
+      if (value <= 24) {
+        return 'warning';
+      }
+      return 'none';
+    case 'normalizedRgbRms':
+      if (value >= 0.1) {
+        return 'error';
+      }
+      if (value >= 0.07) {
+        return 'warning';
+      }
+      return 'none';
+    case 'vmaf':
+      if (value <= 50) {
+        return 'error';
+      }
+      if (value <= 70) {
+        return 'warning';
+      }
+      return 'none';
+  }
+}
+
+function getMetricValueClassName(severity: MetricSeverity): string {
+  if (severity === 'error') {
+    return 'rounded-sm bg-red-100 px-1 text-red-950 dark:bg-red-950/50 dark:text-red-100';
+  }
+
+  if (severity === 'warning') {
+    return 'rounded-sm bg-orange-100 px-1 text-orange-950 dark:bg-orange-950/50 dark:text-orange-100';
+  }
+
+  return 'text-foreground';
 }
 
 function RendererMetrics({ metrics }: { metrics: MaterialViewModel['metrics'][string] }) {
-  if (!metrics) {
-    return <p className="text-center text-[11px] text-muted-foreground">metrics missing</p>;
-  }
-
   return (
     <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
       <div className="flex justify-between gap-1">
         <dt>SSIM</dt>
-        <dd className="font-mono text-foreground">{formatMetricValue(metrics.ssim)}</dd>
+        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('ssim', metrics?.ssim ?? null)))}>
+          {formatMetricValue(metrics?.ssim)}
+        </dd>
       </div>
       <div className="flex justify-between gap-1">
         <dt>PSNR</dt>
-        <dd className="font-mono text-foreground">{formatMetricValue(metrics.psnr, 1)}</dd>
+        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('psnr', metrics?.psnr ?? null)))}>
+          {formatMetricValue(metrics?.psnr, 1)}
+        </dd>
       </div>
       <div className="flex justify-between gap-1">
         <dt>RMS</dt>
-        <dd className="font-mono text-foreground">{formatMetricValue(metrics.normalizedRgbRms)}</dd>
+        <dd
+          className={cn(
+            'font-mono',
+            getMetricValueClassName(getMetricSeverity('normalizedRgbRms', metrics?.normalizedRgbRms ?? null)),
+          )}
+        >
+          {formatMetricValue(metrics?.normalizedRgbRms)}
+        </dd>
       </div>
       <div className="flex justify-between gap-1">
         <dt>VMAF</dt>
-        <dd className="font-mono text-foreground">{formatMetricValue(metrics.vmaf, 1)}</dd>
+        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('vmaf', metrics?.vmaf ?? null)))}>
+          {formatMetricValue(metrics?.vmaf, 1)}
+        </dd>
       </div>
     </dl>
   );
+}
+
+function getReportButtonClassName(summary: MaterialViewModel['reportSummaries'][string]): string {
+  if (summary?.severity === 'error') {
+    return 'border-red-600 bg-red-600 text-white hover:bg-red-700 dark:border-red-500 dark:bg-red-600 dark:text-white dark:hover:bg-red-700';
+  }
+
+  if (summary?.severity === 'warning') {
+    return 'border-orange-400 bg-orange-400 text-black hover:bg-orange-500 dark:border-orange-400 dark:bg-orange-400 dark:text-black dark:hover:bg-orange-500';
+  }
+
+  return 'border-border bg-background/85 text-foreground hover:bg-background';
 }
 
 export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, onOpenReport }: MaterialRowProps) {
@@ -134,6 +211,7 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
 
                 const imageUrl = material.images[rendererName];
                 const reportUrl = material.reports[rendererName];
+                const reportSummary = material.reportSummaries[rendererName] ?? null;
                 const metrics = material.metrics[rendererName] ?? null;
                 const metadata = getRendererMetadata(rendererName);
                 return (
@@ -154,7 +232,10 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
                       {reportUrl ? (
                         <button
                           aria-label={`Show render report for ${material.name} on ${rendererName}`}
-                          className="absolute right-2 bottom-2 inline-flex size-7 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+                          className={cn(
+                            'absolute right-2 bottom-2 inline-flex size-7 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors',
+                            getReportButtonClassName(reportSummary),
+                          )}
                           onClick={() => onOpenReport({ materialName: material.name, rendererName, reportUrl })}
                           type="button"
                         >
@@ -165,7 +246,7 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
                     <RendererMetrics metrics={metrics} />
                     <figcaption className="text-center text-xs text-muted-foreground">
                       <p className="font-medium text-foreground">{rendererName}</p>
-                      <p>{metadata?.observerDescription ?? 'Renderer description unavailable.'}</p>
+                      <p>{metadata?.description ?? 'Renderer description unavailable.'}</p>
                     </figcaption>
                   </figure>
                 );

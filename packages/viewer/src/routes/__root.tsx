@@ -1,6 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
 import Footer from '../components/Footer';
-import { SITE_NAME } from '#/lib/site-config';
 import { GoogleAnalytics } from 'tanstack-router-ga4';
 
 import appCss from '../styles.css?url';
@@ -18,7 +17,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: SITE_NAME,
+        title: import.meta.env.VITE_SITE_NAME,
       },
     ],
     links: [

@@ -13,7 +13,6 @@ export type {
   GenerateImageResult,
   GenerateImageOptions,
   RendererCategory,
-  RenderLogEntry,
   RenderFailure,
 } from './types.js';
 export type {

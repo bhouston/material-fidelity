@@ -8,10 +8,10 @@ import {
   type FidelityRenderer,
   type GenerateImageOptions,
   type GenerateImageResult,
-  type RenderLogEntry,
   type RendererPrerequisiteCheckResult,
   type RendererStartOptions,
 } from '@material-fidelity/core';
+import type { RenderLogEntry } from '@material-fidelity/samples';
 
 const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
 const MATERIALXVIEW_SEARCH_PATH_ENV = 'MATERIALXVIEW_SEARCH_PATH';

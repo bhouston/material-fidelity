@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@material-fidelity/core": "workspace:*",
+    "@material-fidelity/samples": "workspace:*",
     "@material-fidelity/renderer-blender": "workspace:*",
     "@material-fidelity/renderer-materialxjs": "workspace:*",
     "@material-fidelity/renderer-materialxview": "workspace:*",

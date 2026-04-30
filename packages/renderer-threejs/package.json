@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@material-fidelity/core": "workspace:*",
+    "@material-fidelity/samples": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",
     "fast-xml-parser": "^5.3.0",
     "fflate": "^0.8.2",

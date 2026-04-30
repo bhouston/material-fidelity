@@ -4,6 +4,7 @@ import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
 import { createReferences } from '@material-fidelity/core';
 import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@material-fidelity/core';
+import type { RenderLogEntry } from '@material-fidelity/samples';
 import {
   createIoBlenderMtlxRenderer,
   createNodesRenderer as createBlenderNodesRenderer,
@@ -29,14 +30,6 @@ function inferRepoRoot(invocationCwd: string): string {
 function resolveThirdPartyRoot(invocationCwd: string): string {
   const repoRoot = inferRepoRoot(invocationCwd);
   return path.join(repoRoot, 'third_party');
-}
-
-function formatElapsed(seconds: number): string {
-  return humanizeTime(Math.max(0, seconds), { unitSeparator: ' ' });
-}
-
-function getDefaultConcurrency(): number {
-  return Math.max(1, availableParallelism());
 }
 
 function formatMaterialLabel(materialPath: string, materialsRoot: string): string {
@@ -103,7 +96,7 @@ function renderLogLineColor(entry: RenderLogLine): string {
   return 'white';
 }
 
-function renderDiagnosticLogs(logs: { level: string; source: string; message: string }[] | undefined): string[] {
+function renderDiagnosticLogs(logs: RenderLogEntry[] | undefined): string[] {
   if (!logs || logs.length === 0) {
     return [];
   }
@@ -171,7 +164,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
         return;
       }
 
-      const elapsed = formatElapsed((event.durationMs ?? 0) / 1000);
+      const elapsed = humanizeTime((event.durationMs ?? 0) / 1000);
       setTotal(event.total);
       setCompleted(event.completed);
       setRenderLogs((previous) =>
@@ -259,7 +252,7 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     createElement(
       Text,
       { color: stopping ? 'yellow' : 'gray' },
-      `Elapsed: ${formatElapsed(elapsedSeconds)} | ETA: ${etaSeconds == null ? '?' : formatElapsed(etaSeconds)} | Ctrl-C to stop`,
+      `Elapsed: ${humanizeTime(elapsedSeconds)} | ETA: ${etaSeconds == null ? '?' : humanizeTime(etaSeconds)} | Ctrl-C to stop`,
     ),
   );
 }
@@ -289,7 +282,7 @@ export const command = defineCommand({
       })
       .option('concurrency', {
         type: 'number',
-        default: getDefaultConcurrency(),
+        default: availableParallelism(),
         describe: 'Number of materials to render in parallel. Defaults to the recommended available parallelism.',
       })
       .option('materials', {
@@ -327,7 +320,7 @@ export const command = defineCommand({
       renderers,
       thirdPartyRoot,
       rendererNames: normalizeRendererNames(argv.renderers),
-      concurrency: Math.max(1, argv.concurrency ?? getDefaultConcurrency()),
+      concurrency: Math.max(1, argv.concurrency ?? availableParallelism()),
       materialSelectors: [...new Set(materialSelectors)],
       skipExisting: argv.skipExisting ?? false,
       filter: argv.filter,
@@ -342,7 +335,7 @@ export const command = defineCommand({
             if (event.phase !== 'finish') {
               return;
             }
-            const elapsed = formatElapsed(event.durationMs ?? 0);
+            const elapsed = humanizeTime((event.durationMs ?? 0) / 1000);
             const status = event.success ? 'SUCCESS' : 'FAILED';
             const materialLabel = formatMaterialLabel(event.materialPath, materialsRoot);
             process.stdout.write(
@@ -356,7 +349,7 @@ export const command = defineCommand({
           },
         });
     const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
-    const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
+    const elapsedFormatted = humanizeTime(elapsedSeconds);
 
     process.stdout.write(
       `Rendered ${result.rendered}/${result.total} images with renderers ${result.rendererNames.map((name) => `"${name}"`).join(', ')}. Failures: ${result.failures.length}. Time: ${elapsedFormatted}${result.stopped ? ' (stopped early)' : ''}\n`,

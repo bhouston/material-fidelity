@@ -1,4 +1,4 @@
-import path from 'node:path';
+import { basename, dirname } from './path-utils.js';
 
 function parseMaterialSelectorAsRegex(selector: string): RegExp | undefined {
   const trimmedSelector = selector.trim();
@@ -25,8 +25,8 @@ function parseMaterialSelectorAsRegex(selector: string): RegExp | undefined {
 
 export function materialMatchesSelector(materialPath: string, selector: string): boolean {
   const regex = parseMaterialSelectorAsRegex(selector);
-  const materialDirectory = path.dirname(materialPath);
-  const materialDirectoryLeafName = path.basename(materialDirectory);
+  const materialDirectory = dirname(materialPath);
+  const materialDirectoryLeafName = basename(materialDirectory);
   const matchTargets = [materialDirectoryLeafName];
 
   if (regex) {

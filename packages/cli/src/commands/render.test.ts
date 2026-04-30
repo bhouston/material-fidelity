@@ -107,28 +107,16 @@ describe('render command', () => {
   });
 
   it('invokes core createReferences with parsed options', async () => {
-    const stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValueOnce(2_234);
-
-    try {
-      await command.handler({
-        renderers: ['materialxview'],
-        materials: undefined,
-        'skip-existing': false,
-        skipExisting: false,
-        filter: undefined,
-        concurrency: 2,
-        _: [],
-        $0: 'cli',
-      });
-
-      expect(stdoutWriteSpy).toHaveBeenCalledWith(
-        'Rendered 6/6 images with renderers "materialxview". Failures: 0. Time: 1.23 s\n',
-      );
-    } finally {
-      dateNowSpy.mockRestore();
-      stdoutWriteSpy.mockRestore();
-    }
+    await command.handler({
+      renderers: ['materialxview'],
+      materials: undefined,
+      'skip-existing': false,
+      skipExisting: false,
+      filter: undefined,
+      concurrency: 2,
+      _: [],
+      $0: 'cli',
+    });
 
     expect(createReferencesMock).toHaveBeenCalledTimes(1);
     const [firstCall] = createReferencesMock.mock.calls;

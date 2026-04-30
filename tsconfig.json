@@ -8,6 +8,8 @@
   "references": [
     { "path": "./third_party/material-viewer/packages/materialx" },
     { "path": "./third_party/material-viewer/packages/materialx-three" },
+    { "path": "./packages/samples" },
+    { "path": "./packages/samples-io" },
     { "path": "./packages/core" },
     { "path": "./packages/renderer-blender" },
     { "path": "./packages/renderer-materialxview" },

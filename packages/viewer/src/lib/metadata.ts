@@ -1,11 +1,3 @@
-import {
-  DEFAULT_SITE_IMAGE,
-  SITE_DESCRIPTION,
-  SITE_NAME,
-  getResolvedBaseUrl,
-  trimTrailingSlash,
-} from '#/lib/site-config';
-
 export type MetadataItem =
   | { title?: string; name?: string; content?: string; property?: string; charSet?: string }
   | { title: string }
@@ -26,8 +18,6 @@ export type HeadScriptItem = {
 
 export interface MetadataOptions {
   title: string;
-  baseUrl?: string;
-
   description?: string;
   canonicalUrl?: string;
 
@@ -51,8 +41,13 @@ export interface HeadOptions extends MetadataOptions {
   scripts?: HeadScriptItem[];
 }
 
+function trimTrailingSlash(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
 function defaultOgImage(baseUrl: string): string {
-  const path = DEFAULT_SITE_IMAGE.startsWith('/') ? DEFAULT_SITE_IMAGE : `/${DEFAULT_SITE_IMAGE}`;
+  const defaultSiteImage = import.meta.env.VITE_DEFAULT_SITE_IMAGE;
+  const path = defaultSiteImage.startsWith('/') ? defaultSiteImage : `/${defaultSiteImage}`;
   return baseUrl ? `${trimTrailingSlash(baseUrl)}${path}` : path;
 }
 
@@ -61,10 +56,10 @@ function defaultOgImage(baseUrl: string): string {
  * Open Graph, and Twitter Cards.
  */
 export const getMeta = (options: MetadataOptions): MetadataItem[] => {
-  const baseUrl = getResolvedBaseUrl(options);
+  const baseUrl = trimTrailingSlash(import.meta.env.VITE_BASE_URL);
 
   const ogType = options.ogType ?? 'website';
-  const description = options.description ?? SITE_DESCRIPTION;
+  const description = options.description ?? import.meta.env.VITE_SITE_DESCRIPTION;
 
   const canonicalUrl =
     options.canonicalUrl ??
@@ -94,7 +89,7 @@ export const getMeta = (options: MetadataOptions): MetadataItem[] => {
     metadata.push({ property: 'og:url', content: ogUrl });
   }
   metadata.push({ property: 'og:image', content: ogImage });
-  metadata.push({ property: 'og:site_name', content: SITE_NAME });
+  metadata.push({ property: 'og:site_name', content: import.meta.env.VITE_SITE_NAME });
   metadata.push({ property: 'og:image:type', content: 'image/webp' });
 
   metadata.push({ name: 'twitter:card', content: twitterCard });
@@ -106,8 +101,7 @@ export const getMeta = (options: MetadataOptions): MetadataItem[] => {
     content: 'Screenshot of the MaterialX fidelity viewer comparing renderer outputs.',
   });
 
-  const twitterSite =
-    typeof import.meta.env.VITE_TWITTER_SITE === 'string' ? import.meta.env.VITE_TWITTER_SITE.trim() : '';
+  const twitterSite = import.meta.env.VITE_TWITTER_SITE.trim();
   if (twitterSite.length > 0) {
     metadata.push({ name: 'twitter:site', content: twitterSite });
   }
@@ -119,7 +113,7 @@ export const getMeta = (options: MetadataOptions): MetadataItem[] => {
  * Route `head` payload: meta entries, canonical link, optional JSON-LD script (see bhouston-website `getHead`).
  */
 export const getHead = (options: HeadOptions) => {
-  const baseUrl = getResolvedBaseUrl(options);
+  const baseUrl = trimTrailingSlash(import.meta.env.VITE_BASE_URL);
 
   const canonicalUrl =
     options.canonicalUrl ??

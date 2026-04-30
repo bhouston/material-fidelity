@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@material-fidelity/core": "workspace:*",
+    "@material-fidelity/samples": "workspace:*",
     "@material-viewer/materialx": "workspace:*",
     "@material-viewer/materialx-three": "workspace:*",
     "@vitejs/plugin-react": "^6.0.1",

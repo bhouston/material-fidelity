@@ -1,12 +1,8 @@
+import type { RenderLogEntry } from '@material-fidelity/samples';
+
 export interface GenerateImageOptions {
   mtlxPath: string;
   outputPngPath: string;
-}
-
-export interface RenderLogEntry {
-  level: 'debug' | 'info' | 'warning' | 'error';
-  source: 'browser' | 'renderer';
-  message: string;
 }
 
 export interface GenerateImageResult {

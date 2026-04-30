@@ -1,23 +1,27 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { Info, X } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useGoogleAnalytics } from 'tanstack-router-ga4';
 import Header from '#/components/Header';
 import { MaterialRow } from '#/components/MaterialRow';
-import { RenderLogViewer } from '#/components/RenderLogViewer';
-import type { ReportLogEntry } from '#/components/RenderLogViewer';
+import { RenderReportDialog } from '#/components/RenderReportDialog';
+import { resolveSelectedRenderers, toRendererSearchValue } from '#/components/SelectRenderersDialog';
+import type { ActiveReportState } from '#/components/RenderReportDialog';
 import { getViewerIndexData } from '#/lib/material-index';
 import { getRendererMetadata } from '#/lib/renderer-metadata';
 import { getHead } from '#/lib/metadata';
-import { DEFAULT_SITE_IMAGE, SITE_DESCRIPTION, SITE_NAME, getResolvedBaseUrl } from '#/lib/site-config';
 import { getViewerWebsiteJsonLd } from '#/lib/structured-data';
+
+const RENDERER_CATEGORY_LABELS = {
+  pathtracer: 'Pathtracer',
+  raytracer: 'Raytracer',
+  rasterizer: 'Rasterizer',
+} as const;
 
 const getViewerData = createServerFn({
   method: 'GET',
 }).handler(async () => getViewerIndexData());
-
-const NO_RENDERERS_SEARCH_VALUE = '__none';
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -30,14 +34,14 @@ export const Route = createFileRoute('/')({
   },
   loader: () => getViewerData(),
   head: () => {
-    const baseUrl = getResolvedBaseUrl();
+    const baseUrl = import.meta.env.VITE_BASE_URL.replace(/\/$/, '');
     const canonicalUrl = baseUrl ? `${baseUrl}/` : '';
     return getHead({
-      title: SITE_NAME,
-      description: SITE_DESCRIPTION,
+      title: import.meta.env.VITE_SITE_NAME,
+      description: import.meta.env.VITE_SITE_DESCRIPTION,
       canonicalUrl,
       ogType: 'website',
-      imageUrl: DEFAULT_SITE_IMAGE,
+      imageUrl: import.meta.env.VITE_DEFAULT_SITE_IMAGE,
       twitterCard: 'summary_large_image',
       jsonLd: getViewerWebsiteJsonLd(canonicalUrl || baseUrl),
     });
@@ -60,74 +64,6 @@ function normalizeMaterialFilters(materialFilter: string | undefined): string[] 
   ];
 }
 
-function normalizeRendererFilters(rendererFilter: string | undefined): string[] | undefined {
-  if (!rendererFilter) {
-    return undefined;
-  }
-
-  if (rendererFilter === NO_RENDERERS_SEARCH_VALUE) {
-    return [];
-  }
-
-  return [
-    ...new Set(
-      rendererFilter
-        .split(',')
-        .map((filter) => filter.trim())
-        .filter((filter) => filter.length > 0),
-    ),
-  ];
-}
-
-function resolveSelectedRenderers(rendererFilter: string | undefined, availableRenderers: string[]): string[] {
-  const normalizedFilters = normalizeRendererFilters(rendererFilter);
-  if (normalizedFilters === undefined) {
-    return availableRenderers;
-  }
-
-  const availableRendererSet = new Set(availableRenderers);
-  return normalizedFilters.filter((rendererName) => availableRendererSet.has(rendererName));
-}
-
-function toRendererSearchValue(selectedRenderers: string[], availableRenderers: string[]): string | undefined {
-  if (selectedRenderers.length === 0) {
-    return NO_RENDERERS_SEARCH_VALUE;
-  }
-
-  if (selectedRenderers.length === availableRenderers.length) {
-    return undefined;
-  }
-
-  return selectedRenderers.join(',');
-}
-
-interface ReportIssue {
-  level?: string;
-  location?: string;
-  message?: string;
-}
-
-interface ReportError {
-  name?: string;
-  message?: string;
-  stack?: string;
-}
-
-interface RenderReport {
-  rendererName?: string;
-  status?: string;
-  error?: ReportError | null;
-  validationIssues?: ReportIssue[];
-  issues?: ReportIssue[];
-  logs?: ReportLogEntry[];
-}
-
-interface ActiveReportState {
-  materialName: string;
-  rendererName: string;
-  reportUrl: string;
-}
-
 function App() {
   const data = Route.useLoaderData();
   const search = Route.useSearch();
@@ -144,9 +80,6 @@ function App() {
     }))
     .filter((group) => group.renderers.length > 0);
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
-  const [activeReportData, setActiveReportData] = useState<RenderReport | null>(null);
-  const [activeReportError, setActiveReportError] = useState<string | null>(null);
-  const [isReportLoading, setIsReportLoading] = useState(false);
   const hasMaterialFilterChangedRef = useRef(false);
   const lastTrackedMaterialFilterRef = useRef(search.materials?.trim() ?? '');
   const filteredGroups = data.groups
@@ -170,42 +103,6 @@ function App() {
   );
   const shownMaterialCount = filteredGroups.reduce((total, group) => total + group.materials.length, 0);
   const totalMaterialCount = data.groups.reduce((total, group) => total + group.materials.length, 0);
-
-  useEffect(() => {
-    if (!activeReport) {
-      return;
-    }
-
-    const abortController = new AbortController();
-    const fetchReport = async () => {
-      setIsReportLoading(true);
-      setActiveReportData(null);
-      setActiveReportError(null);
-      try {
-        const response = await fetch(activeReport.reportUrl, { signal: abortController.signal });
-        if (!response.ok) {
-          throw new Error(`Failed to load report (${response.status})`);
-        }
-        const json = (await response.json()) as RenderReport;
-        setActiveReportData(json);
-      } catch (error) {
-        if (abortController.signal.aborted) {
-          return;
-        }
-        setActiveReportError(error instanceof Error ? error.message : String(error));
-      } finally {
-        if (!abortController.signal.aborted) {
-          setIsReportLoading(false);
-        }
-      }
-    };
-
-    void fetchReport();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [activeReport]);
 
   useEffect(() => {
     setMaterialFilterInput(search.materials ?? '');
@@ -236,21 +133,6 @@ function App() {
       window.clearTimeout(timeoutId);
     };
   }, [ga, search.materials]);
-
-  useEffect(() => {
-    if (!activeReport) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setActiveReport(null);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [activeReport]);
 
   const trackMaterialAction = (
     action: 'download_mtlx' | 'open_live_viewer',
@@ -284,24 +166,10 @@ function App() {
     setMaterialFilterInput(value);
   };
 
-  const updateSelectedRenderers = (nextSelectedRenderers: string[]) => {
+  const handleSelectedRenderersChange = (nextSelectedRenderers: string[]) => {
     updateFilters({
       renderers: toRendererSearchValue(nextSelectedRenderers, data.renderers),
     });
-  };
-
-  const handleRendererToggle = (rendererName: string, enabled: boolean) => {
-    const nextSelectedRendererSet = new Set(selectedRenderers);
-    if (enabled) {
-      nextSelectedRendererSet.add(rendererName);
-    } else {
-      nextSelectedRendererSet.delete(rendererName);
-    }
-    updateSelectedRenderers(data.renderers.filter((candidate) => nextSelectedRendererSet.has(candidate)));
-  };
-
-  const handleSelectAllRenderers = () => {
-    updateSelectedRenderers(data.renderers);
   };
 
   useEffect(() => {
@@ -328,9 +196,8 @@ function App() {
         availableRenderers={data.renderers}
         materialFilter={materialFilterInput}
         onMaterialFilterChange={handleMaterialSearchChange}
-        onRendererToggle={handleRendererToggle}
-        onSelectAllRenderers={handleSelectAllRenderers}
-        selectedRenderers={selectedRenderers}
+        onSelectedRenderersChange={handleSelectedRenderersChange}
+        rendererFilter={search.renderers}
         shownMaterialCount={shownMaterialCount}
         totalMaterialCount={totalMaterialCount}
       />
@@ -350,7 +217,7 @@ function App() {
             differences and view render log/error output (click the <Info className="size-4 inline-block" /> icons).
           </p>
           <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
-            <p className="font-medium text-foreground">Enabled renderers:</p>
+            <p className="font-medium text-foreground">Available renderers:</p>
             <ul className="mt-1 list-disc space-y-1 pl-5">
               {data.renderers.map((rendererName) => {
                 const metadata = getRendererMetadata(rendererName);
@@ -360,6 +227,8 @@ function App() {
                     {metadata ? (
                       <>
                         {' - '}
+                        <span>{RENDERER_CATEGORY_LABELS[metadata.category]}</span>
+                        {' - '}
                         <a
                           className="underline underline-offset-2 hover:no-underline"
                           href={metadata.packageUrl}
@@ -367,7 +236,7 @@ function App() {
                         >
                           {metadata.packageName}
                         </a>{' '}
-                        - {metadata.observerDescription}
+                        - {metadata.description}
                       </>
                     ) : (
                       ' - Renderer is enabled but has no description metadata yet.'
@@ -376,6 +245,11 @@ function App() {
                 );
               })}
             </ul>
+            <p className="mt-3">
+              Some visual differences are expected because these renderers use different rendering techniques. Ray
+              tracers and path tracers can show self-reflections and global illumination that rasterizers usually will
+              not.
+            </p>
           </div>
           <div className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground sm:text-base">
             <p>Want to contribute?</p>
@@ -446,99 +320,7 @@ function App() {
           )}
         </section>
 
-        {activeReport ? (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-            onClick={() => setActiveReport(null)}
-            role="presentation"
-          >
-            <section
-              aria-modal="true"
-              className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-background shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-              role="dialog"
-            >
-              <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Render report</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {activeReport.materialName} - {activeReport.rendererName}
-                  </p>
-                </div>
-                <button
-                  aria-label="Close report dialog"
-                  className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  onClick={() => setActiveReport(null)}
-                  type="button"
-                >
-                  <X className="size-4" />
-                </button>
-              </header>
-
-              <div className="space-y-4 px-5 py-4 text-sm">
-                {isReportLoading ? <p className="text-muted-foreground">Loading report...</p> : null}
-
-                {activeReportError ? (
-                  <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
-                    {activeReportError}
-                  </p>
-                ) : null}
-
-                {activeReportData ? (
-                  <>
-                    <div className="grid grid-cols-1 gap-2">
-                      <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-                        <p className="font-medium text-foreground">{activeReportData.status ?? 'unknown'}</p>
-                      </div>
-                    </div>
-
-                    {activeReportData.error ? (
-                      <section className="space-y-2">
-                        <h4 className="font-semibold text-foreground">Error</h4>
-                        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
-                          <p className="font-medium text-destructive">
-                            {activeReportData.error.name ? `${activeReportData.error.name}: ` : ''}
-                            {activeReportData.error.message ?? 'Unknown error'}
-                          </p>
-                          {activeReportData.error.stack ? (
-                            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-destructive">
-                              {activeReportData.error.stack}
-                            </pre>
-                          ) : null}
-                        </div>
-                      </section>
-                    ) : null}
-
-                    {(activeReportData.validationIssues?.length || activeReportData.issues?.length) && (
-                      <section className="space-y-2">
-                        <h4 className="font-semibold text-foreground">Validation issues</h4>
-                        <ul className="space-y-2">
-                          {(activeReportData.validationIssues ?? activeReportData.issues ?? []).map((issue, index) => (
-                            <li
-                              key={`${issue.location ?? 'issue'}-${index}`}
-                              className="rounded-md border border-border px-3 py-2"
-                            >
-                              <p className="font-medium text-foreground">
-                                {issue.level ?? 'issue'} {issue.location ? `- ${issue.location}` : ''}
-                              </p>
-                              <p className="mt-1 text-muted-foreground">{issue.message ?? 'No message provided.'}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-
-                    <section className="space-y-2">
-                      <h4 className="font-semibold text-foreground">Log messages</h4>
-                      <RenderLogViewer logs={activeReportData.logs} />
-                    </section>
-                  </>
-                ) : null}
-              </div>
-            </section>
-          </div>
-        ) : null}
+        {activeReport ? <RenderReportDialog report={activeReport} onClose={() => setActiveReport(null)} /> : null}
       </main>
     </>
   );

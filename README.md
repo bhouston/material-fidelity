@@ -180,11 +180,8 @@ pnpm viewer
 The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-io-mtlx`, `materialxjs`, `threejs-current`, `threejs-new`).
 
 The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
+When the URL does not include a `renderers` filter, the viewer defaults to showing `materialxview`, `blender-nodes`, and `threejs-new`; users can enable the other built-in renderers from the renderer filter UI.
 If a material directory contains `metrics.json`, the viewer displays each renderer's metrics beneath its image. Material rows render lightweight placeholders until they are near the viewport, then load the image tiles, render reports, and metrics for smoother browsing.
-
-Optional viewer environment variables:
-
-- `VIEWER_RENDERERS` optional comma-separated renderer allowlist (for example: `materialxview,threejs-current,threejs-new`). If unset, the viewer shows all built-in renderers.
 
 ## License
 

@@ -14,6 +14,8 @@
     "dev": "tsgo -w --preserveWatchOutput"
   },
   "dependencies": {
+    "@material-fidelity/samples": "workspace:*",
+    "@material-fidelity/samples-io": "workspace:*",
     "@material-viewer/materialx": "workspace:*",
     "p-limit": "^7.3.0",
     "pngjs": "^7.0.0",

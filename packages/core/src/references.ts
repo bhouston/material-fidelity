@@ -1,7 +1,17 @@
 import path from 'node:path';
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import pLimit from 'p-limit';
-import { findFilesByExtension } from './fs-utils.js';
+import {
+  getMaterialsRoot,
+  getSamplesRootFromThirdParty,
+  getViewerAssetsRoot,
+  materialMatchesSelector,
+  RenderLogEntrySchema,
+  RenderResultReportSchema,
+  type RenderLogEntry,
+  type RenderReportIssue,
+} from '@material-fidelity/samples';
+import { findMtlxMaterialFiles } from '@material-fidelity/samples-io';
 import { assertRenderIsNotEmpty, calculateImageNormalizedRgbRms } from './image-empty-check.js';
 import {
   formatFatalValidationIssues,
@@ -10,13 +20,11 @@ import {
   type PreflightIssue,
   type PreflightResult,
 } from './material-validation.js';
-import { materialMatchesSelector } from './material-selectors.js';
 import type {
   CreateReferencesOptions,
   CreateReferencesResult,
   FidelityRenderer,
   RenderFailure,
-  RenderLogEntry,
 } from './types.js';
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
@@ -57,11 +65,13 @@ const NOISY_LOG_MESSAGE_SUBSTRINGS = [
   'Wrote frame to disk:',
 ];
 const MATERIALXVIEW_IRRADIANCE_WARNING_PATTERN = /Image file not found: .*\/irradiance\/san_giuseppe_bridge_2k\.hdr$/;
+const BLENDER_VERSION_BANNER_PATTERN = /^Blender \d+\.\d+\.\d+(?: [^(]+)? \(hash [^)]+ built [^)]+\)$/;
 
 function isNoisyLogMessage(message: string): boolean {
   return (
     NOISY_LOG_MESSAGE_SUBSTRINGS.some((substring) => message.includes(substring)) ||
-    MATERIALXVIEW_IRRADIANCE_WARNING_PATTERN.test(message)
+    MATERIALXVIEW_IRRADIANCE_WARNING_PATTERN.test(message) ||
+    BLENDER_VERSION_BANNER_PATTERN.test(message)
   );
 }
 
@@ -79,12 +89,7 @@ function readRendererLogs(value: unknown): RenderLogEntry[] {
   }
   return filterReportableLogs(
     candidate.rendererLogs.filter(
-      (entry): entry is RenderLogEntry =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as { level?: unknown }).level === 'string' &&
-        typeof (entry as { source?: unknown }).source === 'string' &&
-        typeof (entry as { message?: unknown }).message === 'string',
+      (entry): entry is RenderLogEntry => RenderLogEntrySchema.safeParse(entry).success,
     ),
   );
 }
@@ -93,9 +98,17 @@ function normalizeRenderLogs(logs: RenderLogEntry[]): RenderLogEntry[] {
   return filterReportableLogs(logs);
 }
 
+function toRenderReportIssue(issue: PreflightIssue): RenderReportIssue {
+  return {
+    level: issue.level,
+    location: issue.location,
+    message: issue.message,
+  };
+}
+
 async function writeRenderResultReport(options: RenderResultReportOptions): Promise<void> {
   const reportPath = toJsonPath(options.outputPngPath);
-  const report = {
+  const report = RenderResultReportSchema.parse({
     rendererName: options.rendererName,
     status: options.success ? 'success' : 'failed',
     error: options.error
@@ -105,13 +118,9 @@ async function writeRenderResultReport(options: RenderResultReportOptions): Prom
           stack: options.error.stack,
         }
       : null,
-    validationIssues: options.validationIssues?.map((issue) => ({
-      level: issue.level,
-      location: issue.location,
-      message: issue.message,
-    })),
+    validationIssues: options.validationIssues?.map(toRenderReportIssue),
     logs: options.logs ?? [],
-  };
+  });
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 }
 
@@ -125,9 +134,9 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 export async function createReferences(options: CreateReferencesOptions): Promise<CreateReferencesResult> {
-  const samplesRoot = path.join(options.thirdPartyRoot, 'material-samples');
-  const materialsRoot = path.join(samplesRoot, 'materials');
-  const viewerRoot = path.join(samplesRoot, 'viewer');
+  const samplesRoot = getSamplesRootFromThirdParty(options.thirdPartyRoot);
+  const materialsRoot = getMaterialsRoot(samplesRoot);
+  const viewerRoot = getViewerAssetsRoot(samplesRoot);
 
   try {
     await access(samplesRoot);
@@ -147,7 +156,7 @@ export async function createReferences(options: CreateReferencesOptions): Promis
     throw new Error(`Missing required viewer directory at ${viewerRoot}.`);
   }
 
-  const materialFiles = await findFilesByExtension(materialsRoot, '.mtlx');
+  const materialFiles = await findMtlxMaterialFiles(materialsRoot);
   if (materialFiles.length === 0) {
     throw new Error(`No .mtlx files found under ${materialsRoot}.`);
   }
