@@ -152,6 +152,12 @@ BLENDER_NODES_EXECUTABLE="/Users/bhouston/Coding/OpenSource/build_darwin/bin/Ble
 pnpm cli render --renderers blender-nodes --materials noise2d --concurrency 1
 ```
 
+The Eevee variant uses the same patched executable and importer, but renders through Blender's real-time engine:
+
+```bash
+pnpm cli render --renderers blender-eevee-nodes --materials noise2d
+```
+
 For broader smoke testing:
 
 ```bash

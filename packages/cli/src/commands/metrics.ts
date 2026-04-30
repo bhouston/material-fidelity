@@ -3,6 +3,7 @@ import { availableParallelism } from 'node:os';
 import { calculateMetrics } from '@material-fidelity/core';
 import type { CalculateMetricsResult, FidelityRenderer } from '@material-fidelity/core';
 import {
+  createEeveeNodesRenderer as createBlenderEeveeNodesRenderer,
   createIoBlenderMtlxRenderer,
   createNodesRenderer as createBlenderNodesRenderer,
   createRenderer as createBlenderRenderer,
@@ -49,6 +50,7 @@ function createBuiltInRenderers(thirdPartyRoot: string): FidelityRenderer[] {
   return [
     createBlenderRenderer({ thirdPartyRoot }),
     createBlenderNodesRenderer({ thirdPartyRoot }),
+    createBlenderEeveeNodesRenderer({ thirdPartyRoot }),
     createIoBlenderMtlxRenderer({ thirdPartyRoot }),
     createMaterialXJsRenderer({ thirdPartyRoot }),
     createMaterialXViewRenderer(),

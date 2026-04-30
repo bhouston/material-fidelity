@@ -36,6 +36,14 @@ vi.mock('@material-fidelity/renderer-blender', () => ({
     shutdown: async () => undefined,
     generateImage: async () => undefined,
   }),
+  createEeveeNodesRenderer: () => ({
+    name: 'blender-eevee-nodes',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
   createIoBlenderMtlxRenderer: () => ({
     name: 'blender-io-mtlx',
     version: 'test',
@@ -128,7 +136,7 @@ describe('render command', () => {
       skipExisting: false,
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
-    expect(firstCall?.[0].renderers).toHaveLength(7);
+    expect(firstCall?.[0].renderers).toHaveLength(8);
   });
 
   it('defaults concurrency to the recommended available parallelism', async () => {

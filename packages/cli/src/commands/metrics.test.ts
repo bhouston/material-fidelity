@@ -26,6 +26,7 @@ vi.mock('@material-fidelity/core', async (importActual) => {
 vi.mock('@material-fidelity/renderer-blender', () => ({
   createRenderer: () => ({ name: 'blender-new' }),
   createNodesRenderer: () => ({ name: 'blender-nodes' }),
+  createEeveeNodesRenderer: () => ({ name: 'blender-eevee-nodes' }),
   createIoBlenderMtlxRenderer: () => ({ name: 'blender-io-mtlx' }),
 }));
 
@@ -118,6 +119,7 @@ describe('metrics command', () => {
       rendererNames: [
         'blender-new',
         'blender-nodes',
+        'blender-eevee-nodes',
         'blender-io-mtlx',
         'materialxjs',
         'materialxview',

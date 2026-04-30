@@ -14,7 +14,7 @@ Material Fidelity is a TypeScript monorepo for generating and comparing renderer
 - Node.js 24+
 - pnpm 10+
 - `materialxview` (or `MaterialXView`) available on your `PATH`
-- Blender 4.0+ available as `blender` on your `PATH` or via `BLENDER_EXECUTABLE` (`blender-nodes` requires the patched Blender executable or `BLENDER_NODES_EXECUTABLE`; `blender-io-mtlx` requires Blender 5.0+)
+- Blender 4.0+ available as `blender` on your `PATH` or via `BLENDER_EXECUTABLE` (`blender-nodes` and `blender-eevee-nodes` require the patched Blender executable or `BLENDER_NODES_EXECUTABLE`; `blender-io-mtlx` requires Blender 5.0+)
 
 ## Install
 
@@ -72,6 +72,7 @@ Currently supported renderers:
 - `materialxview` (`@material-fidelity/renderer-materialxview`)
 - `blender-new` (`@material-fidelity/renderer-blender`, Blender bundled MaterialX rendered through Cycles)
 - `blender-nodes` (`@material-fidelity/renderer-blender`, patched Blender custom MaterialX nodes rendered through Cycles)
+- `blender-eevee-nodes` (`@material-fidelity/renderer-blender`, patched Blender custom MaterialX nodes rendered through Eevee)
 - `blender-io-mtlx` (`@material-fidelity/renderer-blender`, vendored `io_blender_mtlx` add-on rendered through Cycles)
 - `materialxjs` (`@material-fidelity/renderer-materialxjs`)
 - `threejs-current` (`@material-fidelity/renderer-threejs`, official npm Three.js MaterialX support)
@@ -167,7 +168,7 @@ To keep reference renders visually comparable between `materialxview`, `threejs-
 - fixed resolution of `512x512`
 
 These values are intentionally aligned with `MaterialXView` defaults and its scene normalization behavior in `source/MaterialXView/Viewer.cpp`.
-The Blender renderers follow the same scene contract through background Python scripts. `blender-new` uses the in-repo importer built on Blender's bundled `MaterialX` module, `blender-nodes` uses the same importer but requires the patched Blender custom MaterialX nodes, and `blender-io-mtlx` loads the vendored `third_party/io_blender_mtlx` add-on programmatically without requiring a manual Blender add-on install.
+The Blender renderers follow the same scene contract through background Python scripts. `blender-new` uses the in-repo importer built on Blender's bundled `MaterialX` module, `blender-nodes` and `blender-eevee-nodes` use the same importer but require the patched Blender custom MaterialX nodes, and `blender-io-mtlx` loads the vendored `third_party/io_blender_mtlx` add-on programmatically without requiring a manual Blender add-on install.
 
 ## Viewer
 
@@ -177,7 +178,7 @@ Run the MaterialX Fidelity Viewer:
 pnpm viewer
 ```
 
-The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-io-mtlx`, `materialxjs`, `threejs-current`, `threejs-new`).
+The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-eevee-nodes`, `blender-io-mtlx`, `materialxjs`, `threejs-current`, `threejs-new`).
 
 The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
 When the URL does not include a `renderers` filter, the viewer defaults to showing `materialxview`, `blender-nodes`, and `threejs-new`; users can enable the other built-in renderers from the renderer filter UI.

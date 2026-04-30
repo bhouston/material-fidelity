@@ -56,6 +56,7 @@ def create_template(args: Any, warnings: list[str]) -> None:
         args.height,
         None,
         args.background_color,
+        args.render_engine,
     )
     imported_objects = time_call(timings, "import_model", import_model, args.model_path)
     time_call(timings, "recenter_and_normalize", recenter_and_normalize, imported_objects)
@@ -104,6 +105,7 @@ def render_from_template(args: Any, warnings: list[str]) -> None:
         args.height,
         args.output_png_path,
         args.background_color,
+        args.render_engine,
     )
     normalized_root = time_call(timings, "find_normalized_root", find_normalized_root)
     material = time_call(
@@ -116,7 +118,7 @@ def render_from_template(args: Any, warnings: list[str]) -> None:
     )
     time_call(timings, "apply_material", apply_material, normalized_root, material)
     log_warnings_event("blender-io-mtlx-render-start", warnings)
-    time_call(timings, "cycles_render", bpy.ops.render.render, write_still=True)
+    time_call(timings, f"{args.render_engine.lower()}_render", bpy.ops.render.render, write_still=True)
     timings["total"] = elapsed_ms(started_at)
     log_timing_event(
         "blender-io-mtlx-render-timing",

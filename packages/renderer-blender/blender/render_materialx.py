@@ -78,6 +78,9 @@ CYCLES_RENDER_PROFILES = {
         "transparent_max_bounces": 20,
     },
 }
+RENDER_ENGINE_CHOICES = ("CYCLES", "BLENDER_EEVEE_NEXT", "BLENDER_EEVEE")
+EEVEE_RENDER_ENGINE_FALLBACKS = ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE")
+EEVEE_RENDER_SAMPLES = 64
 _T = TypeVar("_T")
 
 
@@ -105,6 +108,7 @@ def create_template(args: argparse.Namespace, warnings: list[str]) -> None:
         args.height,
         None,
         args.background_color,
+        args.render_engine,
     )
     imported_objects = time_call(timings, "import_model", import_model, args.model_path)
     normalized_root = time_call(timings, "recenter_and_normalize", recenter_and_normalize, imported_objects)
@@ -153,6 +157,7 @@ def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
         args.height,
         args.output_png_path,
         args.background_color,
+        args.render_engine,
     )
     normalized_root = time_call(timings, "find_normalized_root", find_normalized_root)
     try:
@@ -186,7 +191,7 @@ def render_from_template(args: argparse.Namespace, warnings: list[str]) -> None:
         material_result.material,
     )
     log_warnings_event(f"{args.renderer_name}-render-start", warnings)
-    time_call(timings, "cycles_render", bpy.ops.render.render, write_still=True)
+    time_call(timings, f"{args.render_engine.lower()}_render", bpy.ops.render.render, write_still=True)
     timings["total"] = elapsed_ms(started_at)
     # log_timing_event(
     #     "blender-new-render-timing",
@@ -254,6 +259,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--third-party-root")
     parser.add_argument("--renderer-name", default="blender-new")
+    parser.add_argument("--render-engine", choices=RENDER_ENGINE_CHOICES, default="CYCLES")
     args = parser.parse_args(passthrough_args)
 
     if args.template_output_path:
@@ -281,21 +287,19 @@ def clear_scene() -> None:
     bpy.ops.object.delete()
 
 
-def configure_render(width: int, height: int, output_png_path: str | None, background_color: str) -> None:
+def configure_render(
+    width: int,
+    height: int,
+    output_png_path: str | None,
+    background_color: str,
+    render_engine: str,
+) -> None:
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    cycles_profile = CYCLES_RENDER_PROFILES[CYCLES_RENDER_PROFILE]
-    scene.cycles.samples = cycles_profile["samples"]
-    scene.cycles.use_adaptive_sampling = True
-    scene.cycles.adaptive_threshold = cycles_profile["adaptive_threshold"]
-    scene.cycles.use_denoising = True
-    scene.cycles.max_bounces = cycles_profile["max_bounces"]
-    scene.cycles.diffuse_bounces = cycles_profile["diffuse_bounces"]
-    scene.cycles.glossy_bounces = cycles_profile["glossy_bounces"]
-    scene.cycles.transmission_bounces = cycles_profile["transmission_bounces"]
-    scene.cycles.transparent_max_bounces = cycles_profile["transparent_max_bounces"]
-    scene.cycles.caustics_reflective = False
-    scene.cycles.caustics_refractive = False
+    if render_engine == "CYCLES":
+        configure_cycles_render(scene)
+    else:
+        configure_eevee_render(scene, render_engine)
+
     scene.render.resolution_x = width
     scene.render.resolution_y = height
     scene.render.resolution_percentage = 100
@@ -314,6 +318,55 @@ def configure_render(width: int, height: int, output_png_path: str | None, backg
     world = scene.world or bpy.data.worlds.new("World")
     scene.world = world
     world.color = color[:3]
+
+
+def configure_cycles_render(scene: bpy.types.Scene) -> None:
+    scene.render.engine = "CYCLES"
+    cycles_profile = CYCLES_RENDER_PROFILES[CYCLES_RENDER_PROFILE]
+    scene.cycles.samples = cycles_profile["samples"]
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = cycles_profile["adaptive_threshold"]
+    scene.cycles.use_denoising = True
+    scene.cycles.max_bounces = cycles_profile["max_bounces"]
+    scene.cycles.diffuse_bounces = cycles_profile["diffuse_bounces"]
+    scene.cycles.glossy_bounces = cycles_profile["glossy_bounces"]
+    scene.cycles.transmission_bounces = cycles_profile["transmission_bounces"]
+    scene.cycles.transparent_max_bounces = cycles_profile["transparent_max_bounces"]
+    scene.cycles.caustics_reflective = False
+    scene.cycles.caustics_refractive = False
+
+
+def configure_eevee_render(scene: bpy.types.Scene, render_engine: str) -> None:
+    attempted_engines = [render_engine, *EEVEE_RENDER_ENGINE_FALLBACKS]
+    for engine in dict.fromkeys(attempted_engines):
+        try:
+            scene.render.engine = engine
+            break
+        except Exception:
+            continue
+    else:
+        raise RuntimeError(f"Unable to configure an Eevee render engine from: {', '.join(attempted_engines)}")
+
+    eevee = getattr(scene, "eevee", None)
+    if eevee is None:
+        return
+
+    set_if_present(eevee, "taa_render_samples", EEVEE_RENDER_SAMPLES)
+    set_if_present(eevee, "taa_samples", EEVEE_RENDER_SAMPLES)
+    set_if_present(eevee, "use_gtao", True)
+    set_if_present(eevee, "gtao_distance", 3)
+    set_if_present(eevee, "gtao_factor", 1.5)
+    set_if_present(eevee, "use_raytracing", True)
+    set_if_present(eevee, "use_shadows", False)
+
+
+def set_if_present(owner: object, attribute: str, value: object) -> None:
+    if not hasattr(owner, attribute):
+        return
+    try:
+        setattr(owner, attribute, value)
+    except Exception:
+        return
 
 
 def import_model(model_path: str) -> list[bpy.types.Object]:

@@ -10,6 +10,7 @@ import {
   type FidelityRenderer,
   type GenerateImageOptions,
   type GenerateImageResult,
+  type RendererCategory,
   type RendererContext,
   type RendererPrerequisiteCheckResult,
   type RendererStartOptions,
@@ -41,7 +42,9 @@ interface BlenderVersion {
 
 interface BlenderRendererOptions {
   name: string;
+  category: RendererCategory;
   scriptFileName: string;
+  renderEngine: string;
   minimumBlenderVersion: BlenderVersion;
   requiredThirdPartyFiles?: string[][];
   runtimePythonExpression?: (thirdPartyRoot: string) => string;
@@ -51,26 +54,49 @@ interface BlenderRendererOptions {
 
 const BLENDER_RENDERER_OPTIONS: BlenderRendererOptions = {
   name: 'blender-new',
+  category: 'pathtracer',
   scriptFileName: 'render_materialx.py',
+  renderEngine: 'CYCLES',
   minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
 };
 
-const BLENDER_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
-  name: 'blender-nodes',
-  scriptFileName: 'render_materialx.py',
-  minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
-  executableCandidates: (packageRoot) => [
+function createBlenderNodesExecutableCandidates(packageRoot: string): string[] {
+  return [
     ...optionalEnvCandidate(BLENDER_NODES_EXECUTABLE_ENV),
     join(packageRoot, '..', '..', '..', 'build_darwin', 'bin', 'Blender.app', 'Contents', 'MacOS', 'Blender'),
-  ],
+  ];
+}
+
+function createBlenderNodesExecutableNotFoundMessage(rendererName: string, candidates: string[]): string {
+  return `Unable to locate patched Blender executable for ${rendererName}. Set ${BLENDER_NODES_EXECUTABLE_ENV} or build the local Blender checkout. Tried: ${candidates.join(', ')}.`;
+}
+
+const BLENDER_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
+  name: 'blender-nodes',
+  category: 'pathtracer',
+  scriptFileName: 'render_materialx.py',
+  renderEngine: 'CYCLES',
+  minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
+  executableCandidates: createBlenderNodesExecutableCandidates,
   executableNotFoundMessage: (candidates) =>
-    `Unable to locate patched Blender executable for blender-nodes. Set ${BLENDER_NODES_EXECUTABLE_ENV} or build the local Blender checkout. Tried: ${candidates.join(', ')}.`,
+    createBlenderNodesExecutableNotFoundMessage('blender-nodes', candidates),
   runtimePythonExpression: () => createMxNoiseNodeProbeExpression(),
+};
+
+const BLENDER_EEVEE_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
+  ...BLENDER_NODES_RENDERER_OPTIONS,
+  name: 'blender-eevee-nodes',
+  category: 'rasterizer',
+  renderEngine: 'BLENDER_EEVEE_NEXT',
+  executableNotFoundMessage: (candidates) =>
+    createBlenderNodesExecutableNotFoundMessage('blender-eevee-nodes', candidates),
 };
 
 const IO_BLENDER_MTLX_RENDERER_OPTIONS: BlenderRendererOptions = {
   name: 'blender-io-mtlx',
+  category: 'pathtracer',
   scriptFileName: 'render_materialx_io_blender_mtlx.py',
+  renderEngine: 'CYCLES',
   minimumBlenderVersion: { major: 5, minor: 0, patch: 0 },
   requiredThirdPartyFiles: [['io_blender_mtlx', 'bl_env', 'addons', 'io_data_mtlx', '__init__.py']],
   runtimePythonExpression: (thirdPartyRoot) => {
@@ -503,7 +529,7 @@ function execute(
 class BlenderRenderer implements FidelityRenderer {
   public readonly name: string;
   public readonly version = '0.1.0';
-  public readonly category = 'pathtracer';
+  public readonly category: RendererCategory;
   public readonly emptyReferenceImagePath: string;
   private readonly options: BlenderRendererOptions;
   private readonly packageRoot: string;
@@ -517,6 +543,7 @@ class BlenderRenderer implements FidelityRenderer {
 
   public constructor(context: RendererContext, options: BlenderRendererOptions) {
     this.name = options.name;
+    this.category = options.category;
     this.options = options;
     this.thirdPartyRoot = context.thirdPartyRoot;
     this.packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -610,6 +637,8 @@ class BlenderRenderer implements FidelityRenderer {
       this.thirdPartyRoot,
       '--renderer-name',
       this.name,
+      '--render-engine',
+      this.options.renderEngine,
     ];
 
     try {
@@ -671,6 +700,8 @@ class BlenderRenderer implements FidelityRenderer {
       this.thirdPartyRoot,
       '--renderer-name',
       this.name,
+      '--render-engine',
+      this.options.renderEngine,
     ];
 
     const logs = await execute(this.executable, args, this.activeProcesses);
@@ -684,6 +715,10 @@ export function createRenderer(context: RendererContext): FidelityRenderer {
 
 export function createNodesRenderer(context: RendererContext): FidelityRenderer {
   return new BlenderRenderer(context, BLENDER_NODES_RENDERER_OPTIONS);
+}
+
+export function createEeveeNodesRenderer(context: RendererContext): FidelityRenderer {
+  return new BlenderRenderer(context, BLENDER_EEVEE_NODES_RENDERER_OPTIONS);
 }
 
 export function createIoBlenderMtlxRenderer(context: RendererContext): FidelityRenderer {
