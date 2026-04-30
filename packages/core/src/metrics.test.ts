@@ -62,6 +62,20 @@ describe('calculateImageSimilarityMetrics', () => {
     expect(metrics.vmaf).toBeNull();
   });
 
+  it('rounds fractional metrics to three decimal places', async () => {
+    const root = await makeTempDir('fidelity-metrics-');
+    const referencePath = path.join(root, 'reference.png');
+    const sourcePath = path.join(root, 'source.png');
+    await writeFile(referencePath, createSolidPngBuffer(0, 0, 0));
+    await writeFile(sourcePath, createSolidPngBuffer(128, 128, 128));
+
+    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath, { includeVmaf: false });
+
+    expect(metrics.normalizedRgbRms).toBe(0.502);
+    expect(metrics.psnr).toBe(5.986);
+    expect(metrics.vmaf).toBeNull();
+  });
+
   it('fails when image dimensions differ', async () => {
     const root = await makeTempDir('fidelity-metrics-');
     const referencePath = path.join(root, 'reference.png');

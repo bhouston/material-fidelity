@@ -15,6 +15,7 @@ import { calculateNormalizedRgbRms, readImageAsRawRgba } from './image-empty-che
 
 const REFERENCE_RENDERER_NAME = 'materialxview';
 const VMAF_IDENTICAL_SCORE = 100;
+const METRICS_DECIMAL_PLACES = 3;
 
 export type { ImageSimilarityMetrics, MaterialMetricsFile } from '@material-fidelity/samples';
 
@@ -108,7 +109,7 @@ function toRendererImagePath(materialPath: string, rendererName: string): string
 }
 
 function roundMetric(value: number): number {
-  return Number(value.toFixed(6));
+  return Number(value.toFixed(METRICS_DECIMAL_PLACES));
 }
 
 function calculatePsnr(normalizedRgbRms: number): number | null {
