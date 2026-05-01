@@ -246,8 +246,7 @@ export function MaterialRow({ material, rendererGroups, onTrackMaterialAction, o
                     <RendererMetrics metrics={metrics} />
                     <figcaption className="text-center text-xs text-muted-foreground">
                       <p className="font-medium text-foreground">{rendererName}</p>
-                      <p>{metadata?.description ?? 'Renderer description unavailable.'}</p>
-                    </figcaption>
+                     </figcaption>
                   </figure>
                 );
               })}
