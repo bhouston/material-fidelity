@@ -21,6 +21,10 @@ const BLENDER_EXECUTABLE_ENV = 'BLENDER_EXECUTABLE';
 const BLENDER_NODES_EXECUTABLE_ENV = 'BLENDER_NODES_EXECUTABLE';
 const MACOS_APPLICATIONS_DIRECTORY = '/Applications';
 const BLENDER_PROCESS_TERMINATION_GRACE_MS = 1000;
+const BLENDER_MATERIALX_IMPORTER_REQUIRED_FILES = [
+  ['blender-materialx-importer', 'materialx_importer', '__init__.py'],
+  ['blender-materialx-importer', 'materialx_importer', 'importer.py'],
+];
 const MX_NOISE_NODE_TYPES = [
   'ShaderNodeMxNoise2D',
   'ShaderNodeMxNoise3D',
@@ -58,6 +62,7 @@ const BLENDER_RENDERER_OPTIONS: BlenderRendererOptions = {
   scriptFileName: 'render_materialx.py',
   renderEngine: 'CYCLES',
   minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
+  requiredThirdPartyFiles: BLENDER_MATERIALX_IMPORTER_REQUIRED_FILES,
 };
 
 function createBlenderNodesExecutableCandidates(packageRoot: string): string[] {
@@ -77,6 +82,7 @@ const BLENDER_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
   scriptFileName: 'render_materialx.py',
   renderEngine: 'CYCLES',
   minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
+  requiredThirdPartyFiles: BLENDER_MATERIALX_IMPORTER_REQUIRED_FILES,
   executableCandidates: createBlenderNodesExecutableCandidates,
   executableNotFoundMessage: (candidates) =>
     createBlenderNodesExecutableNotFoundMessage('blender-nodes', candidates),
@@ -87,7 +93,7 @@ const BLENDER_EEVEE_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
   ...BLENDER_NODES_RENDERER_OPTIONS,
   name: 'blender-eevee-nodes',
   category: 'rasterizer',
-  renderEngine: 'BLENDER_EEVEE_NEXT',
+  renderEngine: 'BLENDER_EEVEE',
   executableNotFoundMessage: (candidates) =>
     createBlenderNodesExecutableNotFoundMessage('blender-eevee-nodes', candidates),
 };

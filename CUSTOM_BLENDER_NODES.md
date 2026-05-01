@@ -48,9 +48,9 @@ The shared noise math was ported from MaterialX's GenGlsl implementation:
 
 ## Importer Location
 
-The MaterialX importer support is in:
+The MaterialX importer now lives in its own repository and is consumed here as a submodule:
 
-- `packages/renderer-blender/blender/materialx_importer/nodes/noise.py`
+- `third_party/blender-materialx-importer/materialx_importer/nodes/noise.py`
 
 That file feature-detects each mx-prefixed node by attempting to create it in a temporary Blender node tree. When creation succeeds, MaterialX noise nodes are compiled to the custom nodes.
 
@@ -127,6 +127,7 @@ pnpm build
 
 The renderer requires the usual sample and asset layout from this repo:
 
+- Blender MaterialX Importer under `third_party/blender-materialx-importer`
 - MaterialX samples under `third_party/material-samples`
 - shader ball model and HDR environment resolved by the CLI startup path
 - Blender's bundled Python `MaterialX` module, which is checked during renderer prerequisite validation

@@ -30,6 +30,19 @@ async function createFile(filePath: string): Promise<void> {
   await writeFile(filePath, 'x', 'utf8');
 }
 
+async function createBlenderMaterialXImporterFiles(thirdPartyRoot: string): Promise<void> {
+  await Promise.all([
+    createFile(path.join(thirdPartyRoot, 'blender-materialx-importer', 'materialx_importer', '__init__.py')),
+    createFile(path.join(thirdPartyRoot, 'blender-materialx-importer', 'materialx_importer', 'importer.py')),
+  ]);
+}
+
+async function makeBlenderThirdPartyRoot(): Promise<string> {
+  const thirdPartyRoot = await makeTempDir('blender-third-party-');
+  await createBlenderMaterialXImporterFiles(thirdPartyRoot);
+  return thirdPartyRoot;
+}
+
 function mockSuccessfulPrerequisites(version = '4.2.0'): void {
   spawnSyncMock.mockImplementation((...args: unknown[]) => {
     const commandArgs = Array.isArray(args[1]) ? args[1] : [];
@@ -161,7 +174,8 @@ describe('blender renderer', () => {
         stderr: 'RuntimeError: Missing MaterialX custom Blender nodes: ShaderNodeMxNoise2D\n',
       });
 
-    const renderer = createNodesRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createNodesRenderer({ thirdPartyRoot });
     const result = await renderer.checkPrerequisites();
 
     expect(result.success).toBe(false);
@@ -180,7 +194,8 @@ describe('blender renderer', () => {
         stderr: 'RuntimeError: Missing MaterialX custom Blender nodes: ShaderNodeMxNoise2D\n',
       });
 
-    const renderer = createEeveeNodesRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createEeveeNodesRenderer({ thirdPartyRoot });
     const result = await renderer.checkPrerequisites();
 
     expect(result.success).toBe(false);
@@ -190,7 +205,8 @@ describe('blender renderer', () => {
   it('reports missing Blender prerequisites', async () => {
     spawnSyncMock.mockReturnValue({ error: new Error('not found'), status: null, stdout: '', stderr: '' });
 
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
     const result = await renderer.checkPrerequisites();
 
     expect(result.success).toBe(false);
@@ -203,7 +219,8 @@ describe('blender renderer', () => {
       .mockReturnValueOnce({ status: 0, stdout: 'Blender 4.2.0\n', stderr: '' })
       .mockReturnValueOnce({ status: 1, stdout: '', stderr: 'ModuleNotFoundError: MaterialX\n' });
 
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
     const result = await renderer.checkPrerequisites();
 
     expect(result.success).toBe(false);
@@ -212,7 +229,7 @@ describe('blender renderer', () => {
 
   it('requires Blender 5.0+ for the io_blender_mtlx renderer', async () => {
     mockSuccessfulPrerequisites('4.2.0');
-    const thirdPartyRoot = await makeTempDir('blender-third-party-');
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
     await createFile(path.join(thirdPartyRoot, 'io_blender_mtlx', 'bl_env', 'addons', 'io_data_mtlx', '__init__.py'));
 
     const renderer = createIoBlenderMtlxRenderer({ thirdPartyRoot });
@@ -224,7 +241,7 @@ describe('blender renderer', () => {
 
   it('reports missing io_blender_mtlx add-on files', async () => {
     mockSuccessfulPrerequisites('5.0.0');
-    const thirdPartyRoot = await makeTempDir('blender-third-party-');
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
 
     const renderer = createIoBlenderMtlxRenderer({ thirdPartyRoot });
     const result = await renderer.checkPrerequisites();
@@ -250,7 +267,7 @@ describe('blender renderer', () => {
         ].join('\n'),
       },
     ]);
-    const thirdPartyRoot = await makeTempDir('blender-third-party-');
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
     const viewerRoot = path.join(thirdPartyRoot, 'material-samples', 'viewer');
     const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example');
     const materialPath = path.join(materialsRoot, 'example.mtlx');
@@ -325,7 +342,7 @@ describe('blender renderer', () => {
       { code: 0, stdout: 'template created\n' },
       { code: 0, stdout: 'render finished\n' },
     ]);
-    const thirdPartyRoot = await makeTempDir('blender-third-party-');
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
     const viewerRoot = path.join(thirdPartyRoot, 'material-samples', 'viewer');
     const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example');
     const materialPath = path.join(materialsRoot, 'example.mtlx');
@@ -362,7 +379,7 @@ describe('blender renderer', () => {
       { code: 0, stdout: 'template created\n' },
       { code: 0, stdout: 'render finished\n' },
     ]);
-    const thirdPartyRoot = await makeTempDir('blender-third-party-');
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
     const viewerRoot = path.join(thirdPartyRoot, 'material-samples', 'viewer');
     const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example');
     const materialPath = path.join(materialsRoot, 'example.mtlx');
@@ -382,17 +399,18 @@ describe('blender renderer', () => {
     const [, templateArgs] = spawnMock.mock.calls[0] as [string, string[]];
     const [, renderArgs] = spawnMock.mock.calls[1] as [string, string[]];
     expect(templateArgs).toEqual(
-      expect.arrayContaining(['--renderer-name', 'blender-eevee-nodes', '--render-engine', 'BLENDER_EEVEE_NEXT']),
+      expect.arrayContaining(['--renderer-name', 'blender-eevee-nodes', '--render-engine', 'BLENDER_EEVEE']),
     );
     expect(renderArgs).toEqual(
-      expect.arrayContaining(['--renderer-name', 'blender-eevee-nodes', '--render-engine', 'BLENDER_EEVEE_NEXT']),
+      expect.arrayContaining(['--renderer-name', 'blender-eevee-nodes', '--render-engine', 'BLENDER_EEVEE']),
     );
   });
 
   it('requires PNG output paths', async () => {
     mockSuccessfulPrerequisites();
     mockSpawnExitAndCreateTemplate(0, 'template created\n');
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start({
       modelPath: '/tmp/model.glb',
       environmentHdrPath: '/tmp/environment.hdr',
@@ -413,7 +431,8 @@ describe('blender renderer', () => {
       { code: 0, stdout: 'template created\n' },
       { code: 1, stdout: 'render started\n', stderr: 'render failed\n' },
     ]);
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start({
       modelPath: '/tmp/model.glb',
       environmentHdrPath: '/tmp/environment.hdr',
@@ -437,7 +456,8 @@ describe('blender renderer', () => {
   it('removes the temporary template directory during shutdown', async () => {
     mockSuccessfulPrerequisites();
     mockSpawnExitAndCreateTemplate(0, 'template created\n');
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
     await renderer.start({
       modelPath: '/tmp/model.glb',
       environmentHdrPath: '/tmp/environment.hdr',
@@ -457,7 +477,8 @@ describe('blender renderer', () => {
   it('reports template creation when Blender exits without writing the template file', async () => {
     mockSuccessfulPrerequisites();
     mockSpawnExit(0, 'template skipped\n');
-    const renderer = createRenderer({ thirdPartyRoot: '/tmp/third_party' });
+    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
+    const renderer = createRenderer({ thirdPartyRoot });
 
     await expect(
       renderer.start({

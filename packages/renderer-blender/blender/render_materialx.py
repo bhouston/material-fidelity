@@ -43,8 +43,11 @@ _IMPORT_TIMINGS_MS["mathutils"] = round((time.perf_counter() - _started_at) * 10
 
 _started_at = time.perf_counter()
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+REPO_ROOT = SCRIPT_DIR.parents[2]
+IMPORTER_ROOT = REPO_ROOT / "third_party" / "blender-materialx-importer"
+for path in (IMPORTER_ROOT, SCRIPT_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 _IMPORT_TIMINGS_MS["script_path_setup"] = round((time.perf_counter() - _started_at) * 1000.0, 3)
 
 _started_at = time.perf_counter()

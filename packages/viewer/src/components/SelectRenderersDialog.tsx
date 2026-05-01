@@ -12,7 +12,7 @@ import {
 import { getRendererMetadata } from '#/lib/renderer-metadata';
 
 const NO_RENDERERS_SEARCH_VALUE = '__none';
-const DEFAULT_RENDERERS = ['materialxview', 'blender-nodes', 'threejs-new'];
+const DEFAULT_RENDERERS = ['materialxview', 'blender-nodes', 'blender-eevee-nodes', 'threejs-new'];
 
 function getDefaultSelectedRenderers(availableRenderers: string[]): string[] {
   const defaultRendererSet = new Set(DEFAULT_RENDERERS);
