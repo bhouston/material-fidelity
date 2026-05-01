@@ -1,6 +1,6 @@
-# Material Fidelity Testing
+# Material Fidelity Suite
 
-Material Fidelity is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes. It is the test suite behind the work described in [Pixel-Perfect MaterialX in Blender and Three.js](https://ben3d.ca/blog/pixel-perfect-materialx-in-blender-and-threejs).
+The Material Fidelity Suite (avalable here online: https://material-fidelity.ben3d.ca) is a website and toolset for generating and comparing renderer output for known MaterialX sample scenes. It is the test suite behind the work described in [Pixel-Perfect MaterialX in Blender and Three.js](https://ben3d.ca/blog/pixel-perfect-materialx-in-blender-and-threejs).
 
 ![MaterialX showcase — materialxview vs Three.js vs Blender](docs/images/materialx-showcase.webp)
 
