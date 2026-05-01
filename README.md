@@ -1,6 +1,18 @@
 # Material Fidelity Testing
 
-Material Fidelity is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes.
+Material Fidelity is a TypeScript monorepo for generating and comparing renderer output for known MaterialX sample scenes. It is the test suite behind the work described in [Pixel-Perfect MaterialX in Blender and Three.js](https://ben3d.ca/blog/pixel-perfect-materialx-in-blender-and-threejs).
+
+![MaterialX showcase — materialxview vs Three.js vs Blender](docs/images/materialx-showcase.webp)
+
+Every material is rendered through the `materialxview` reference tool (ray tracer) and compared side-by-side against Three.js (rasterizer) and Blender Eevee/Cycles. The suite covers 400+ materials across `standard_surface`, `gltf_pbr`, and `open_pbr_surface`, including procedural noise, math nodes, compositing, coordinate transforms, and surface-model variants.
+
+![MaterialX 2D noise — reference vs Blender before and after](docs/images/materialx-noise2d.webp)
+
+## Related Work
+
+- **[Three.js PR #33485](https://github.com/mrdoob/three.js/pull/33485)** — MaterialX upgrade: near-perfect fidelity across all 400+ samples, new `open_pbr_surface` / `gltf_pbr` support, archive loading, corrected noise implementations.
+- **[blender-materialx-importer](third_party/blender-materialx-importer)** — Python importer that compiles MaterialX graphs into Blender node graphs, supporting both Cycles and Eevee.
+- **[Blender PR #158054](https://projects.blender.org/blender/blender/pulls/158054)** — Custom MaterialX noise nodes for Blender (Cycles OSL/GLSL and Eevee): `MxNoise`, `MxFractal`, `MxCellNoise`, `MxWorleyNoise`, `MxUnifiedNoise` in both 2D and 3D variants.
 
 ## Repository Layout
 
