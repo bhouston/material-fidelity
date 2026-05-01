@@ -231,10 +231,10 @@ function App() {
                         {' - '}
                         <a
                           className="underline underline-offset-2 hover:no-underline"
-                          href={metadata.packageUrl}
+                          href={metadata.sourceUrl}
                           target="_blank"
                         >
-                          {metadata.packageName}
+                          {metadata.sourceName}
                         </a>{' '}
                         - {metadata.description}
                       </>

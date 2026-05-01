@@ -9,7 +9,8 @@ export interface RendererDescriptor {
   sortIndex: number;
   description: string;
   packageName: string;
-  packageUrl: string;
+  sourceName: string;
+  sourceUrl: string;
 }
 
 export const ImageSimilarityMetricsSchema = z.object({
