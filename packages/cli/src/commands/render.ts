@@ -7,11 +7,9 @@ import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRen
 import type { RenderLogEntry } from '@material-fidelity/samples';
 import {
   createEeveeNodesRenderer as createBlenderEeveeNodesRenderer,
-  createIoBlenderMtlxRenderer,
   createNodesRenderer as createBlenderNodesRenderer,
   createRenderer as createBlenderRenderer,
 } from '@material-fidelity/renderer-blender';
-import { createRenderer as createMaterialXJsRenderer } from '@material-fidelity/renderer-materialxjs';
 import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
 import {
   createCurrentRenderer as createThreeJsCurrentRenderer,
@@ -307,8 +305,6 @@ export const command = defineCommand({
       createBlenderRenderer({ thirdPartyRoot }),
       createBlenderNodesRenderer({ thirdPartyRoot }),
       createBlenderEeveeNodesRenderer({ thirdPartyRoot }),
-      createIoBlenderMtlxRenderer({ thirdPartyRoot }),
-      createMaterialXJsRenderer({ thirdPartyRoot }),
       createMaterialXViewRenderer(),
       createThreeJsNewRenderer({ thirdPartyRoot }),
       createThreeJsCurrentRenderer({ thirdPartyRoot }),

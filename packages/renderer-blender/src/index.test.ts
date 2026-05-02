@@ -3,7 +3,7 @@ import { access, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEeveeNodesRenderer, createIoBlenderMtlxRenderer, createNodesRenderer, createRenderer } from './index.js';
+import { createEeveeNodesRenderer, createNodesRenderer, createRenderer } from './index.js';
 
 type UnknownFn = (...args: unknown[]) => unknown;
 
@@ -153,14 +153,12 @@ describe('blender renderer', () => {
     expect(createRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-new');
     expect(createNodesRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-nodes');
     expect(createEeveeNodesRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-eevee-nodes');
-    expect(createIoBlenderMtlxRenderer({ thirdPartyRoot: '/tmp/third_party' }).name).toBe('blender-io-mtlx');
   });
 
   it('exposes renderer categories', () => {
     expect(createRenderer({ thirdPartyRoot: '/tmp/third_party' }).category).toBe('pathtracer');
     expect(createNodesRenderer({ thirdPartyRoot: '/tmp/third_party' }).category).toBe('pathtracer');
     expect(createEeveeNodesRenderer({ thirdPartyRoot: '/tmp/third_party' }).category).toBe('rasterizer');
-    expect(createIoBlenderMtlxRenderer({ thirdPartyRoot: '/tmp/third_party' }).category).toBe('pathtracer');
   });
 
   it('requires custom MaterialX nodes for the blender-nodes renderer', async () => {
@@ -225,29 +223,6 @@ describe('blender renderer', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('bundled MaterialX module is unavailable');
-  });
-
-  it('requires Blender 5.0+ for the io_blender_mtlx renderer', async () => {
-    mockSuccessfulPrerequisites('4.2.0');
-    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
-    await createFile(path.join(thirdPartyRoot, 'io_blender_mtlx', 'bl_env', 'addons', 'io_data_mtlx', '__init__.py'));
-
-    const renderer = createIoBlenderMtlxRenderer({ thirdPartyRoot });
-    const result = await renderer.checkPrerequisites();
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('Blender 5.0.0+ is required');
-  });
-
-  it('reports missing io_blender_mtlx add-on files', async () => {
-    mockSuccessfulPrerequisites('5.0.0');
-    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
-
-    const renderer = createIoBlenderMtlxRenderer({ thirdPartyRoot });
-    const result = await renderer.checkPrerequisites();
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('io_blender_mtlx');
   });
 
   it('passes render options to Blender and captures logs', async () => {
@@ -334,42 +309,6 @@ describe('blender renderer', () => {
     expect(renderArgs).not.toContain('--model-path');
     expect(renderArgs).not.toContain('--environment-hdr-path');
     expect(result.logs.map((entry: { message: string }) => entry.message)).toEqual(['render started', 'render finished']);
-  });
-
-  it('uses the io_blender_mtlx render script for the add-on renderer', async () => {
-    mockSuccessfulPrerequisites('5.0.0');
-    mockSpawnExitSequence([
-      { code: 0, stdout: 'template created\n' },
-      { code: 0, stdout: 'render finished\n' },
-    ]);
-    const thirdPartyRoot = await makeBlenderThirdPartyRoot();
-    const viewerRoot = path.join(thirdPartyRoot, 'material-samples', 'viewer');
-    const materialsRoot = path.join(thirdPartyRoot, 'material-samples', 'materials', 'example');
-    const materialPath = path.join(materialsRoot, 'example.mtlx');
-    const outputPath = path.join(materialsRoot, 'blender-io-mtlx.png');
-    const modelPath = path.join(viewerRoot, 'ShaderBall.glb');
-    const environmentHdrPath = path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr');
-    await Promise.all([
-      createFile(materialPath),
-      createFile(modelPath),
-      createFile(environmentHdrPath),
-      createFile(path.join(thirdPartyRoot, 'io_blender_mtlx', 'bl_env', 'addons', 'io_data_mtlx', '__init__.py')),
-    ]);
-
-    const renderer = createIoBlenderMtlxRenderer({ thirdPartyRoot });
-    await renderer.start({ modelPath, environmentHdrPath, backgroundColor: '0,0,0' });
-    await renderer.generateImage({
-      mtlxPath: materialPath,
-      outputPngPath: outputPath,
-    });
-
-    expect(spawnMock).toHaveBeenCalledTimes(2);
-    const [, templateArgs] = spawnMock.mock.calls[0] as [string, string[]];
-    const [, renderArgs] = spawnMock.mock.calls[1] as [string, string[]];
-    expect(getArgValue(templateArgs, '--python')).toMatch(/render_materialx_io_blender_mtlx\.py$/);
-    expect(getArgValue(renderArgs, '--python')).toMatch(/render_materialx_io_blender_mtlx\.py$/);
-    expect(renderArgs).toEqual(expect.arrayContaining(['--third-party-root', thirdPartyRoot]));
-    expect(renderArgs).toEqual(expect.arrayContaining(['--render-engine', 'CYCLES']));
   });
 
   it('passes Eevee render engine options for the blender-eevee-nodes renderer', async () => {

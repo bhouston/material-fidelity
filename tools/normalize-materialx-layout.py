@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 IGNORED_BASENAMES = {"info.txt"}
-IGNORED_PREFIXES = ("materialxjs.", "materialxview.", "threejs.")
+IGNORED_PREFIXES = ("materialxview.", "threejs.")
 TEXTURE_EXTENSIONS = {
     ".avif",
     ".bmp",

@@ -21,7 +21,6 @@
     "@material-fidelity/core": "workspace:*",
     "@material-fidelity/samples": "workspace:*",
     "@material-fidelity/renderer-blender": "workspace:*",
-    "@material-fidelity/renderer-materialxjs": "workspace:*",
     "@material-fidelity/renderer-materialxview": "workspace:*",
     "@material-fidelity/renderer-threejs": "workspace:*",
     "humanize-units": "^2.0.4",

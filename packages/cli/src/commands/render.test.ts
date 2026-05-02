@@ -44,30 +44,11 @@ vi.mock('@material-fidelity/renderer-blender', () => ({
     shutdown: async () => undefined,
     generateImage: async () => undefined,
   }),
-  createIoBlenderMtlxRenderer: () => ({
-    name: 'blender-io-mtlx',
-    version: 'test',
-    checkPrerequisites: async () => ({ success: true }),
-    start: async () => undefined,
-    shutdown: async () => undefined,
-    generateImage: async () => undefined,
-  }),
 }));
 
 vi.mock('@material-fidelity/renderer-materialxview', () => ({
   createRenderer: () => ({
     name: 'materialxview',
-    version: 'test',
-    checkPrerequisites: async () => ({ success: true }),
-    start: async () => undefined,
-    shutdown: async () => undefined,
-    generateImage: async () => undefined,
-  }),
-}));
-
-vi.mock('@material-fidelity/renderer-materialxjs', () => ({
-  createRenderer: () => ({
-    name: 'materialxjs',
     version: 'test',
     checkPrerequisites: async () => ({ success: true }),
     start: async () => undefined,
@@ -136,7 +117,7 @@ describe('render command', () => {
       skipExisting: false,
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
-    expect(firstCall?.[0].renderers).toHaveLength(8);
+    expect(firstCall?.[0].renderers).toHaveLength(6);
   });
 
   it('defaults concurrency to the recommended available parallelism', async () => {

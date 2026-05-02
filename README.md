@@ -28,7 +28,7 @@ Every material is rendered through the `materialxview` reference tool (ray trace
 - Node.js 24+
 - pnpm 10+
 - `materialxview` (or `MaterialXView`) available on your `PATH`
-- Blender 4.0+ available as `blender` on your `PATH` or via `BLENDER_EXECUTABLE` (`blender-new`, `blender-nodes`, and `blender-eevee-nodes` use the `third_party/blender-materialx-importer` submodule; `blender-nodes` and `blender-eevee-nodes` require the patched Blender executable or `BLENDER_NODES_EXECUTABLE`; `blender-io-mtlx` requires Blender 5.0+)
+- Blender 4.0+ available as `blender` on your `PATH` or via `BLENDER_EXECUTABLE` (`blender-new`, `blender-nodes`, and `blender-eevee-nodes` use the `third_party/blender-materialx-importer` submodule; `blender-nodes` and `blender-eevee-nodes` require the patched Blender executable or `BLENDER_NODES_EXECUTABLE`)
 
 ## Install
 
@@ -63,8 +63,8 @@ pnpm cli render
 ```
 
 ```bash
-# only generate MaterialX JavaScript renders of open_pbr materials
-pnpm cli render --renderers materialxjs --materials open_pbr
+# only generate Three.js renders of open_pbr materials
+pnpm cli render --renderers threejs-new --materials open_pbr
 ```
 
 This command writes `<renderer-name>.png` in each directory containing a `.mtlx` material file.
@@ -78,7 +78,7 @@ pnpm cli metrics
 
 ```bash
 # only calculate metrics for selected renderers/materials
-pnpm cli metrics --renderers materialxjs,threejs-new --materials open_pbr
+pnpm cli metrics --renderers threejs-current,threejs-new --materials open_pbr
 ```
 
 This command writes `metrics.json` in each directory containing a `.mtlx` material file and a `materialxview.png` reference. Each file is keyed by renderer name and contains `ssim`, `psnr`, `normalizedRgbRms`, and `vmaf` values. VMAF is calculated when `ffmpeg` with `libvmaf` is available on `PATH`; otherwise the command continues with the still-image metrics and writes `vmaf: null`.
@@ -89,8 +89,6 @@ Currently supported renderers:
 - `blender-new` (`@material-fidelity/renderer-blender`, Blender bundled MaterialX rendered through Cycles)
 - `blender-nodes` (`@material-fidelity/renderer-blender`, patched Blender custom MaterialX nodes rendered through Cycles)
 - `blender-eevee-nodes` (`@material-fidelity/renderer-blender`, patched Blender custom MaterialX nodes rendered through Eevee)
-- `blender-io-mtlx` (`@material-fidelity/renderer-blender`, vendored `io_blender_mtlx` add-on rendered through Cycles)
-- `materialxjs` (`@material-fidelity/renderer-materialxjs`)
 - `threejs-current` (`@material-fidelity/renderer-threejs`, official npm Three.js MaterialX support)
 - `threejs-new` (`@material-fidelity/renderer-threejs`, custom MaterialX support proposal)
 
@@ -185,7 +183,7 @@ To keep reference renders visually comparable between `materialxview`, `threejs-
 
 These values are intentionally aligned with `MaterialXView` defaults and its scene normalization behavior in `source/MaterialXView/Viewer.cpp`.
 `threejs-new` resolves Three.js from the custom `third_party/three.js` submodule, including both the core WebGPU/TSL build and `examples/jsm/loaders/MaterialXLoader.js`; `threejs-current` continues to use the npm-installed `three` package.
-The Blender renderers follow the same scene contract through background Python scripts. `blender-new` uses the `third_party/blender-materialx-importer` submodule built on Blender's bundled `MaterialX` module, `blender-nodes` and `blender-eevee-nodes` use the same importer but require the patched Blender custom MaterialX nodes, and `blender-io-mtlx` loads the vendored `third_party/io_blender_mtlx` add-on programmatically without requiring a manual Blender add-on install.
+The Blender renderers follow the same scene contract through background Python scripts. `blender-new` uses the `third_party/blender-materialx-importer` submodule built on Blender's bundled `MaterialX` module, while `blender-nodes` and `blender-eevee-nodes` use the same importer but require the patched Blender custom MaterialX nodes.
 
 The importer is intentionally maintained as a separate project. This repository keeps the shader-ball setup, render orchestration, image outputs, metrics, and viewer used to validate its Cycles and Eevee fidelity.
 
@@ -197,7 +195,7 @@ Run the MaterialX Fidelity Viewer:
 pnpm viewer
 ```
 
-The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-eevee-nodes`, `blender-io-mtlx`, `materialxjs`, `threejs-current`, `threejs-new`).
+The viewer scans MaterialX materials and looks for images for the built-in renderer list (`materialxview`, `blender-new`, `blender-nodes`, `blender-eevee-nodes`, `threejs-current`, `threejs-new`).
 
 The page groups materials by purpose/type (`showcase`, `nodes`, `open_pbr_surface`, `gltf_pbr`, `standard_surface`) and displays each renderer image (`<renderer>.png`) side by side. Missing images render as a placeholder tile.
 When the URL does not include a `renderers` filter, the viewer defaults to showing `materialxview`, `blender-nodes`, `blender-eevee-nodes`, and `threejs-new`; users can enable the other built-in renderers from the renderer filter UI.

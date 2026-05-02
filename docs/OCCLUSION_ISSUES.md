@@ -2,11 +2,11 @@
 
 ## Summary
 
-There is a real mismatch in occlusion handling between the two translation-based renderers (`threejs` and `materialxjs`) and the reference renderer (`materialxview`):
+There is a real mismatch in occlusion handling between the Three.js translation renderer and the reference renderer (`materialxview`):
 
 - `materialxview` does not appear to apply the MaterialX `gltf_pbr` surface input named `occlusion` during shading.
-- `threejs` and `materialxjs` currently map `gltf_pbr.occlusion` directly to Three.js `aoNode`.
-- Materials authored with low occlusion values (for example `surfaces/gltf_pbr/occlusion_zero`) therefore render much darker in the translation-based renderers than in `materialxview`.
+- `threejs` currently maps `gltf_pbr.occlusion` directly to Three.js `aoNode`.
+- Materials authored with low occlusion values (for example `surfaces/gltf_pbr/occlusion_zero`) therefore render much darker in the translation renderer than in `materialxview`.
 
 ## Scope of Investigation
 
@@ -46,16 +46,13 @@ This is implemented in `../MaterialX/source/MaterialXView/Viewer.cpp` (`getAmbie
 
 Result: `MaterialXView` AO is not driven by the `gltf_pbr.occlusion` input; it is driven by optional AO sidecar maps and AO toggle/gain settings.
 
-### 4) In-Repo Translators Currently Apply `gltf_pbr.occlusion`
+### 4) The In-Repo Translator Currently Applies `gltf_pbr.occlusion`
 
-Both translation paths consume `occlusion` as AO:
+The Three.js translation path consumes `occlusion` as AO:
 
 - `threejs` translator:
   - `packages/renderer-threejs/viewer/src/vendor/materialx/MaterialXSurfaceMappings.js`
   - `if (hasNodeValue(inputs.occlusion)) material.aoNode = inputs.occlusion;`
-- `materialxjs` translator (`materialx-three`):
-  - `third_party/material-viewer/packages/materialx-three/src/mapping/gltf-pbr.ts`
-  - assignments include `aoNode: occlusion`
 
 Result: `occlusion=0` strongly suppresses indirect lighting in Three-based renderers.
 
@@ -74,7 +71,7 @@ Result: applying scalar occlusion directly to `aoNode` is physically impactful a
 For `surfaces/gltf_pbr/occlusion_zero`:
 
 - `materialxview`: ignores `gltf_pbr.occlusion` in shader path, so appearance remains relatively bright.
-- `threejs` / `materialxjs`: apply `occlusion=0` to AO path, so indirect lighting is attenuated strongly.
+- `threejs`: applies `occlusion=0` to AO path, so indirect lighting is attenuated strongly.
 
 This explains the observed large differences from the reference images.
 
@@ -92,7 +89,6 @@ The current renderer mismatch is not only a numeric tuning issue; it is a semant
 For `gltf_pbr`, do not map `occlusion` to `aoNode` in:
 
 - `packages/renderer-threejs/viewer/src/vendor/materialx/MaterialXSurfaceMappings.js`
-- `third_party/material-viewer/packages/materialx-three/src/mapping/gltf-pbr.ts`
 
 Pros:
 
@@ -134,7 +130,7 @@ Cons:
 
 For this repository's primary goal (fidelity against `materialxview` references), apply **Option A** first:
 
-- Stop mapping `gltf_pbr.occlusion` to AO in both translation renderers.
+- Stop mapping `gltf_pbr.occlusion` to AO in the Three.js translation renderer.
 - Regenerate relevant reference outputs.
 - Validate that `occlusion_zero`, `occlusion_half`, and `occlusion_one` now track `materialxview` behavior more closely.
 

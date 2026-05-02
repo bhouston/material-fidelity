@@ -48,9 +48,6 @@ importers:
       '@material-fidelity/renderer-blender':
         specifier: workspace:*
         version: link:../renderer-blender
-      '@material-fidelity/renderer-materialxjs':
-        specifier: workspace:*
-        version: link:../renderer-materialxjs
       '@material-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview
@@ -113,42 +110,6 @@ importers:
       '@material-fidelity/samples':
         specifier: workspace:*
         version: link:../samples
-
-  packages/renderer-materialxjs:
-    dependencies:
-      '@material-fidelity/core':
-        specifier: workspace:*
-        version: link:../core
-      '@material-fidelity/samples':
-        specifier: workspace:*
-        version: link:../samples
-      '@material-viewer/materialx':
-        specifier: workspace:*
-        version: link:../../third_party/material-viewer/packages/materialx
-      '@material-viewer/materialx-three':
-        specifier: workspace:*
-        version: link:../../third_party/material-viewer/packages/materialx-three
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(@rolldown/plugin-babel@0.2.3(@babel/core@7.29.0)(@babel/runtime@7.29.2)(rolldown@1.0.0-rc.16)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)))(babel-plugin-react-compiler@1.0.0)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0))
-      playwright:
-        specifier: ^1.59.1
-        version: 1.59.1
-      react:
-        specifier: ^19.2.5
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.2.5
-        version: 19.2.5(react@19.2.5)
-      three:
-        specifier: 0.184.0
-        version: 0.184.0
-      vite:
-        specifier: ^8.0.9
-        version: 8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
 
   packages/renderer-materialxview:
     dependencies:
@@ -215,9 +176,6 @@ importers:
       '@material-fidelity/renderer-blender':
         specifier: workspace:*
         version: link:../renderer-blender
-      '@material-fidelity/renderer-materialxjs':
-        specifier: workspace:*
-        version: link:../renderer-materialxjs
       '@material-fidelity/renderer-materialxview':
         specifier: workspace:*
         version: link:../renderer-materialxview

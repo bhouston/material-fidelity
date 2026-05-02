@@ -98,24 +98,6 @@ const BLENDER_EEVEE_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
     createBlenderNodesExecutableNotFoundMessage('blender-eevee-nodes', candidates),
 };
 
-const IO_BLENDER_MTLX_RENDERER_OPTIONS: BlenderRendererOptions = {
-  name: 'blender-io-mtlx',
-  category: 'pathtracer',
-  scriptFileName: 'render_materialx_io_blender_mtlx.py',
-  renderEngine: 'CYCLES',
-  minimumBlenderVersion: { major: 5, minor: 0, patch: 0 },
-  requiredThirdPartyFiles: [['io_blender_mtlx', 'bl_env', 'addons', 'io_data_mtlx', '__init__.py']],
-  runtimePythonExpression: (thirdPartyRoot) => {
-    const addonsPath = join(thirdPartyRoot, 'io_blender_mtlx', 'bl_env', 'addons');
-    return [
-      'import sys',
-      `sys.path.insert(0, ${JSON.stringify(addonsPath)})`,
-      'import io_data_mtlx',
-      'print("IO_BLENDER_MTLX_ADDON=available")',
-    ].join('; ');
-  },
-};
-
 function isExecutablePath(candidate: string): boolean {
   if (!candidate.includes('/') && !candidate.includes('\\')) {
     return true;
@@ -448,7 +430,7 @@ function checkBlenderRuntime(
     const rendererCheck = checkBlenderPythonExpression(
       executable,
       runtimePythonExpression,
-      'Blender io_blender_mtlx add-on is unavailable',
+      'Blender renderer runtime is unavailable',
     );
     if (!rendererCheck.success) {
       return rendererCheck;
@@ -725,8 +707,4 @@ export function createNodesRenderer(context: RendererContext): FidelityRenderer 
 
 export function createEeveeNodesRenderer(context: RendererContext): FidelityRenderer {
   return new BlenderRenderer(context, BLENDER_EEVEE_NODES_RENDERER_OPTIONS);
-}
-
-export function createIoBlenderMtlxRenderer(context: RendererContext): FidelityRenderer {
-  return new BlenderRenderer(context, IO_BLENDER_MTLX_RENDERER_OPTIONS);
 }

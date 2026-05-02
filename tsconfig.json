@@ -13,7 +13,6 @@
     { "path": "./packages/core" },
     { "path": "./packages/renderer-blender" },
     { "path": "./packages/renderer-materialxview" },
-    { "path": "./packages/renderer-materialxjs" },
     { "path": "./packages/renderer-threejs" },
     { "path": "./packages/cli" }
   ]

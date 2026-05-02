@@ -4,11 +4,9 @@ import { calculateMetrics } from '@material-fidelity/core';
 import type { CalculateMetricsResult, FidelityRenderer } from '@material-fidelity/core';
 import {
   createEeveeNodesRenderer as createBlenderEeveeNodesRenderer,
-  createIoBlenderMtlxRenderer,
   createNodesRenderer as createBlenderNodesRenderer,
   createRenderer as createBlenderRenderer,
 } from '@material-fidelity/renderer-blender';
-import { createRenderer as createMaterialXJsRenderer } from '@material-fidelity/renderer-materialxjs';
 import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
 import {
   createCurrentRenderer as createThreeJsCurrentRenderer,
@@ -51,8 +49,6 @@ function createBuiltInRenderers(thirdPartyRoot: string): FidelityRenderer[] {
     createBlenderRenderer({ thirdPartyRoot }),
     createBlenderNodesRenderer({ thirdPartyRoot }),
     createBlenderEeveeNodesRenderer({ thirdPartyRoot }),
-    createIoBlenderMtlxRenderer({ thirdPartyRoot }),
-    createMaterialXJsRenderer({ thirdPartyRoot }),
     createMaterialXViewRenderer(),
     createThreeJsNewRenderer({ thirdPartyRoot }),
     createThreeJsCurrentRenderer({ thirdPartyRoot }),
