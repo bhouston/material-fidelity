@@ -1,17 +1,29 @@
 export class MaterialXLoader {
-  issuePolicy: string;
-  warningCallback: ((issue: unknown) => void) | null;
-  materialName: string | null;
+  archiveDisposer: (() => void) | null;
   constructor(manager?: unknown);
   setPath(path: string): this;
-  setIssuePolicy(policy: string): this;
-  setUnsupportedPolicy(policy: string): this;
-  setWarningCallback(callback: ((issue: unknown) => void) | null): this;
-  setMaterialName(materialName: string): this;
-  load(url: string, onLoad: (result: unknown) => void, onProgress?: (event: unknown) => void, onError?: (error: unknown) => void): this;
-  loadAsync(url: string, onProgress?: (event: unknown) => void): Promise<unknown>;
-  parseBuffer(data: ArrayBuffer | Uint8Array | string, url?: string): unknown;
-  parse(text: string, archiveResolver?: ((uri: string) => string | null) | null): unknown;
-  clearArchiveResources(): void;
+  load(
+    url: string,
+    onLoad: (result: unknown) => void,
+    onProgress?: (event: unknown) => void,
+    onError?: (error: unknown) => void,
+    options?: MaterialXLoaderOptions,
+  ): this;
+  loadAsync(
+    url: string,
+    onProgressOrOptions?: ((event: unknown) => void) | MaterialXLoaderOptions,
+    options?: MaterialXLoaderOptions,
+  ): Promise<unknown>;
+  parseBuffer(data: ArrayBuffer | Uint8Array | string, url?: string, options?: MaterialXLoaderOptions): unknown;
+  parse(text: string, options?: MaterialXLoaderOptions): unknown;
   dispose(): this;
+}
+
+export interface MaterialXLoaderOptions {
+  issuePolicy?: string;
+  materialName?: string | null;
+  onWarning?: ((issue: unknown) => void) | null;
+  warningCallback?: ((issue: unknown) => void) | null;
+  archiveResolver?: ((uri: string) => string | null) | null;
+  path?: string;
 }

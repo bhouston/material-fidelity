@@ -4,8 +4,7 @@ import { z } from 'zod';
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import { MaterialXLoader as ThreeMaterialXLoader } from 'three/addons/loaders/MaterialXLoader.js';
-import { MaterialXLoader as CustomMaterialXLoader } from './vendor/MaterialXLoader.js';
+import { MaterialXLoader } from 'three/addons/loaders/MaterialXLoader.js';
 
 declare global {
   var __MTLX_CAPTURE_DONE__: boolean | undefined;
@@ -49,9 +48,8 @@ type ThreeMaterialXLoaderResult = {
 
 type MaterialXLoaderLike = {
   setPath: (path: string) => MaterialXLoaderLike;
-  loadAsync: (path: string) => Promise<ThreeMaterialXLoaderResult>;
+  loadAsync: (path: string, onProgressOrOptions?: unknown, options?: unknown) => Promise<ThreeMaterialXLoaderResult>;
   dispose?: () => void;
-  setIssuePolicy?: (policy: string) => MaterialXLoaderLike;
 };
 
 function logMaterialXWarnings(candidate: unknown): void {
@@ -275,12 +273,13 @@ async function buildScene(): Promise<void> {
   scene.add(gltf.scene);
 
   const materialXPath = splitPath(query.mtlxPath);
-  const materialXLoader: MaterialXLoaderLike =
-    query.materialXLoaderVariant === 'official' ? new ThreeMaterialXLoader() : new CustomMaterialXLoader();
+  const materialXLoader: MaterialXLoaderLike = new MaterialXLoader();
   materialXLoader.setPath(materialXPath.basePath);
-  materialXLoader.setIssuePolicy?.('error-core');
   materialXLoaderForCleanup = materialXLoader;
-  const materialXResult = await materialXLoader.loadAsync(materialXPath.fileName);
+  const materialXResult =
+    query.materialXLoaderVariant === 'custom'
+      ? await materialXLoader.loadAsync(materialXPath.fileName, { issuePolicy: 'error-core' })
+      : await materialXLoader.loadAsync(materialXPath.fileName);
   logMaterialXWarnings(materialXResult);
 
   const resolvedMaterial = firstMaterial(materialXResult);

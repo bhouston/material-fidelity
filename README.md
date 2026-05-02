@@ -21,6 +21,7 @@ Every material is rendered through the `materialxview` reference tool (ray trace
 - `packages/viewer` - TanStack Start website for browsing fidelity images.
 - `packages/renderer-*` - renderer packages
 - `third_party/blender-materialx-importer` - standalone Blender MaterialX importer used by the Blender fidelity renderers
+- `third_party/three.js` - custom Three.js branch used only by the `threejs-new` renderer
 
 ## Requirements
 
@@ -32,7 +33,7 @@ Every material is rendered through the `materialxview` reference tool (ray trace
 ## Install
 
 ```bash
-# pull in samples repository
+# pull in samples, custom renderer dependencies, and add-ons
 git submodule update --init --recursive
 ```
 
@@ -49,6 +50,8 @@ pnpm lint
 pnpm format
 pnpm test
 ```
+
+`pnpm build` builds the custom `third_party/three.js` package before the remaining workspace packages so `threejs-new` uses a fresh vendored Three.js build.
 
 ## CLI
 
@@ -181,6 +184,7 @@ To keep reference renders visually comparable between `materialxview`, `threejs-
 - fixed resolution of `512x512`
 
 These values are intentionally aligned with `MaterialXView` defaults and its scene normalization behavior in `source/MaterialXView/Viewer.cpp`.
+`threejs-new` resolves Three.js from the custom `third_party/three.js` submodule, including both the core WebGPU/TSL build and `examples/jsm/loaders/MaterialXLoader.js`; `threejs-current` continues to use the npm-installed `three` package.
 The Blender renderers follow the same scene contract through background Python scripts. `blender-new` uses the `third_party/blender-materialx-importer` submodule built on Blender's bundled `MaterialX` module, `blender-nodes` and `blender-eevee-nodes` use the same importer but require the patched Blender custom MaterialX nodes, and `blender-io-mtlx` loads the vendored `third_party/io_blender_mtlx` add-on programmatically without requiring a manual Blender add-on install.
 
 The importer is intentionally maintained as a separate project. This repository keeps the shader-ball setup, render orchestration, image outputs, metrics, and viewer used to validate its Cycles and Eevee fidelity.

@@ -1,14 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { FileLoader } from 'three/webgpu';
 import { XMLParser } from 'fast-xml-parser';
-import { createMaterialXCompileRegistry } from '../viewer/src/vendor/materialx/compile/MaterialXCompileRegistry.js';
-import { validateCategoryCoverage } from '../viewer/src/vendor/materialx/MaterialXNodeRegistry.js';
-import { MtlXLibrary } from '../viewer/src/vendor/materialx/MaterialXNodeLibrary.js';
-import { getSupportedSurfaceCategories, surfaceMapperRegistry } from '../viewer/src/vendor/materialx/MaterialXSurfaceRegistry.js';
-import { parseMaterialXNodeTree } from '../viewer/src/vendor/materialx/parse/MaterialXParser.js';
-import { ISSUE_POLICIES, MaterialXIssueCollector } from '../viewer/src/vendor/materialx/MaterialXWarnings.js';
-import { createArchiveResolver } from '../viewer/src/vendor/materialx/MaterialXArchive.js';
-import { MaterialXLoader } from '../viewer/src/vendor/MaterialXLoader.js';
+import { FileLoader } from '../../../third_party/three.js/build/three.webgpu.js';
+import { MaterialXLoader } from '../../../third_party/three.js/examples/jsm/loaders/MaterialXLoader.js';
+import { createArchiveResolver } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXArchive.js';
+import {
+  ISSUE_POLICIES,
+  MaterialXIssueCollector,
+} from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXWarnings.js';
+import { parseMaterialXNodeTree } from '../../../third_party/three.js/examples/jsm/loaders/materialx/parse/MaterialXParser.js';
 
 function createDomLikeNode(nodeName, nodeValue) {
   const attributes = {};
@@ -52,7 +51,7 @@ function createDomLikeDocument(text) {
   };
 }
 
-describe('materialx translator contracts', () => {
+describe('vendored three.js MaterialX translator contracts', () => {
   const originalDOMParser = globalThis.DOMParser;
 
   beforeAll(() => {
@@ -65,36 +64,6 @@ describe('materialx translator contracts', () => {
 
   afterAll(() => {
     globalThis.DOMParser = originalDOMParser;
-  });
-
-  it('builds a stable compile registry', () => {
-    const registry = createMaterialXCompileRegistry();
-    expect(registry.has('image')).toBe(true);
-    expect(registry.has('transformmatrix')).toBe(true);
-    expect(registry.has('gltf_colorimage')).toBe(true);
-    expect(registry.has('separate2')).toBe(false);
-    expect(registry.has('separate3')).toBe(false);
-    expect(registry.has('separate4')).toBe(false);
-    expect(registry.has('open_pbr_surface')).toBe(false);
-  });
-
-  it('maps cellnoise3d input to position semantics', () => {
-    const cellnoise3d = MtlXLibrary.cellnoise3d;
-    expect(cellnoise3d).toBeDefined();
-    expect(cellnoise3d.params).toEqual(['position']);
-    expect(typeof cellnoise3d.defaults.position).toBe('function');
-  });
-
-  it('maps fractal2d input to texcoord semantics', () => {
-    const fractal2d = MtlXLibrary.fractal2d;
-    expect(fractal2d).toBeDefined();
-    expect(fractal2d.params).toEqual(['texcoord', 'octaves', 'lacunarity', 'diminish', 'amplitude']);
-    expect(fractal2d.defaults.texcoord).toBeDefined();
-  });
-
-  it('builds a typed surface registry', () => {
-    expect(surfaceMapperRegistry.size).toBeGreaterThan(0);
-    expect(getSupportedSurfaceCategories()).toEqual(expect.arrayContaining(['standard_surface', 'gltf_pbr', 'open_pbr_surface']));
   });
 
   it('parses xml-like tree into a typed tree shape', () => {
@@ -165,14 +134,6 @@ describe('materialx translator contracts', () => {
     expect(() => collector.throwIfNeeded()).not.toThrow();
   });
 
-  it('supports loader-level strictness policy configuration', () => {
-    const loader = new MaterialXLoader();
-    loader.setIssuePolicy('error-all');
-    expect(loader.issuePolicy).toBe('error-all');
-    loader.setUnsupportedPolicy('error');
-    expect(loader.issuePolicy).toBe('error-core');
-  });
-
   it('keeps callback load API behavior intact', () => {
     const setPathSpy = vi.spyOn(FileLoader.prototype, 'setPath').mockReturnThis();
     const setResponseTypeSpy = vi.spyOn(FileLoader.prototype, 'setResponseType').mockReturnThis();
@@ -189,7 +150,7 @@ describe('materialx translator contracts', () => {
       expect(setPathSpy).toHaveBeenCalledWith('/assets/');
       expect(setResponseTypeSpy).toHaveBeenCalledWith('arraybuffer');
       expect(fileLoadSpy).toHaveBeenCalledWith('material.mtlx', expect.any(Function), undefined, expect.any(Function));
-      expect(parseBufferSpy).toHaveBeenCalledWith('xml payload', 'material.mtlx');
+      expect(parseBufferSpy).toHaveBeenCalledWith('xml payload', 'material.mtlx', {});
       expect(onLoad).toHaveBeenCalledWith({ parsed: true });
     } finally {
       setPathSpy.mockRestore();
@@ -198,15 +159,17 @@ describe('materialx translator contracts', () => {
     }
   });
 
-  it('supports loadAsync and propagates load errors', async () => {
+  it('supports loadAsync options and propagates load errors', async () => {
     const loader = new MaterialXLoader();
     const loadSpy = vi.spyOn(loader, 'load');
     const resolvedMaterial = { material: true };
+    const options = { issuePolicy: ISSUE_POLICIES.ERROR_CORE };
     loadSpy.mockImplementationOnce((url, onLoad) => {
       onLoad(resolvedMaterial);
       return loader;
     });
-    await expect(loader.loadAsync('ok.mtlx')).resolves.toBe(resolvedMaterial);
+    await expect(loader.loadAsync('ok.mtlx', options)).resolves.toBe(resolvedMaterial);
+    expect(loadSpy).toHaveBeenCalledWith('ok.mtlx', expect.any(Function), undefined, expect.any(Function), options);
 
     const loadFailure = new Error('load failed');
     loadSpy.mockImplementationOnce((url, onLoad, onProgress, onError) => {
@@ -232,7 +195,7 @@ describe('materialx translator contracts', () => {
   </surfacematerial>
 </materialx>`;
 
-    const warnLoader = new MaterialXLoader().setIssuePolicy(ISSUE_POLICIES.WARN);
+    const warnLoader = new MaterialXLoader();
     const unsupportedWarnResult = warnLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx');
     expect(unsupportedWarnResult.report.issues).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'unsupported-node', category: 'future_surface' })]),
@@ -243,37 +206,16 @@ describe('materialx translator contracts', () => {
       expect.arrayContaining([expect.objectContaining({ code: 'missing-reference', nodeName: 'surfaceshader' })]),
     );
 
-    const strictLoader = new MaterialXLoader().setIssuePolicy(ISSUE_POLICIES.ERROR_CORE);
-    expect(() => strictLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx')).toThrow(/unsupported node categories/i);
-    expect(() => strictLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx')).toThrow(/missing references/i);
+    const strictLoader = new MaterialXLoader();
+    expect(() =>
+      strictLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx', { issuePolicy: ISSUE_POLICIES.ERROR_CORE }),
+    ).toThrow(/unsupported node categories/i);
+    expect(() =>
+      strictLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx', { issuePolicy: ISSUE_POLICIES.ERROR_CORE }),
+    ).toThrow(/missing references/i);
   });
 
-  it('treats ignored mapped surface inputs as fatal only in error-all parse flow', () => {
-    const ignoredInputMtlx = `<?xml version="1.0"?>
-<materialx version="1.38">
-  <standard_surface name="std_surface">
-    <input name="base" value="0.4" />
-    <input name="future_input" value="1.0" />
-  </standard_surface>
-  <surfacematerial name="mat_std">
-    <input name="surfaceshader" nodename="std_surface" />
-  </surfacematerial>
-</materialx>`;
-
-    const warnLoader = new MaterialXLoader().setIssuePolicy(ISSUE_POLICIES.WARN);
-    const warnResult = warnLoader.parseBuffer(ignoredInputMtlx, 'ignored-input.mtlx');
-    expect(warnResult.report.issues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'ignored-surface-input', category: 'standard_surface' })]),
-    );
-
-    const strictCoreLoader = new MaterialXLoader().setIssuePolicy(ISSUE_POLICIES.ERROR_CORE);
-    expect(() => strictCoreLoader.parseBuffer(ignoredInputMtlx, 'ignored-input.mtlx')).not.toThrow();
-
-    const strictAllLoader = new MaterialXLoader().setIssuePolicy(ISSUE_POLICIES.ERROR_ALL);
-    expect(() => strictAllLoader.parseBuffer(ignoredInputMtlx, 'ignored-input.mtlx')).toThrow(/ignored surface inputs/i);
-  });
-
-  it('supports missing material failure path via loader-level materialName selection', () => {
+  it('supports missing material failure path via loader options', () => {
     const materialMtlx = `<?xml version="1.0"?>
 <materialx version="1.38">
   <standard_surface name="std_surface" />
@@ -282,12 +224,17 @@ describe('materialx translator contracts', () => {
   </surfacematerial>
 </materialx>`;
 
-    const warnLoader = new MaterialXLoader().setMaterialName('mat_missing').setIssuePolicy(ISSUE_POLICIES.WARN);
-    const warnResult = warnLoader.parseBuffer(materialMtlx, 'missing-material.mtlx');
+    const warnLoader = new MaterialXLoader();
+    const warnResult = warnLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', { materialName: 'mat_missing' });
     expect(warnResult.report.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'missing-material' })]));
 
-    const strictAllLoader = new MaterialXLoader().setMaterialName('mat_missing').setIssuePolicy(ISSUE_POLICIES.ERROR_ALL);
-    expect(() => strictAllLoader.parseBuffer(materialMtlx, 'missing-material.mtlx')).toThrow(/missing materials/i);
+    const strictAllLoader = new MaterialXLoader();
+    expect(() =>
+      strictAllLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', {
+        issuePolicy: ISSUE_POLICIES.ERROR_ALL,
+        materialName: 'mat_missing',
+      }),
+    ).toThrow(/missing materials/i);
   });
 
   it('treats ignored surface inputs as fatal only in error-all mode', () => {
@@ -298,32 +245,6 @@ describe('materialx translator contracts', () => {
     const errorAllCollector = new MaterialXIssueCollector({ issuePolicy: ISSUE_POLICIES.ERROR_ALL });
     errorAllCollector.addIgnoredSurfaceInput('open_pbr_surface', 'surfaceA', 'future_input');
     expect(() => errorAllCollector.throwIfNeeded()).toThrow(/ignored surface inputs/i);
-  });
-
-  it('maps legacy error policy alias to error-core behavior', () => {
-    const collector = new MaterialXIssueCollector({ unsupportedPolicy: 'error' });
-    collector.addInvalidValue('nodeA', 'bad value');
-    expect(() => collector.throwIfNeeded()).toThrow(/error-core mode/i);
-  });
-
-  it('validates handler and surface categories against generated registry', () => {
-    const compileRegistry = createMaterialXCompileRegistry();
-    expect(() =>
-      validateCategoryCoverage({
-        compileCategories: [...compileRegistry.keys()],
-        surfaceCategories: getSupportedSurfaceCategories(),
-        allowUnknownCompileCategories: ['hextiledimage', 'hextilednormalmap', 'gltf_anisotropy_image'],
-      }),
-    ).not.toThrow();
-  });
-
-  it('fails coverage validation for unknown compile and surface categories', () => {
-    expect(() =>
-      validateCategoryCoverage({
-        compileCategories: ['definitely_unknown_compile_category'],
-        surfaceCategories: ['definitely_unknown_surface_category'],
-      }),
-    ).toThrow(/unknown compile categories/i);
   });
 
   it('revokes archive object urls on resolver dispose', () => {

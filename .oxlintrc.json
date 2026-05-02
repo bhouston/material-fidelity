@@ -4,6 +4,7 @@
     "correctness": "error",
     "suspicious": "warn"
   },
+  "ignorePatterns": ["third_party/three.js/**"],
   "plugins": ["eslint", "typescript", "oxc", "unicorn", "vitest"],
   "rules": {},
   "overrides": [

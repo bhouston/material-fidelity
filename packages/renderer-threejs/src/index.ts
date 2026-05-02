@@ -32,6 +32,16 @@ const GPU_BROWSER_ARGS = ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-we
 const POST_IDLE_DELAY_MS = 150;
 const POST_IDLE_RENDER_PASSES = 3;
 
+function createVendoredThreeAliases(thirdPartyRoot: string): { find: string | RegExp; replacement: string }[] {
+  const threeRoot = join(thirdPartyRoot, 'three.js');
+  return [
+    { find: /^three$/, replacement: join(threeRoot, 'build', 'three.module.js') },
+    { find: /^three\/webgpu$/, replacement: join(threeRoot, 'build', 'three.webgpu.js') },
+    { find: /^three\/tsl$/, replacement: join(threeRoot, 'build', 'three.tsl.js') },
+    { find: /^three\/addons\//, replacement: `${join(threeRoot, 'examples', 'jsm')}/` },
+  ];
+}
+
 function toFsUrlPath(absolutePath: string): string {
   return `/@fs/${absolutePath.replaceAll('\\', '/')}`;
 }
@@ -153,10 +163,20 @@ class ThreeJsRenderer implements FidelityRenderer {
     try {
       const samplesRoot = join(this.thirdPartyRoot, 'material-samples');
       const viewerRoot = join(samplesRoot, 'viewer');
-      const missingFiles = await findMissingFiles([
+      const requiredFiles = [
         join(viewerRoot, VIEWER_HDR_FILENAME),
         join(viewerRoot, VIEWER_MODEL_FILENAME),
-      ]);
+      ];
+      if (this.materialXLoaderVariant === 'custom') {
+        const threeRoot = join(this.thirdPartyRoot, 'three.js');
+        requiredFiles.push(
+          join(threeRoot, 'build', 'three.module.js'),
+          join(threeRoot, 'build', 'three.webgpu.js'),
+          join(threeRoot, 'build', 'three.tsl.js'),
+          join(threeRoot, 'examples', 'jsm', 'loaders', 'MaterialXLoader.js'),
+        );
+      }
+      const missingFiles = await findMissingFiles(requiredFiles);
       if (missingFiles.length > 0) {
         return { success: false, message: `Missing required viewer assets: ${missingFiles.join(', ')}` };
       }
@@ -187,11 +207,18 @@ class ThreeJsRenderer implements FidelityRenderer {
     await Promise.all([assertFileExists(options.environmentHdrPath), assertFileExists(options.modelPath)]);
 
     const viewerAppRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'viewer');
+    const usesVendoredThree = this.materialXLoaderVariant === 'custom';
     const server = await createServer({
       appType: 'spa',
       root: viewerAppRoot,
+      cacheDir: join(viewerAppRoot, 'node_modules', `.vite-${this.name}`),
       logLevel: 'error',
       plugins: [react()],
+      resolve: usesVendoredThree
+        ? {
+            alias: createVendoredThreeAliases(this.thirdPartyRoot),
+          }
+        : undefined,
       server: {
         host: '127.0.0.1',
         port: 0,

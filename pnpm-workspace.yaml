@@ -1,8 +1,9 @@
 packages:
   - packages/*
   - third_party/material-viewer/packages/*
+  - third_party/three.js
 
-link-workspace-packages: true
+link-workspace-packages: false
 
 onlyBuiltDependencies:
   - esbuild
