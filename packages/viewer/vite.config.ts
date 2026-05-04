@@ -19,16 +19,21 @@ const DEFAULT_BASE_URL = 'https://material-fidelity.ben3d.ca';
 
 const env = process.env;
 
+function envValue(name: string, fallback: string): string {
+  const value = env[name]?.trim();
+  return value && value.length > 0 ? value : fallback;
+}
+
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   define: {
     /** Public origin (`https://…`) for canonical URLs and absolute OG/Twitter images. Set `BASE_URL` when building. */
-    'import.meta.env.VITE_BASE_URL': JSON.stringify(env.BASE_URL ?? DEFAULT_BASE_URL),
-    'import.meta.env.VITE_SITE_NAME': JSON.stringify(env.SITE_NAME ??  DEFAULT_SITE_NAME),
-    'import.meta.env.VITE_SITE_DESCRIPTION': JSON.stringify(env.SITE_DESCRIPTION ?? DEFAULT_SITE_DESCRIPTION),
-    'import.meta.env.VITE_DEFAULT_SITE_IMAGE': JSON.stringify(env.DEFAULT_SITE_IMAGE ?? DEFAULT_SITE_IMAGE),
+    'import.meta.env.VITE_BASE_URL': JSON.stringify(envValue('BASE_URL', DEFAULT_BASE_URL)),
+    'import.meta.env.VITE_SITE_NAME': JSON.stringify(envValue('SITE_NAME', DEFAULT_SITE_NAME)),
+    'import.meta.env.VITE_SITE_DESCRIPTION': JSON.stringify(envValue('SITE_DESCRIPTION', DEFAULT_SITE_DESCRIPTION)),
+    'import.meta.env.VITE_DEFAULT_SITE_IMAGE': JSON.stringify(envValue('DEFAULT_SITE_IMAGE', DEFAULT_SITE_IMAGE)),
     /** Twitter/X handle for `twitter:site`; defaults to @BenHouston3D unless `TWITTER_SITE` is set when building. */
-    'import.meta.env.VITE_TWITTER_SITE': JSON.stringify(env.TWITTER_SITE?.trim() ?? DEFAULT_TWITTER_SITE),
+    'import.meta.env.VITE_TWITTER_SITE': JSON.stringify(envValue('TWITTER_SITE', DEFAULT_TWITTER_SITE)),
   },
   plugins: [
     devtools(),
