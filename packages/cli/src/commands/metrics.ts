@@ -14,6 +14,7 @@ import {
 } from '@material-fidelity/renderer-threejs';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
+import { resolveRendererNames } from '../renderer-selectors.js';
 
 function inferRepoRoot(invocationCwd: string): string {
   if (path.basename(invocationCwd) === 'cli' && path.basename(path.dirname(invocationCwd)) === 'packages') {
@@ -55,24 +56,6 @@ function createBuiltInRenderers(thirdPartyRoot: string): FidelityRenderer[] {
   ];
 }
 
-function resolveRendererNames(renderers: FidelityRenderer[], requestedRendererNames: string[]): string[] {
-  const availableRendererNames = renderers.map((renderer) => renderer.name);
-  if (requestedRendererNames.length === 0) {
-    return availableRendererNames;
-  }
-
-  const availableRendererNameSet = new Set(availableRendererNames);
-  const missingRendererNames = requestedRendererNames.filter(
-    (rendererName) => !availableRendererNameSet.has(rendererName),
-  );
-  if (missingRendererNames.length > 0) {
-    throw new Error(
-      `Renderer(s) "${missingRendererNames.join(', ')}" not found. Available renderers: ${availableRendererNames.toSorted().join(', ')}.`,
-    );
-  }
-  return requestedRendererNames;
-}
-
 function formatMetricsResult(result: CalculateMetricsResult, elapsedSeconds: number): string {
   const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
   const vmafText = result.vmafAvailable ? 'enabled' : 'unavailable';
@@ -86,7 +69,8 @@ export const command = defineCommand({
     yargs
       .option('renderers', {
         type: 'array',
-        describe: 'Renderer names to compare. Supports repeated values and comma-separated lists.',
+        describe:
+          'Renderer selectors to compare. Supports repeated values, comma-separated lists, and substring matches.',
       })
       .option('materials', {
         type: 'array',
@@ -117,7 +101,7 @@ export const command = defineCommand({
     }
 
     const startedAt = Date.now();
-    const rendererNames = resolveRendererNames(renderers, normalizeStringList(argv.renderers));
+    const rendererNames = resolveRendererNames(renderers, normalizeStringList(argv.renderers), { defaultToAll: true });
     const result = await calculateMetrics({
       thirdPartyRoot,
       rendererNames,

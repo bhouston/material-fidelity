@@ -124,4 +124,26 @@ describe('metrics command', () => {
       includeVmaf: false,
     });
   });
+
+  it('expands renderer selectors using partial matches', async () => {
+    const stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await command.handler({
+        renderers: ['blender'],
+        materials: undefined,
+        filter: undefined,
+        concurrency: 1,
+        vmaf: false,
+        _: [],
+        $0: 'cli',
+      } as unknown as Parameters<typeof command.handler>[0]);
+    } finally {
+      stdoutWriteSpy.mockRestore();
+    }
+
+    const [firstCall] = calculateMetricsMock.mock.calls;
+    expect(firstCall?.[0]).toMatchObject({
+      rendererNames: ['blender-new', 'blender-nodes', 'blender-eevee-nodes'],
+    });
+  });
 });

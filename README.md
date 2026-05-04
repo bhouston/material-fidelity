@@ -94,7 +94,7 @@ Currently supported renderers:
 
 Optional flags:
 
-- `--renderers <name[,name...]>` optional renderer filter; supports repeated flags and comma-separated values
+- `--renderers <selector[,selector...]>` optional renderer filter; supports repeated flags, comma-separated values, and substring matches such as `threejs` or `blender`
 - `--materials <selector[,selector...]>` optional material filter; matches against each material directory name only (leaf directory), supports repeated flags, comma-separated values, substring matches, and regex selectors (`re:...` or `/.../flags`)
 - `--concurrency <number>` optional render concurrency; defaults to the recommended available parallelism, with a minimum of `1`
 - `--skip-existing` only render renderer/material pairs whose `<renderer-name>.png` output does not already exist

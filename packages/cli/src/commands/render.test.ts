@@ -186,6 +186,25 @@ describe('render command', () => {
     });
   });
 
+  it('expands renderer selectors using partial matches', async () => {
+    await command.handler({
+      renderers: ['threejs', 'blender'],
+      materials: undefined,
+      'skip-existing': false,
+      skipExisting: false,
+      filter: undefined,
+      concurrency: 1,
+      _: [],
+      $0: 'cli',
+    });
+
+    const [firstCall] = createReferencesMock.mock.calls;
+    expect(firstCall).toBeDefined();
+    expect(firstCall?.[0]).toMatchObject({
+      rendererNames: ['threejs-new', 'threejs-current', 'blender-new', 'blender-nodes', 'blender-eevee-nodes'],
+    });
+  });
+
   it('defaults to all renderers when --renderers is omitted', async () => {
     await command.handler({
       renderers: undefined,

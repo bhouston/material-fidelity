@@ -17,6 +17,7 @@ import {
 } from '@material-fidelity/renderer-threejs';
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
+import { resolveRendererNames } from '../renderer-selectors.js';
 
 function inferRepoRoot(invocationCwd: string): string {
   if (path.basename(invocationCwd) === 'cli' && path.basename(path.dirname(invocationCwd)) === 'packages') {
@@ -277,7 +278,8 @@ export const command = defineCommand({
     yargs
       .option('renderers', {
         type: 'array',
-        describe: 'Renderer names to use. Supports repeated values and comma-separated lists.',
+        describe:
+          'Renderer selectors to use. Supports repeated values, comma-separated lists, and substring matches.',
       })
       .option('concurrency', {
         type: 'number',
@@ -317,7 +319,7 @@ export const command = defineCommand({
     const commandArgs = {
       renderers,
       thirdPartyRoot,
-      rendererNames: normalizeRendererNames(argv.renderers),
+      rendererNames: resolveRendererNames(renderers, normalizeRendererNames(argv.renderers), { defaultToAll: false }),
       concurrency: Math.max(1, argv.concurrency ?? availableParallelism()),
       materialSelectors: [...new Set(materialSelectors)],
       skipExisting: argv.skipExisting ?? false,
