@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   BUILT_IN_RENDERER_DESCRIPTORS,
@@ -16,6 +17,8 @@ const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/material-samples/t
 const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
 const DEFAULT_LOCAL_HOST = 'localhost:3000';
 const DEFAULT_PRODUCTION_HOST = 'material-fidelity.ben3d.ca';
+const VIEWER_INDEX_DATA_CACHE_ENV = 'VIEWER_INDEX_DATA_CACHE_PATH';
+const DEFAULT_VIEWER_INDEX_DATA_CACHE_PATH = path.join('packages', 'viewer', '.cache', 'viewer-index-data.json');
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
   pathtracer: 'Pathtracers',
   raytracer: 'Raytracers',
@@ -109,6 +112,40 @@ export function resolveViewerRoots(): ViewerRoots {
     thirdPartyRoot: roots.thirdPartyRoot,
     materialsRoot: roots.materialsRoot,
   };
+}
+
+function resolveViewerIndexDataCachePath(): string {
+  const configuredPath = process.env[VIEWER_INDEX_DATA_CACHE_ENV]?.trim();
+  const cachePath = configuredPath && configuredPath.length > 0 ? configuredPath : DEFAULT_VIEWER_INDEX_DATA_CACHE_PATH;
+  if (path.isAbsolute(cachePath)) {
+    return cachePath;
+  }
+
+  return path.join(resolveSampleRoots().repoRoot, cachePath);
+}
+
+async function readViewerIndexDataCache(): Promise<ViewerIndexViewModel | undefined> {
+  const cachePath = resolveViewerIndexDataCachePath();
+
+  try {
+    return JSON.parse(await readFile(cachePath, 'utf8')) as ViewerIndexViewModel;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+export async function writeViewerIndexDataCache(): Promise<string> {
+  const data = await buildViewerIndexData();
+  const cachePath = resolveViewerIndexDataCachePath();
+
+  await mkdir(path.dirname(cachePath), { recursive: true });
+  await writeFile(cachePath, `${JSON.stringify(data)}\n`, 'utf8');
+
+  return cachePath;
 }
 
 function toRendererGroups(renderers: RendererDescriptor[]): RendererCategoryGroupViewModel[] {
@@ -231,7 +268,20 @@ export async function getViewerIndexData(): Promise<ViewerIndexViewModel> {
     return buildViewerIndexData();
   }
 
-  productionViewerIndexDataPromise ??= buildViewerIndexData().catch((error: unknown) => {
+  productionViewerIndexDataPromise ??= (async () => {
+    const cachedData = await readViewerIndexDataCache();
+    if (cachedData) {
+      return cachedData;
+    }
+
+    await writeViewerIndexDataCache();
+    const cachedDataAfterWrite = await readViewerIndexDataCache();
+    if (!cachedDataAfterWrite) {
+      throw new Error(`Viewer index data cache was not written to ${resolveViewerIndexDataCachePath()}`);
+    }
+
+    return cachedDataAfterWrite;
+  })().catch((error: unknown) => {
     productionViewerIndexDataPromise = undefined;
     throw error;
   });

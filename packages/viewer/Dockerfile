@@ -37,6 +37,7 @@ ENV BASE_URL=${BASE_URL} \
     TWITTER_SITE=${TWITTER_SITE}
 
 RUN pnpm build
+RUN pnpm --filter @material-fidelity/viewer cache:index
 
 EXPOSE 8080
 

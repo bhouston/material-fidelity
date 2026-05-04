@@ -1,6 +1,7 @@
 node_modules
 dist
 coverage
+packages/viewer/.cache
 *.log
 .DS_Store
 *.pyc

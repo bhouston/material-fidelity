@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
+    "cache:index": "node ./scripts/cache-viewer-index-data.mjs",
     "start": "srvx serve --prod --entry ./.output/server/index.mjs",
     "preview": "vite preview",
     "test": "vitest run"
