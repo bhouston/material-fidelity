@@ -2,7 +2,18 @@ import { createFileRoute } from '@tanstack/react-router';
 import { readFile } from 'node:fs/promises';
 import { rendererPngPath } from '@material-fidelity/samples';
 import { pathExists, resolveMaterialDirectory, resolveSampleRoots } from '@material-fidelity/samples-io';
-import { referenceAssetGetResponse } from '#/lib/reference-asset-response.server';
+import { contentHashFromBytes, referenceAssetGetResponse } from '#/lib/reference-asset-response.server';
+
+const IMAGE_CONTENT_HASH_QUERY_PARAM = 'v';
+
+function noStoreErrorResponse(message: string): Response {
+  return new Response(message, {
+    status: 400,
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  });
+}
 
 export const Route = createFileRoute('/api/reference-image/$materialType/$materialName/$adapter')({
   server: {
@@ -20,7 +31,24 @@ export const Route = createFileRoute('/api/reference-image/$materialType/$materi
         }
 
         const bytes = await readFile(filePath);
-        return referenceAssetGetResponse(request, bytes, 'image/png');
+        const requestImageHash = new URL(request.url).searchParams.get(IMAGE_CONTENT_HASH_QUERY_PARAM);
+        if (process.env.NODE_ENV !== 'production') {
+          return referenceAssetGetResponse(request, bytes, 'image/png', { noStore: true });
+        }
+
+        if (!requestImageHash) {
+          return noStoreErrorResponse('Missing image content hash');
+        }
+
+        const imageHash = contentHashFromBytes(bytes);
+        if (requestImageHash !== imageHash) {
+          return noStoreErrorResponse('Invalid image content hash');
+        }
+
+        return referenceAssetGetResponse(request, bytes, 'image/png', {
+          contentHash: imageHash,
+          immutable: true,
+        });
       },
     },
   },

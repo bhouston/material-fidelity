@@ -12,6 +12,7 @@ import {
   pathExists,
   resolveSampleRoots,
 } from '@material-fidelity/samples-io';
+import { contentHashFromBytes } from './reference-asset-response.server.ts';
 
 const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/material-samples/tree/main/materials';
 const HOMAGE_VIEWER_BASE_URL = 'https://materialx.ben3d.ca';
@@ -19,6 +20,7 @@ const DEFAULT_LOCAL_HOST = 'localhost:3000';
 const DEFAULT_PRODUCTION_HOST = 'material-fidelity.ben3d.ca';
 const VIEWER_INDEX_DATA_CACHE_ENV = 'VIEWER_INDEX_DATA_CACHE_PATH';
 const DEFAULT_VIEWER_INDEX_DATA_CACHE_PATH = path.join('packages', 'viewer', '.cache', 'viewer-index-data.json');
+const IMAGE_CONTENT_HASH_QUERY_PARAM = 'v';
 const RENDERER_CATEGORY_LABEL: Record<RendererCategory, string> = {
   pathtracer: 'Pathtracers',
   raytracer: 'Raytracers',
@@ -52,6 +54,27 @@ function toLiveViewerUrl(materialType: string, materialName: string): string {
   return `${HOMAGE_VIEWER_BASE_URL}/?sourceUrl=${encodeURIComponent(materialUrl)}`;
 }
 
+function shouldHashImageUrls(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+async function imageContentHash(filePath: string | undefined): Promise<string | null> {
+  if (!filePath || !shouldHashImageUrls()) {
+    return null;
+  }
+
+  return contentHashFromBytes(await readFile(filePath));
+}
+
+function toReferenceImageUrl(materialType: string, materialName: string, rendererName: string, imageHash: string | null): string {
+  const url = `/api/reference-image/${encodeURIComponent(materialType)}/${encodeURIComponent(materialName)}/${encodeURIComponent(rendererName)}`;
+  if (!imageHash || !shouldHashImageUrls()) {
+    return url;
+  }
+
+  return `${url}?${IMAGE_CONTENT_HASH_QUERY_PARAM}=${encodeURIComponent(imageHash)}`;
+}
+
 export interface MaterialViewModel {
   id: string;
   type: string;
@@ -61,6 +84,7 @@ export interface MaterialViewModel {
   liveViewerUrl: string;
   downloadMtlxZipUrl: string;
   images: Record<string, string | null>;
+  imageHashes: Record<string, string | null>;
   reports: Record<string, string | null>;
   reportSummaries: Record<string, RendererReportSummaryViewModel | null>;
   metrics: Record<string, RendererMetricsViewModel | null>;
@@ -204,11 +228,19 @@ async function buildViewerIndexData(): Promise<ViewerIndexViewModel> {
     const reportSummariesByRenderer = (
       entry as typeof entry & { reportSummaries?: Record<string, RendererReportSummaryViewModel | null> }
     ).reportSummaries;
+    const imageHashes = Object.fromEntries(
+      await Promise.all(
+        renderers.map(async (rendererName) => {
+          const fsPath = entry.images[rendererName];
+          return [rendererName, await imageContentHash(fsPath)] as const;
+        }),
+      ),
+    );
     const images = Object.fromEntries(
       renderers.map((rendererName) => {
         const fsPath = entry.images[rendererName];
         const imageUrl = fsPath
-          ? `/api/reference-image/${encodeURIComponent(descriptor.apiType)}/${encodeURIComponent(descriptor.apiName)}/${encodeURIComponent(rendererName)}`
+          ? toReferenceImageUrl(descriptor.apiType, descriptor.apiName, rendererName, imageHashes[rendererName] ?? null)
           : null;
         return [rendererName, imageUrl] as const;
       }),
@@ -238,6 +270,7 @@ async function buildViewerIndexData(): Promise<ViewerIndexViewModel> {
       liveViewerUrl: toLiveViewerUrl(descriptor.apiType, descriptor.apiName),
       downloadMtlxZipUrl: toMaterialZipUrl(descriptor.apiType, descriptor.apiName),
       images,
+      imageHashes,
       reports,
       reportSummaries,
       metrics,

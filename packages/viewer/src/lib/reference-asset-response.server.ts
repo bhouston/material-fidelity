@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
 
-function strongEtagFromMd5Content(bytes: Buffer): string {
-  const hex = createHash('md5').update(bytes).digest('hex');
-  return `"${hex}"`;
+export function contentHashFromBytes(bytes: Buffer): string {
+  return createHash('md5').update(bytes).digest('hex');
+}
+
+function strongEtagFromContentHash(contentHash: string): string {
+  return `"${contentHash}"`;
 }
 
 function ifNoneMatchIncludesStrongEtag(ifNoneMatch: string | null, etag: string): boolean {
@@ -18,14 +21,34 @@ function ifNoneMatchIncludesStrongEtag(ifNoneMatch: string | null, etag: string)
   return false;
 }
 
-function cacheControlForReferenceAsset(): string {
-  return process.env.NODE_ENV === 'production' ? 'max-age=3600, edge max-age=3600' : 'public, max-age=60';
+function cacheControlForReferenceAsset(options: ReferenceAssetResponseOptions): string {
+  if (options.noStore || process.env.NODE_ENV !== 'production') {
+    return 'no-store';
+  }
+
+  if (process.env.NODE_ENV === 'production' && options.immutable) {
+    return 'public, max-age=31536000, immutable';
+  }
+
+  return 'max-age=3600, edge max-age=3600';
+}
+
+export interface ReferenceAssetResponseOptions {
+  contentHash?: string;
+  immutable?: boolean;
+  noStore?: boolean;
 }
 
 /** GET response for reference images/reports: MD5 strong ETag and 304 when If-None-Match matches. */
-export function referenceAssetGetResponse(request: Request, bytes: Buffer, contentType: string): Response {
-  const etag = strongEtagFromMd5Content(bytes);
-  const cacheControl = cacheControlForReferenceAsset();
+export function referenceAssetGetResponse(
+  request: Request,
+  bytes: Buffer,
+  contentType: string,
+  options: ReferenceAssetResponseOptions = {},
+): Response {
+  const contentHash = options.contentHash ?? contentHashFromBytes(bytes);
+  const etag = strongEtagFromContentHash(contentHash);
+  const cacheControl = cacheControlForReferenceAsset(options);
   const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   const ifNoneMatch = request.headers.get('if-none-match');
   if (ifNoneMatch && ifNoneMatchIncludesStrongEtag(ifNoneMatch, etag)) {

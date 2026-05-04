@@ -1,6 +1,6 @@
-# Custom Blender MaterialX Noise Nodes
+# Custom Blender MaterialX Nodes
 
-This project can use a patched sibling Blender checkout at `../blender` to render MaterialX procedural noise nodes with custom Cycles shader nodes. The goal is to avoid Blender's built-in noise implementations for MaterialX nodes whose reference behavior comes from MaterialX's standard library.
+This project can use a patched sibling Blender checkout at `../blender` to render selected MaterialX nodes with custom Cycles and Eevee shader nodes. The goal is to avoid Blender-native approximations for MaterialX nodes whose reference behavior comes from MaterialX's standard library.
 
 ## Node IDs
 
@@ -16,18 +16,21 @@ The patched Blender build registers these shader node types:
 - `ShaderNodeMxWorleyNoise3D`
 - `ShaderNodeMxUnifiedNoise2D`
 - `ShaderNodeMxUnifiedNoise3D`
+- `ShaderNodeMxHextiledImage`
 
-The importer creates these nodes conditionally. If the active Blender executable does not have them, it falls back to Blender's native `ShaderNodeTexNoise`, `ShaderNodeTexWhiteNoise`, and `ShaderNodeTexVoronoi` nodes and emits a warning.
+The importer creates these nodes conditionally. If the active Blender executable does not have the custom noise nodes, it falls back to Blender's native `ShaderNodeTexNoise`, `ShaderNodeTexWhiteNoise`, and `ShaderNodeTexVoronoi` nodes and emits a warning. If `ShaderNodeMxHextiledImage` is missing, `hextiledimage` falls back to a plain image sample and emits a warning.
 
 ## Blender Code Locations
 
 The Blender-side node declarations and registration live in the sibling Blender checkout:
 
 - `../blender/source/blender/nodes/shader/nodes/node_shader_tex_mx_noise.cc`
+- `../blender/source/blender/nodes/shader/nodes/node_shader_tex_mx_hextiled_image.cc`
 - `../blender/source/blender/nodes/shader/node_shader_register.cc`
 - `../blender/source/blender/nodes/shader/node_shader_register.hh`
 - `../blender/source/blender/nodes/shader/CMakeLists.txt`
 - `../blender/source/blender/blenkernel/BKE_node_legacy_types.hh`
+- `../blender/source/blender/gpu/shaders/material/gpu_shader_material_tex_mx_hextiled_image.glsl`
 
 Cycles translation and evaluation live here:
 
@@ -35,6 +38,7 @@ Cycles translation and evaluation live here:
 - `../blender/intern/cycles/scene/shader_nodes.h`
 - `../blender/intern/cycles/scene/shader_nodes.cpp`
 - `../blender/intern/cycles/kernel/svm/mx_noise.h`
+- `../blender/intern/cycles/kernel/svm/mx_hextile.h`
 - `../blender/intern/cycles/kernel/svm/node_types.h`
 - `../blender/intern/cycles/kernel/svm/node_types_template.h`
 - `../blender/intern/cycles/kernel/svm/svm.h`
@@ -51,8 +55,9 @@ The shared noise math was ported from MaterialX's GenGlsl implementation:
 The MaterialX importer now lives in its own repository and is consumed here as a submodule:
 
 - `third_party/blender-materialx-importer/materialx_importer/nodes/noise.py`
+- `third_party/blender-materialx-importer/materialx_importer/nodes/texture.py`
 
-That file feature-detects each mx-prefixed node by attempting to create it in a temporary Blender node tree. When creation succeeds, MaterialX noise nodes are compiled to the custom nodes.
+Those files feature-detect each mx-prefixed node by attempting to create it in a temporary Blender node tree. When creation succeeds, supported MaterialX nodes are compiled to the custom nodes.
 
 ## Build Prerequisites
 
@@ -189,6 +194,7 @@ ids = [
     "ShaderNodeMxWorleyNoise3D",
     "ShaderNodeMxUnifiedNoise2D",
     "ShaderNodeMxUnifiedNoise3D",
+    "ShaderNodeMxHextiledImage",
 ]
 for node_id in ids:
     node = nodes.new(type=node_id)
@@ -199,6 +205,7 @@ for node_id in ids:
 ## Current Caveats
 
 - These nodes are custom to the local Blender checkout and are not available in stock Blender.
-- The default path is Cycles SVM. The OSL path is intentionally not implemented for these custom nodes.
-- The implementation is intended for MaterialX noise parity testing, not as a general Blender UI feature.
+- The default path is Cycles SVM plus Eevee GPU material shaders. The OSL path is intentionally not implemented for these custom nodes.
+- The initial `hextilednormalmap` importer path samples with `ShaderNodeMxHextiledImage` and feeds Blender's normal-map node; a dedicated normal-map node may still be needed for exact tangent-frame rotation parity.
+- The implementation is intended for MaterialX parity testing, not as a general Blender UI feature.
 - Numeric smoke tests against `materialxview` still show nonzero RMS differences, so visual parity should be validated per sample before treating this as exact.

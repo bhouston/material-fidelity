@@ -37,6 +37,8 @@ const MX_NOISE_NODE_TYPES = [
   'ShaderNodeMxUnifiedNoise2D',
   'ShaderNodeMxUnifiedNoise3D',
 ];
+const MX_TEXTURE_NODE_TYPES = ['ShaderNodeMxHextiledImage'];
+const MX_CUSTOM_NODE_TYPES = [...MX_NOISE_NODE_TYPES, ...MX_TEXTURE_NODE_TYPES];
 
 interface BlenderVersion {
   major: number;
@@ -86,7 +88,7 @@ const BLENDER_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
   executableCandidates: createBlenderNodesExecutableCandidates,
   executableNotFoundMessage: (candidates) =>
     createBlenderNodesExecutableNotFoundMessage('blender-nodes', candidates),
-  runtimePythonExpression: () => createMxNoiseNodeProbeExpression(),
+  runtimePythonExpression: () => createMxCustomNodeProbeExpression(),
 };
 
 const BLENDER_EEVEE_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
@@ -193,10 +195,10 @@ function resolveExecutable(options?: BlenderRendererOptions, packageRoot?: strin
   return match;
 }
 
-function createMxNoiseNodeProbeExpression(): string {
+function createMxCustomNodeProbeExpression(): string {
   return [
     'import bpy',
-    `ids = ${JSON.stringify(MX_NOISE_NODE_TYPES)}`,
+    `ids = ${JSON.stringify(MX_CUSTOM_NODE_TYPES)}`,
     'mat = bpy.data.materials.new("mx_probe")',
     'mat.use_nodes = True',
     'nodes = mat.node_tree.nodes',
