@@ -278,7 +278,7 @@ async function buildScene(): Promise<void> {
   materialXLoaderForCleanup = materialXLoader;
   const materialXResult =
     query.materialXLoaderVariant === 'custom'
-      ? await materialXLoader.loadAsync(materialXPath.fileName, { issuePolicy: 'error-core' })
+      ? await materialXLoader.loadAsync(materialXPath.fileName, { issuePolicy: 'error-core', uvSpace: 'top-left' })
       : await materialXLoader.loadAsync(materialXPath.fileName);
   logMaterialXWarnings(materialXResult);
 

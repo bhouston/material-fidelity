@@ -3,6 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { FileLoader } from '../../../third_party/three.js/build/three.webgpu.js';
 import { MaterialXLoader } from '../../../third_party/three.js/examples/jsm/loaders/MaterialXLoader.js';
 import { createArchiveResolver } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXArchive.js';
+import { MaterialXDocument } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXDocument.js';
 import {
   ISSUE_POLICIES,
   MaterialXIssueCollector,
@@ -157,6 +158,31 @@ describe('vendored three.js MaterialX translator contracts', () => {
       setResponseTypeSpy.mockRestore();
       fileLoadSpy.mockRestore();
     }
+  });
+
+  it('configures MaterialX UV-space helpers from loader options', () => {
+    const defaultDocument = new MaterialXDocument(undefined, '', new MaterialXIssueCollector({}));
+    const uvNode = {};
+
+    expect(defaultDocument.uvSpace).toBe('bottom-left');
+    expect(defaultDocument.compileContext.mxToBottomLeftUvSpace(uvNode)).toBe(uvNode);
+    expect(defaultDocument.compileContext.mxFromBottomLeftUvSpace(uvNode)).toBe(uvNode);
+    expect(defaultDocument.compileContext.mxToUvSpace).toBeUndefined();
+    expect(defaultDocument.compileContext.mxFromUvSpace).toBeUndefined();
+
+    const topLeftDocument = new MaterialXDocument(undefined, '', new MaterialXIssueCollector({}), null, 'top-left');
+    expect(topLeftDocument.uvSpace).toBe('top-left');
+    expect(topLeftDocument.compileContext.mxToBottomLeftUvSpace).not.toBe(
+      defaultDocument.compileContext.mxToBottomLeftUvSpace,
+    );
+    expect(topLeftDocument.compileContext.mxFromBottomLeftUvSpace).not.toBe(
+      defaultDocument.compileContext.mxFromBottomLeftUvSpace,
+    );
+
+    const loader = new MaterialXLoader();
+    expect(() => loader.parseBuffer('<materialx version="1.38" />', 'material.mtlx', { uvSpace: 'upper-left' })).toThrow(
+      /Unsupported MaterialX uvSpace/,
+    );
   });
 
   it('supports loadAsync options and propagates load errors', async () => {

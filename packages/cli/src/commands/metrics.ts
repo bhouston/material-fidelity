@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { availableParallelism } from 'node:os';
+import { createElement, useEffect, useMemo, useState } from 'react';
+import { render, useApp } from 'ink';
 import { calculateMetrics } from '@material-fidelity/core';
-import type { CalculateMetricsResult, FidelityRenderer } from '@material-fidelity/core';
+import type { CalculateMetricsProgressEvent, CalculateMetricsResult, FidelityRenderer } from '@material-fidelity/core';
 import {
   createEeveeNodesRenderer as createBlenderEeveeNodesRenderer,
   createNodesRenderer as createBlenderNodesRenderer,
@@ -15,6 +17,12 @@ import {
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 import { resolveRendererNames } from '../renderer-selectors.js';
+import {
+  ProgressDisplay,
+  appendProgressLogLine,
+  upsertProgressLogLine,
+  type ProgressLogLine,
+} from '../progress-ui.js';
 
 function inferRepoRoot(invocationCwd: string): string {
   if (path.basename(invocationCwd) === 'cli' && path.basename(path.dirname(invocationCwd)) === 'packages') {
@@ -31,6 +39,12 @@ function resolveThirdPartyRoot(invocationCwd: string): string {
 
 function getDefaultConcurrency(): number {
   return Math.max(1, availableParallelism());
+}
+
+function formatMaterialLabel(materialPath: string, materialsRoot: string): string {
+  const materialDirectory = path.dirname(materialPath);
+  const relativePath = path.relative(materialsRoot, materialDirectory);
+  return relativePath.length > 0 ? relativePath : materialDirectory;
 }
 
 function normalizeStringList(rawValues: unknown): string[] {
@@ -60,6 +74,141 @@ function formatMetricsResult(result: CalculateMetricsResult, elapsedSeconds: num
   const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
   const vmafText = result.vmafAvailable ? 'enabled' : 'unavailable';
   return `Updated metrics for ${result.written}/${result.total} materials with renderers ${result.rendererNames.map((name) => `"${name}"`).join(', ')}. Missing references: ${result.skippedMissingReference}. Failures: ${result.failures.length}. VMAF: ${vmafText}. Time: ${elapsedFormatted}\n`;
+}
+
+interface InkCalculateMetricsAppProps {
+  args: {
+    thirdPartyRoot: string;
+    rendererNames: string[];
+    materialSelectors: string[];
+    concurrency: number;
+    includeVmaf: boolean;
+  };
+  onComplete: (result: CalculateMetricsResult) => void;
+  onError: (error: Error) => void;
+}
+
+function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetricsAppProps) {
+  const { exit } = useApp();
+  const [total, setTotal] = useState(0);
+  const [started, setStarted] = useState(0);
+  const [completed, setCompleted] = useState(0);
+  const [failed, setFailed] = useState(0);
+  const [startedAt] = useState(() => Date.now());
+  const [metricsLogs, setMetricsLogs] = useState<ProgressLogLine[]>([]);
+  const [statusLine, setStatusLine] = useState('Preparing metrics plan...');
+
+  useEffect(() => {
+    let active = true;
+    const materialsRoot = path.join(args.thirdPartyRoot, 'material-samples', 'materials');
+
+    const applyProgress = (event: CalculateMetricsProgressEvent) => {
+      if (!active) {
+        return;
+      }
+
+      const label = formatMaterialLabel(event.materialPath, materialsRoot);
+      const logEntryKey = event.materialPath;
+      setTotal(event.total);
+      setStarted(event.started);
+      setCompleted(event.completed);
+
+      if (event.phase === 'start') {
+        setStatusLine(`Calculating metrics for ${label}`);
+        setMetricsLogs((previous) =>
+          appendProgressLogLine(previous, {
+            key: logEntryKey,
+            label: `${label} | metrics`,
+            status: 'IN PROGRESS',
+          }),
+        );
+        return;
+      }
+
+      if (event.success === false) {
+        setFailed((count) => count + 1);
+      }
+      setMetricsLogs((previous) =>
+        upsertProgressLogLine(previous, {
+          key: logEntryKey,
+          label: `${label} | metrics`,
+          status: event.success ? 'SUCCESS' : 'FAILED',
+          errorMessage: event.success ? undefined : (event.error?.message ?? 'Unknown error'),
+        }),
+      );
+    };
+
+    void calculateMetrics({
+      ...args,
+      onPlan: (event) => {
+        if (!active) {
+          return;
+        }
+        setTotal(event.materialPaths.length);
+        setStatusLine(
+          !event.vmafAvailable && args.includeVmaf
+            ? 'VMAF unavailable: continuing with SSIM, PSNR, and RMS.'
+            : `Queued ${event.materialPaths.length} materials for metrics`,
+        );
+      },
+      onProgress: applyProgress,
+    })
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+        onComplete(result);
+        exit();
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        onError(error instanceof Error ? error : new Error(String(error)));
+        exit();
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [args, exit, onComplete, onError]);
+
+  const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
+  const active = Math.max(0, started - completed);
+  const effectiveCompleted = Math.min(total, completed + active * 0.5);
+  const etaSeconds = useMemo(() => {
+    if (effectiveCompleted < 1 || total <= effectiveCompleted) {
+      return null;
+    }
+    const secondsPerMetric = elapsedSeconds / effectiveCompleted;
+    return Math.max(0, secondsPerMetric * (total - effectiveCompleted));
+  }, [effectiveCompleted, elapsedSeconds, total]);
+
+  return createElement(ProgressDisplay, {
+    title: `Renderers: ${args.rendererNames.join(', ')}`,
+    statusLine,
+    logs: metricsLogs,
+    completed,
+    total,
+    active,
+    failed,
+    elapsedText: humanizeTime(elapsedSeconds),
+    etaText: etaSeconds == null ? '?' : humanizeTime(etaSeconds),
+  });
+}
+
+async function runCalculateMetricsWithInk(args: InkCalculateMetricsAppProps['args']): Promise<CalculateMetricsResult> {
+  return new Promise<CalculateMetricsResult>((resolve, reject) => {
+    const app = render(
+      createElement(InkCalculateMetricsApp, {
+        args,
+        onComplete: resolve,
+        onError: reject,
+      }),
+    );
+
+    void app.waitUntilExit();
+  });
 }
 
 export const command = defineCommand({
@@ -102,29 +251,35 @@ export const command = defineCommand({
 
     const startedAt = Date.now();
     const rendererNames = resolveRendererNames(renderers, normalizeStringList(argv.renderers), { defaultToAll: true });
-    const result = await calculateMetrics({
+    const commandArgs = {
       thirdPartyRoot,
       rendererNames,
       materialSelectors: [...new Set(materialSelectors)],
       concurrency: Math.max(1, argv.concurrency ?? getDefaultConcurrency()),
       includeVmaf: argv.vmaf ?? true,
-      onPlan: (event) => {
-        if (!event.vmafAvailable && argv.vmaf !== false) {
-          process.stderr.write(
-            'VMAF unavailable: ffmpeg with libvmaf was not found. Continuing with SSIM, PSNR, and RMS.\n',
-          );
-        }
-      },
-      onProgress: (event) => {
-        if (event.phase !== 'finish') {
-          return;
-        }
-        const status = event.success ? 'SUCCESS' : 'FAILED';
-        process.stdout.write(
-          `${path.relative(process.cwd(), event.metricsPath)} | ${status} ${event.completed}/${event.total}\n`,
-        );
-      },
-    });
+    };
+    const isInteractive = process.stdout.isTTY && !process.env.CI;
+    const result = isInteractive
+      ? await runCalculateMetricsWithInk(commandArgs)
+      : await calculateMetrics({
+          ...commandArgs,
+          onPlan: (event) => {
+            if (!event.vmafAvailable && argv.vmaf !== false) {
+              process.stderr.write(
+                'VMAF unavailable: ffmpeg with libvmaf was not found. Continuing with SSIM, PSNR, and RMS.\n',
+              );
+            }
+          },
+          onProgress: (event) => {
+            if (event.phase !== 'finish') {
+              return;
+            }
+            const status = event.success ? 'SUCCESS' : 'FAILED';
+            process.stdout.write(
+              `${path.relative(process.cwd(), event.metricsPath)} | ${status} ${event.completed}/${event.total}\n`,
+            );
+          },
+        });
     const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
     process.stdout.write(formatMetricsResult(result, elapsedSeconds));
 

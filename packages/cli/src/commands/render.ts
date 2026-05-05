@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { availableParallelism } from 'node:os';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Text, render, useApp, useInput } from 'ink';
+import { render, useApp, useInput } from 'ink';
 import { createReferences } from '@material-fidelity/core';
 import type { CreateReferencesProgressEvent, CreateReferencesResult, FidelityRenderer } from '@material-fidelity/core';
 import type { RenderLogEntry } from '@material-fidelity/samples';
@@ -18,6 +18,12 @@ import {
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 import { resolveRendererNames } from '../renderer-selectors.js';
+import {
+  ProgressDisplay,
+  appendProgressLogLine,
+  upsertProgressLogLine,
+  type ProgressLogLine,
+} from '../progress-ui.js';
 
 function inferRepoRoot(invocationCwd: string): string {
   if (path.basename(invocationCwd) === 'cli' && path.basename(path.dirname(invocationCwd)) === 'packages') {
@@ -36,30 +42,6 @@ function formatMaterialLabel(materialPath: string, materialsRoot: string): strin
   const materialDirectory = path.dirname(materialPath);
   const relativePath = path.relative(materialsRoot, materialDirectory);
   return relativePath.length > 0 ? relativePath : materialDirectory;
-}
-
-function renderProgressBar(completed: number, total: number, width = 28): string {
-  if (total <= 0) {
-    return `[${' '.repeat(width)}] 0.0%`;
-  }
-  const ratio = Math.min(1, Math.max(0, completed / total));
-  const filled = Math.round(ratio * width);
-  return `[${'='.repeat(filled)}${'-'.repeat(Math.max(0, width - filled))}] ${(ratio * 100).toFixed(1)}%`;
-}
-
-interface RenderLogLine {
-  key: string;
-  rendererName: string;
-  materialLabel: string;
-  status: 'IN PROGRESS' | 'SUCCESS' | 'FAILED';
-  durationText?: string;
-  errorMessage?: string;
-}
-
-function renderLogLineText(entry: RenderLogLine): string {
-  const durationPart = entry.durationText ? ` (${entry.durationText})` : '';
-  const errorPart = entry.errorMessage ? ` - ${entry.errorMessage}` : '';
-  return `${entry.materialLabel} | ${entry.rendererName} | ${entry.status}${durationPart}${errorPart}`;
 }
 
 function normalizeRendererNames(rawRenderers: unknown): string[] {
@@ -84,16 +66,6 @@ function normalizeStringList(rawValues: unknown): string[] {
         .filter(Boolean),
     ),
   ];
-}
-
-function renderLogLineColor(entry: RenderLogLine): string {
-  if (entry.status === 'SUCCESS') {
-    return 'green';
-  }
-  if (entry.status === 'FAILED') {
-    return 'red';
-  }
-  return 'white';
 }
 
 function renderDiagnosticLogs(logs: RenderLogEntry[] | undefined): string[] {
@@ -122,8 +94,9 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
   const [total, setTotal] = useState(0);
   const [started, setStarted] = useState(0);
   const [completed, setCompleted] = useState(0);
+  const [failed, setFailed] = useState(0);
   const [startedAt] = useState(() => Date.now());
-  const [renderLogs, setRenderLogs] = useState<RenderLogLine[]>([]);
+  const [renderLogs, setRenderLogs] = useState<ProgressLogLine[]>([]);
   const [stopping, setStopping] = useState(false);
   const [statusLine, setStatusLine] = useState('Preparing render plan...');
   const stopRequestedRef = useRef(false);
@@ -152,32 +125,31 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
         setStarted(event.started);
         setCompleted(event.completed);
         setStatusLine(`Rendering ${event.rendererName} | ${label}`);
-        setRenderLogs((previous) => [
-          ...previous,
-          {
+        setRenderLogs((previous) =>
+          appendProgressLogLine(previous, {
             key: logEntryKey,
-            rendererName: event.rendererName,
-            materialLabel: label,
+            label: `${label} | ${event.rendererName}`,
             status: 'IN PROGRESS',
-          },
-        ]);
+          }),
+        );
         return;
       }
 
       const elapsed = humanizeTime((event.durationMs ?? 0) / 1000);
+      const label = formatMaterialLabel(event.materialPath, materialsRoot);
       setTotal(event.total);
       setCompleted(event.completed);
+      if (event.success === false) {
+        setFailed((count) => count + 1);
+      }
       setRenderLogs((previous) =>
-        previous.map((entry) =>
-          entry.key === `${event.rendererName}:${event.materialPath}`
-            ? {
-                ...entry,
-                status: event.success ? 'SUCCESS' : 'FAILED',
-                durationText: elapsed,
-                errorMessage: event.success ? undefined : (event.error?.message ?? 'Unknown error'),
-              }
-            : entry,
-        ),
+        upsertProgressLogLine(previous, {
+          key: `${event.rendererName}:${event.materialPath}`,
+          label: `${label} | ${event.rendererName}`,
+          status: event.success ? 'SUCCESS' : 'FAILED',
+          durationText: elapsed,
+          errorMessage: event.success ? undefined : (event.error?.message ?? 'Unknown error'),
+        }),
       );
     };
 
@@ -230,31 +202,19 @@ function InkCreateReferencesApp({ args, onComplete, onError }: InkCreateReferenc
     return Math.max(0, secondsPerRender * (total - effectiveCompleted));
   }, [effectiveCompleted, elapsedSeconds, total]);
 
-  return createElement(
-    Box,
-    { flexDirection: 'column' },
-    createElement(
-      Text,
-      { color: 'cyan' },
-      `Renderers: ${args.rendererNames.length > 0 ? args.rendererNames.join(', ') : 'all (built-in)'}`,
-    ),
-    createElement(Text, { color: 'gray' }, statusLine),
-    createElement(Text, { color: 'white' }, ''),
-    ...renderLogs.map((entry) =>
-      createElement(Text, { key: entry.key, color: renderLogLineColor(entry) }, renderLogLineText(entry)),
-    ),
-    createElement(Text, { color: 'white' }, ''),
-    createElement(
-      Text,
-      undefined,
-      `${renderProgressBar(completed, total)}  ${completed}/${total} complete, ${active} active`,
-    ),
-    createElement(
-      Text,
-      { color: stopping ? 'yellow' : 'gray' },
-      `Elapsed: ${humanizeTime(elapsedSeconds)} | ETA: ${etaSeconds == null ? '?' : humanizeTime(etaSeconds)} | Ctrl-C to stop`,
-    ),
-  );
+  return createElement(ProgressDisplay, {
+    title: `Renderers: ${args.rendererNames.length > 0 ? args.rendererNames.join(', ') : 'all (built-in)'}`,
+    statusLine,
+    logs: renderLogs,
+    completed,
+    total,
+    active,
+    failed,
+    elapsedText: humanizeTime(elapsedSeconds),
+    etaText: etaSeconds == null ? '?' : humanizeTime(etaSeconds),
+    footerTone: stopping ? 'yellow' : 'gray',
+    footerSuffix: 'Ctrl-C to stop',
+  });
 }
 
 async function runCreateReferencesWithInk(args: InkCreateReferencesAppProps['args']): Promise<CreateReferencesResult> {

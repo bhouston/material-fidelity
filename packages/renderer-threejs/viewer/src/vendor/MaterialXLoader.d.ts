@@ -22,6 +22,7 @@ export class MaterialXLoader {
 export interface MaterialXLoaderOptions {
   issuePolicy?: string;
   materialName?: string | null;
+  uvSpace?: 'bottom-left' | 'top-left';
   onWarning?: ((issue: unknown) => void) | null;
   warningCallback?: ((issue: unknown) => void) | null;
   archiveResolver?: ((uri: string) => string | null) | null;
