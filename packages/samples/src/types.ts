@@ -14,10 +14,7 @@ export interface RendererDescriptor {
 }
 
 export const ImageSimilarityMetricsSchema = z.object({
-  ssim: z.number().finite().nullable(),
   psnr: z.number().finite().nullable(),
-  normalizedRgbRms: z.number().finite().nullable(),
-  vmaf: z.number().finite().nullable(),
 });
 
 export type ImageSimilarityMetrics = z.infer<typeof ImageSimilarityMetricsSchema>;

@@ -2,25 +2,31 @@ import { Link } from '@tanstack/react-router';
 import { Github } from 'lucide-react';
 
 import { SelectRenderersDialog } from '#/components/SelectRenderersDialog';
+import { SortMaterialsButton } from '#/components/SortMaterialsButton';
+import type { MaterialSortValue } from '#/lib/material-sort';
 
 interface HeaderProps {
   availableRenderers: string[];
   materialFilter: string;
   rendererFilter?: string;
+  sortValue: MaterialSortValue;
   shownMaterialCount: number;
   totalMaterialCount: number;
   onMaterialFilterChange: (value: string) => void;
   onSelectedRenderersChange: (selectedRenderers: string[]) => void;
+  onSortChange: (value: MaterialSortValue) => void;
 }
 
 export default function Header({
   availableRenderers,
   materialFilter,
   rendererFilter,
+  sortValue,
   shownMaterialCount,
   totalMaterialCount,
   onMaterialFilterChange,
   onSelectedRenderersChange,
+  onSortChange,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 py-3 shadow-sm backdrop-blur">
@@ -37,7 +43,7 @@ export default function Header({
           </a>
           <Link
             className="text-base font-semibold text-foreground no-underline sm:text-xl"
-            search={(prev) => ({ materials: prev.materials, renderers: prev.renderers })}
+            search={(prev) => ({ materials: prev.materials, renderers: prev.renderers, sort: prev.sort })}
             to="/"
           >
             {import.meta.env.VITE_SITE_NAME}
@@ -61,6 +67,7 @@ export default function Header({
             type="text"
             value={materialFilter}
           />
+          <SortMaterialsButton onChange={onSortChange} value={sortValue} />
           <SelectRenderersDialog
             availableRenderers={availableRenderers}
             onSelectedRenderersChange={onSelectedRenderersChange}

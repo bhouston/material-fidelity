@@ -30,7 +30,10 @@ vi.mock('@material-fidelity/renderer-blender', () => ({
 }));
 
 vi.mock('@material-fidelity/renderer-materialxview', () => ({
-  createRenderer: () => ({ name: 'materialxview' }),
+  createRenderer: () => ({ name: 'materialx-glsl' }),
+  createGlslRenderer: () => ({ name: 'materialx-glsl' }),
+  createMetalRenderer: () => ({ name: 'materialx-metal' }),
+  createOslRenderer: () => ({ name: 'materialx-osl' }),
 }));
 
 vi.mock('@material-fidelity/renderer-threejs', () => ({
@@ -44,13 +47,12 @@ describe('metrics command', () => {
     availableParallelismMock.mockReturnValue(8);
     calculateMetricsMock.mockReset();
     calculateMetricsMock.mockResolvedValue({
-      rendererNames: ['materialxview', 'threejs-new'],
+      rendererNames: ['materialx-glsl', 'threejs-new'],
       total: 2,
       attempted: 2,
       written: 2,
       failures: [],
       skippedMissingReference: 0,
-      vmafAvailable: true,
     });
   });
 
@@ -64,17 +66,16 @@ describe('metrics command', () => {
 
     try {
       await command.handler({
-        renderers: ['materialxview,threejs-new'],
+        renderers: ['materialx-glsl,threejs-new'],
         materials: ['included', '/noise/i'],
         filter: 'stdlib',
         concurrency: 2,
-        vmaf: true,
         _: [],
         $0: 'cli',
       });
 
       expect(stdoutWriteSpy).toHaveBeenCalledWith(
-        'Updated metrics for 2/2 materials with renderers "materialxview", "threejs-new". Missing references: 0. Failures: 0. VMAF: enabled. Time: 1.23 s\n',
+        'Updated PSNR for 2/2 materials with renderers "materialx-glsl", "threejs-new". Missing references: 0. Failures: 0. Time: 1.23 s\n',
       );
     } finally {
       dateNowSpy.mockRestore();
@@ -84,10 +85,9 @@ describe('metrics command', () => {
     expect(calculateMetricsMock).toHaveBeenCalledTimes(1);
     const [firstCall] = calculateMetricsMock.mock.calls;
     expect(firstCall?.[0]).toMatchObject({
-      rendererNames: ['materialxview', 'threejs-new'],
+      rendererNames: ['materialx-glsl', 'threejs-new'],
       materialSelectors: ['included', '/noise/i', 'stdlib'],
       concurrency: 2,
-      includeVmaf: true,
       thirdPartyRoot: expect.any(String),
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
@@ -101,7 +101,6 @@ describe('metrics command', () => {
         materials: undefined,
         filter: undefined,
         concurrency: undefined,
-        vmaf: false,
         _: [],
         $0: 'cli',
       } as unknown as Parameters<typeof command.handler>[0]);
@@ -115,13 +114,14 @@ describe('metrics command', () => {
         'blender-new',
         'blender-nodes',
         'blender-eevee-nodes',
-        'materialxview',
+        'materialx-glsl',
+        'materialx-metal',
+        'materialx-osl',
         'threejs-new',
         'threejs-current',
       ],
       materialSelectors: [],
       concurrency: 8,
-      includeVmaf: false,
     });
   });
 
@@ -133,7 +133,6 @@ describe('metrics command', () => {
         materials: undefined,
         filter: undefined,
         concurrency: 1,
-        vmaf: false,
         _: [],
         $0: 'cli',
       } as unknown as Parameters<typeof command.handler>[0]);

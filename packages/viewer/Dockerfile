@@ -22,7 +22,7 @@ RUN test -d /app/third_party/material-viewer/packages/materialx/src
 
 RUN pnpm install --frozen-lockfile --prefer-offline
 
-RUN pnpm --filter @material-viewer/materialx build
+RUN pnpm --filter @material-viewer/mtlx-core build
 
 # Viewer bundle reads metadata env vars at build time (Vite `define`). Override via `docker build --build-arg BASE_URL=https://…`.
 ARG BASE_URL=""

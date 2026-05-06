@@ -91,10 +91,7 @@ export interface MaterialViewModel {
 }
 
 export interface RendererMetricsViewModel {
-  ssim: number | null;
   psnr: number | null;
-  normalizedRgbRms: number | null;
-  vmaf: number | null;
 }
 
 export interface RendererReportSummaryViewModel {

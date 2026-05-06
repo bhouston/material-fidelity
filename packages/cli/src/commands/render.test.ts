@@ -48,7 +48,31 @@ vi.mock('@material-fidelity/renderer-blender', () => ({
 
 vi.mock('@material-fidelity/renderer-materialxview', () => ({
   createRenderer: () => ({
-    name: 'materialxview',
+    name: 'materialx-glsl',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+  createGlslRenderer: () => ({
+    name: 'materialx-glsl',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+  createMetalRenderer: () => ({
+    name: 'materialx-metal',
+    version: 'test',
+    checkPrerequisites: async () => ({ success: true }),
+    start: async () => undefined,
+    shutdown: async () => undefined,
+    generateImage: async () => undefined,
+  }),
+  createOslRenderer: () => ({
+    name: 'materialx-osl',
     version: 'test',
     checkPrerequisites: async () => ({ success: true }),
     start: async () => undefined,
@@ -82,7 +106,7 @@ describe('render command', () => {
     availableParallelismMock.mockReturnValue(8);
     createReferencesMock.mockReset();
     createReferencesMock.mockResolvedValue({
-      rendererNames: ['materialxview'],
+      rendererNames: ['materialx-glsl'],
       total: 6,
       attempted: 6,
       rendered: 6,
@@ -97,7 +121,7 @@ describe('render command', () => {
 
   it('invokes core createReferences with parsed options', async () => {
     await command.handler({
-      renderers: ['materialxview'],
+      renderers: ['materialx-glsl'],
       materials: undefined,
       'skip-existing': false,
       skipExisting: false,
@@ -111,13 +135,13 @@ describe('render command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      rendererNames: ['materialxview'],
+      rendererNames: ['materialx-glsl'],
       thirdPartyRoot: expect.any(String),
       concurrency: 2,
       skipExisting: false,
     });
     expect(firstCall?.[0].thirdPartyRoot.endsWith('/third_party')).toBe(true);
-    expect(firstCall?.[0].renderers).toHaveLength(6);
+    expect(firstCall?.[0].renderers).toHaveLength(8);
   });
 
   it('defaults concurrency to the recommended available parallelism', async () => {
@@ -168,7 +192,7 @@ describe('render command', () => {
 
   it('passes materials selectors through to core createReferences', async () => {
     await command.handler({
-      renderers: ['materialxview,threejs-new'],
+      renderers: ['materialx-glsl,threejs-new'],
       materials: ['standard_surface', '/gltf_pbr/i'],
       'skip-existing': false,
       skipExisting: false,
@@ -181,7 +205,7 @@ describe('render command', () => {
     const [firstCall] = createReferencesMock.mock.calls;
     expect(firstCall).toBeDefined();
     expect(firstCall?.[0]).toMatchObject({
-      rendererNames: ['materialxview', 'threejs-new'],
+      rendererNames: ['materialx-glsl', 'threejs-new'],
       materialSelectors: ['standard_surface', '/gltf_pbr/i', 'stdlib'],
     });
   });

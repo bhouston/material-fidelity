@@ -16,7 +16,7 @@
   "dependencies": {
     "@material-fidelity/samples": "workspace:*",
     "@material-fidelity/samples-io": "workspace:*",
-    "@material-viewer/materialx": "workspace:*",
+    "@material-viewer/mtlx-core": "workspace:*",
     "p-limit": "^7.3.0",
     "pngjs": "^7.0.0",
     "sharp": "^0.34.5"

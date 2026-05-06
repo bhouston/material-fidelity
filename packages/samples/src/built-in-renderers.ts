@@ -3,13 +3,31 @@ import type { RendererDescriptor } from './types.js';
 /** Built-in renderer names and categories without importing renderer packages (for viewer index). */
 export const BUILT_IN_RENDERER_DESCRIPTORS: RendererDescriptor[] = [
   {
-    name: 'materialxview',
+    name: 'materialx-glsl',
     category: 'raytracer',
     sortIndex: 10,
-    description: 'Reference viewer from the MaterialX project',
+    description: 'MaterialXView built with the OpenGL/GLSL backend',
     packageName: '@material-fidelity/renderer-materialxview',
-    sourceName: 'MaterialXView',
+    sourceName: 'MaterialXView GLSL',
     sourceUrl: 'https://github.com/AcademySoftwareFoundation/MaterialX/tree/main/source/MaterialXView',
+  },
+  {
+    name: 'materialx-metal',
+    category: 'raytracer',
+    sortIndex: 11,
+    description: 'MaterialXView built with the Metal/MSL backend',
+    packageName: '@material-fidelity/renderer-materialxview',
+    sourceName: 'MaterialXView Metal',
+    sourceUrl: 'https://github.com/AcademySoftwareFoundation/MaterialX/tree/main/source/MaterialXView',
+  },
+  {
+    name: 'materialx-osl',
+    category: 'raytracer',
+    sortIndex: 12,
+    description: 'MaterialX OSL rendering through Open Shading Language',
+    packageName: '@material-fidelity/renderer-materialxview',
+    sourceName: 'MaterialXRenderOsl',
+    sourceUrl: 'https://github.com/AcademySoftwareFoundation/MaterialX/tree/main/source/MaterialXRenderOsl',
   },
   {
     name: 'blender-new',

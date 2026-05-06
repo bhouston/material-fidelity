@@ -9,6 +9,12 @@ import { RenderReportDialog } from '#/components/RenderReportDialog';
 import { resolveSelectedRenderers, toRendererSearchValue } from '#/components/SelectRenderersDialog';
 import type { ActiveReportState } from '#/components/RenderReportDialog';
 import { getViewerIndexData } from '#/lib/material-index';
+import {
+  parseMaterialSort,
+  sortMaterials,
+  toMaterialSortSearchValue,
+  type MaterialSortValue,
+} from '#/lib/material-sort';
 import { getRendererMetadata } from '#/lib/renderer-metadata';
 import { getHead } from '#/lib/metadata';
 import { getViewerWebsiteJsonLd } from '#/lib/structured-data';
@@ -27,9 +33,11 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => {
     const materials = typeof search.materials === 'string' ? search.materials.trim() : '';
     const renderers = typeof search.renderers === 'string' ? search.renderers.trim() : '';
+    const sort = typeof search.sort === 'string' ? search.sort.trim() : '';
     return {
       materials: materials.length > 0 ? materials : undefined,
       renderers: renderers.length > 0 ? renderers : undefined,
+      sort: toMaterialSortSearchValue(parseMaterialSort(sort)),
     };
   },
   loader: () => getViewerData(),
@@ -72,6 +80,7 @@ function App() {
   const [materialFilterInput, setMaterialFilterInput] = useState(search.materials ?? '');
   const materialSearchTerms = normalizeMaterialFilters(search.materials);
   const selectedRenderers = resolveSelectedRenderers(search.renderers, data.renderers);
+  const sortValue = parseMaterialSort(search.sort);
   const selectedRendererSet = new Set(selectedRenderers);
   const visibleRendererGroups = data.rendererGroups
     .map((group) => ({
@@ -95,11 +104,15 @@ function App() {
       }),
     }))
     .filter((group) => group.materials.length > 0);
-  const filteredMaterials = filteredGroups.flatMap((group) =>
-    group.materials.map((material) => ({
-      ...material,
-      type: group.type,
-    })),
+  const filteredMaterials = sortMaterials(
+    filteredGroups.flatMap((group) =>
+      group.materials.map((material) => ({
+        ...material,
+        type: group.type,
+      })),
+    ),
+    sortValue,
+    selectedRenderers,
   );
   const shownMaterialCount = filteredGroups.reduce((total, group) => total + group.materials.length, 0);
   const totalMaterialCount = data.groups.reduce((total, group) => total + group.materials.length, 0);
@@ -152,7 +165,11 @@ function App() {
     });
   };
 
-  const updateFilters = (next: { materials?: string | undefined; renderers?: string | undefined }) => {
+  const updateFilters = (next: {
+    materials?: string | undefined;
+    renderers?: string | undefined;
+    sort?: string | undefined;
+  }) => {
     navigate({
       replace: true,
       search: (previous) => ({
@@ -169,6 +186,12 @@ function App() {
   const handleSelectedRenderersChange = (nextSelectedRenderers: string[]) => {
     updateFilters({
       renderers: toRendererSearchValue(nextSelectedRenderers, data.renderers),
+    });
+  };
+
+  const handleSortChange = (nextSortValue: MaterialSortValue) => {
+    updateFilters({
+      sort: toMaterialSortSearchValue(nextSortValue),
     });
   };
 
@@ -197,8 +220,10 @@ function App() {
         materialFilter={materialFilterInput}
         onMaterialFilterChange={handleMaterialSearchChange}
         onSelectedRenderersChange={handleSelectedRenderersChange}
+        onSortChange={handleSortChange}
         rendererFilter={search.renderers}
         shownMaterialCount={shownMaterialCount}
+        sortValue={sortValue}
         totalMaterialCount={totalMaterialCount}
       />
       <main className="mx-auto flex w-full max-w-none flex-col gap-8 px-4 py-6 sm:px-6">

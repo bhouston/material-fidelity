@@ -37,29 +37,23 @@ describe('calculateImageSimilarityMetrics', () => {
     await writeFile(referencePath, png);
     await writeFile(sourcePath, png);
 
-    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath, { includeVmaf: false });
+    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath);
 
     expect(metrics).toEqual({
-      ssim: 1,
       psnr: null,
-      normalizedRgbRms: 0,
-      vmaf: null,
     });
   });
 
-  it('reports pixel differences with RMS, PSNR, and SSIM', async () => {
+  it('reports pixel differences with PSNR', async () => {
     const root = await makeTempDir('fidelity-metrics-');
     const referencePath = path.join(root, 'reference.png');
     const sourcePath = path.join(root, 'source.png');
     await writeFile(referencePath, createSolidPngBuffer(0, 0, 0));
     await writeFile(sourcePath, createSolidPngBuffer(255, 255, 255));
 
-    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath, { includeVmaf: false });
+    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath);
 
-    expect(metrics.normalizedRgbRms).toBe(1);
     expect(metrics.psnr).toBe(0);
-    expect(metrics.ssim).toBeLessThan(0.001);
-    expect(metrics.vmaf).toBeNull();
   });
 
   it('rounds fractional metrics to three decimal places', async () => {
@@ -69,11 +63,9 @@ describe('calculateImageSimilarityMetrics', () => {
     await writeFile(referencePath, createSolidPngBuffer(0, 0, 0));
     await writeFile(sourcePath, createSolidPngBuffer(128, 128, 128));
 
-    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath, { includeVmaf: false });
+    const metrics = await calculateImageSimilarityMetrics(sourcePath, referencePath);
 
-    expect(metrics.normalizedRgbRms).toBe(0.502);
-    expect(metrics.psnr).toBe(5.986);
-    expect(metrics.vmaf).toBeNull();
+    expect(metrics.psnr).toBe(5.987);
   });
 
   it('fails when image dimensions differ', async () => {
@@ -83,9 +75,7 @@ describe('calculateImageSimilarityMetrics', () => {
     await writeFile(referencePath, createSolidPngBuffer(0, 0, 0, 1, 1));
     await writeFile(sourcePath, createSolidPngBuffer(0, 0, 0, 2, 1));
 
-    await expect(calculateImageSimilarityMetrics(sourcePath, referencePath, { includeVmaf: false })).rejects.toThrow(
-      'Image dimensions mismatch',
-    );
+    await expect(calculateImageSimilarityMetrics(sourcePath, referencePath)).rejects.toThrow('Image dimensions mismatch');
   });
 });
 
@@ -106,25 +96,24 @@ describe('calculateMetrics', () => {
     await mkdir(skippedMaterialDir, { recursive: true });
     await writeFile(path.join(materialDir, 'included.mtlx'), '<materialx />', 'utf8');
     await writeFile(path.join(skippedMaterialDir, 'skipped.mtlx'), '<materialx />', 'utf8');
-    await writeFile(path.join(materialDir, 'materialxview.png'), createSolidPngBuffer(0, 0, 0));
+    await writeFile(path.join(materialDir, 'materialx-glsl.png'), createSolidPngBuffer(0, 0, 0));
     await writeFile(path.join(materialDir, 'threejs-new.png'), createSolidPngBuffer(255, 255, 255));
 
     const result = await calculateMetrics({
       thirdPartyRoot,
-      rendererNames: ['materialxview', 'threejs-new'],
+      rendererNames: ['materialx-glsl', 'threejs-new'],
       materialSelectors: ['included'],
       concurrency: 1,
-      includeVmaf: false,
     });
 
     const metrics = JSON.parse(await readFile(path.join(materialDir, 'metrics.json'), 'utf8')) as Record<
       string,
-      { ssim: number; psnr: number | null; normalizedRgbRms: number; vmaf: number | null }
+      { psnr: number | null }
     >;
     expect(result.total).toBe(1);
     expect(result.written).toBe(1);
     expect(result.failures).toHaveLength(0);
-    expect(metrics.materialxview).toEqual({ ssim: 1, psnr: null, normalizedRgbRms: 0, vmaf: null });
-    expect(metrics['threejs-new']?.normalizedRgbRms).toBe(1);
+    expect(metrics['materialx-glsl']).toEqual({ psnr: null });
+    expect(metrics['threejs-new']?.psnr).toBe(0);
   });
 });

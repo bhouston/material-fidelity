@@ -9,7 +9,11 @@ import {
   createNodesRenderer as createBlenderNodesRenderer,
   createRenderer as createBlenderRenderer,
 } from '@material-fidelity/renderer-blender';
-import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
+import {
+  createGlslRenderer as createMaterialXGlslRenderer,
+  createMetalRenderer as createMaterialXMetalRenderer,
+  createOslRenderer as createMaterialXOslRenderer,
+} from '@material-fidelity/renderer-materialxview';
 import {
   createCurrentRenderer as createThreeJsCurrentRenderer,
   createRenderer as createThreeJsNewRenderer,
@@ -64,7 +68,9 @@ function createBuiltInRenderers(thirdPartyRoot: string): FidelityRenderer[] {
     createBlenderRenderer({ thirdPartyRoot }),
     createBlenderNodesRenderer({ thirdPartyRoot }),
     createBlenderEeveeNodesRenderer({ thirdPartyRoot }),
-    createMaterialXViewRenderer(),
+    createMaterialXGlslRenderer(),
+    createMaterialXMetalRenderer(),
+    createMaterialXOslRenderer(),
     createThreeJsNewRenderer({ thirdPartyRoot }),
     createThreeJsCurrentRenderer({ thirdPartyRoot }),
   ];
@@ -72,8 +78,7 @@ function createBuiltInRenderers(thirdPartyRoot: string): FidelityRenderer[] {
 
 function formatMetricsResult(result: CalculateMetricsResult, elapsedSeconds: number): string {
   const elapsedFormatted = humanizeTime(elapsedSeconds, { unitSeparator: ' ' });
-  const vmafText = result.vmafAvailable ? 'enabled' : 'unavailable';
-  return `Updated metrics for ${result.written}/${result.total} materials with renderers ${result.rendererNames.map((name) => `"${name}"`).join(', ')}. Missing references: ${result.skippedMissingReference}. Failures: ${result.failures.length}. VMAF: ${vmafText}. Time: ${elapsedFormatted}\n`;
+  return `Updated PSNR for ${result.written}/${result.total} materials with renderers ${result.rendererNames.map((name) => `"${name}"`).join(', ')}. Missing references: ${result.skippedMissingReference}. Failures: ${result.failures.length}. Time: ${elapsedFormatted}\n`;
 }
 
 interface InkCalculateMetricsAppProps {
@@ -82,7 +87,6 @@ interface InkCalculateMetricsAppProps {
     rendererNames: string[];
     materialSelectors: string[];
     concurrency: number;
-    includeVmaf: boolean;
   };
   onComplete: (result: CalculateMetricsResult) => void;
   onError: (error: Error) => void;
@@ -96,7 +100,7 @@ function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetri
   const [failed, setFailed] = useState(0);
   const [startedAt] = useState(() => Date.now());
   const [metricsLogs, setMetricsLogs] = useState<ProgressLogLine[]>([]);
-  const [statusLine, setStatusLine] = useState('Preparing metrics plan...');
+  const [statusLine, setStatusLine] = useState('Preparing PSNR plan...');
 
   useEffect(() => {
     let active = true;
@@ -114,11 +118,11 @@ function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetri
       setCompleted(event.completed);
 
       if (event.phase === 'start') {
-        setStatusLine(`Calculating metrics for ${label}`);
+        setStatusLine(`Calculating PSNR for ${label}`);
         setMetricsLogs((previous) =>
           appendProgressLogLine(previous, {
             key: logEntryKey,
-            label: `${label} | metrics`,
+            label: `${label} | psnr`,
             status: 'IN PROGRESS',
           }),
         );
@@ -131,7 +135,7 @@ function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetri
       setMetricsLogs((previous) =>
         upsertProgressLogLine(previous, {
           key: logEntryKey,
-          label: `${label} | metrics`,
+          label: `${label} | psnr`,
           status: event.success ? 'SUCCESS' : 'FAILED',
           errorMessage: event.success ? undefined : (event.error?.message ?? 'Unknown error'),
         }),
@@ -145,11 +149,7 @@ function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetri
           return;
         }
         setTotal(event.materialPaths.length);
-        setStatusLine(
-          !event.vmafAvailable && args.includeVmaf
-            ? 'VMAF unavailable: continuing with SSIM, PSNR, and RMS.'
-            : `Queued ${event.materialPaths.length} materials for metrics`,
-        );
+        setStatusLine(`Queued ${event.materialPaths.length} materials for PSNR`);
       },
       onProgress: applyProgress,
     })
@@ -180,8 +180,8 @@ function InkCalculateMetricsApp({ args, onComplete, onError }: InkCalculateMetri
     if (effectiveCompleted < 1 || total <= effectiveCompleted) {
       return null;
     }
-    const secondsPerMetric = elapsedSeconds / effectiveCompleted;
-    return Math.max(0, secondsPerMetric * (total - effectiveCompleted));
+    const secondsPerMaterial = elapsedSeconds / effectiveCompleted;
+    return Math.max(0, secondsPerMaterial * (total - effectiveCompleted));
   }, [effectiveCompleted, elapsedSeconds, total]);
 
   return createElement(ProgressDisplay, {
@@ -213,7 +213,7 @@ async function runCalculateMetricsWithInk(args: InkCalculateMetricsAppProps['arg
 
 export const command = defineCommand({
   command: 'metrics',
-  describe: 'Calculate visual similarity metrics for rendered PNG images.',
+  describe: 'Calculate PSNR for rendered PNG images.',
   builder: (yargs) =>
     yargs
       .option('renderers', {
@@ -230,11 +230,6 @@ export const command = defineCommand({
         type: 'number',
         default: getDefaultConcurrency(),
         describe: 'Number of materials to process in parallel. Defaults to the recommended available parallelism.',
-      })
-      .option('vmaf', {
-        type: 'boolean',
-        default: true,
-        describe: 'Calculate VMAF when ffmpeg with libvmaf is available.',
       })
       .option('filter', {
         type: 'string',
@@ -256,20 +251,12 @@ export const command = defineCommand({
       rendererNames,
       materialSelectors: [...new Set(materialSelectors)],
       concurrency: Math.max(1, argv.concurrency ?? getDefaultConcurrency()),
-      includeVmaf: argv.vmaf ?? true,
     };
     const isInteractive = process.stdout.isTTY && !process.env.CI;
     const result = isInteractive
       ? await runCalculateMetricsWithInk(commandArgs)
       : await calculateMetrics({
           ...commandArgs,
-          onPlan: (event) => {
-            if (!event.vmafAvailable && argv.vmaf !== false) {
-              process.stderr.write(
-                'VMAF unavailable: ffmpeg with libvmaf was not found. Continuing with SSIM, PSNR, and RMS.\n',
-              );
-            }
-          },
           onProgress: (event) => {
             if (event.phase !== 'finish') {
               return;

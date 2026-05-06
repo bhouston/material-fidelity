@@ -1,5 +1,6 @@
-import { dirname, extname } from 'node:path';
+import { accessSync, existsSync, realpathSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
+import { delimiter, dirname, extname, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
@@ -13,7 +14,9 @@ import {
 } from '@material-fidelity/core';
 import type { RenderLogEntry } from '@material-fidelity/samples';
 
-const EXECUTABLE_CANDIDATES = ['materialxview', 'MaterialXView'];
+const GLSL_EXECUTABLE_CANDIDATES = ['materialx-glsl', 'materialxview', 'MaterialXView'];
+const METAL_EXECUTABLE_CANDIDATES = ['materialx-metal'];
+const OSL_EXECUTABLE_CANDIDATES = ['materialx-osl'];
 const MATERIALXVIEW_SEARCH_PATH_ENV = 'MATERIALXVIEW_SEARCH_PATH';
 
 function commandExists(command: string): boolean {
@@ -26,15 +29,45 @@ function commandExists(command: string): boolean {
   return !result.error;
 }
 
-function resolveExecutable(): string {
-  const match = EXECUTABLE_CANDIDATES.find((candidate) => commandExists(candidate));
+function resolveCommandPath(command: string): string | undefined {
+  const pathCandidates = command.includes('/') ? [''] : (process.env.PATH ?? '').split(delimiter);
+  for (const pathCandidate of pathCandidates) {
+    const commandPath = command.includes('/') ? command : join(pathCandidate, command);
+    try {
+      // Verify executability before resolving symlinks.
+      accessSync(commandPath);
+      return realpathSync(commandPath);
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
+}
+
+function inferMaterialXSearchPath(executable: string): string | undefined {
+  const executablePath = resolveCommandPath(executable);
+  if (!executablePath) {
+    return undefined;
+  }
+
+  const materialXRoot = dirname(dirname(dirname(executablePath)));
+  if (existsSync(join(materialXRoot, 'libraries')) && existsSync(join(materialXRoot, 'resources'))) {
+    return materialXRoot;
+  }
+  return undefined;
+}
+
+function resolveExecutable(candidates: string[], rendererName: string): string {
+  const match = candidates.find((candidate) => commandExists(candidate));
   if (!match) {
-    throw new Error(
-      `Unable to locate materialx viewer executable on PATH. Tried: ${EXECUTABLE_CANDIDATES.join(', ')}.`,
-    );
+    throw new Error(`Unable to locate ${rendererName} executable on PATH. Tried: ${candidates.join(', ')}.`);
   }
 
   return match;
+}
+
+function uniqueSearchPaths(paths: Array<string | undefined>): string[] {
+  return [...new Set(paths.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry)))];
 }
 
 function createRenderError(message: string, logs: RenderLogEntry[]): Error & { rendererLogs: RenderLogEntry[] } {
@@ -43,7 +76,7 @@ function createRenderError(message: string, logs: RenderLogEntry[]): Error & { r
   return error;
 }
 
-function execute(executable: string, args: string[]): Promise<RenderLogEntry[]> {
+function execute(executable: string, args: string[], rendererName: string): Promise<RenderLogEntry[]> {
   return new Promise((resolve, reject) => {
     const processHandle = spawn(executable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     const logs: RenderLogEntry[] = [];
@@ -87,23 +120,32 @@ function execute(executable: string, args: string[]): Promise<RenderLogEntry[]> 
 
       const message =
         logs.at(-1)?.message ||
-        `materialxview exited with code ${String(code)}${code === null ? ' (terminated by signal)' : ''}.`;
+        `${rendererName} exited with code ${String(code)}${code === null ? ' (terminated by signal)' : ''}.`;
       reject(createRenderError(message, logs));
     });
   });
 }
 
+interface MaterialXViewRendererOptions {
+  name: string;
+  executableCandidates: string[];
+}
+
 class MaterialXViewRenderer implements FidelityRenderer {
-  public readonly name = 'materialxview';
+  public readonly name: string;
   public readonly version = '1.0.0';
   public readonly category = 'raytracer';
   public readonly emptyReferenceImagePath = fileURLToPath(new URL('../materialxview-empty.png', import.meta.url));
   private executable: string | undefined;
   private startOptions: RendererStartOptions | undefined;
 
+  public constructor(private readonly options: MaterialXViewRendererOptions) {
+    this.name = options.name;
+  }
+
   public async checkPrerequisites(): Promise<RendererPrerequisiteCheckResult> {
     try {
-      this.executable = resolveExecutable();
+      this.executable = resolveExecutable(this.options.executableCandidates, this.name);
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -161,16 +203,40 @@ class MaterialXViewRenderer implements FidelityRenderer {
       options.outputPngPath,
     ];
 
-    const additionalSearchPath = process.env[MATERIALXVIEW_SEARCH_PATH_ENV]?.trim();
-    if (additionalSearchPath) {
-      args.push('--path', additionalSearchPath);
+    const searchPaths = uniqueSearchPaths([
+      ...(process.env[MATERIALXVIEW_SEARCH_PATH_ENV]?.split(delimiter) ?? []),
+      inferMaterialXSearchPath(this.executable),
+    ]);
+    for (const searchPath of searchPaths) {
+      args.push('--path', searchPath);
     }
 
-    const logs = await execute(this.executable, args);
+    const logs = await execute(this.executable, args, this.name);
     return { logs };
   }
 }
 
 export function createRenderer(): FidelityRenderer {
-  return new MaterialXViewRenderer();
+  return createGlslRenderer();
+}
+
+export function createGlslRenderer(): FidelityRenderer {
+  return new MaterialXViewRenderer({
+    name: 'materialx-glsl',
+    executableCandidates: GLSL_EXECUTABLE_CANDIDATES,
+  });
+}
+
+export function createMetalRenderer(): FidelityRenderer {
+  return new MaterialXViewRenderer({
+    name: 'materialx-metal',
+    executableCandidates: METAL_EXECUTABLE_CANDIDATES,
+  });
+}
+
+export function createOslRenderer(): FidelityRenderer {
+  return new MaterialXViewRenderer({
+    name: 'materialx-osl',
+    executableCandidates: OSL_EXECUTABLE_CANDIDATES,
+  });
 }

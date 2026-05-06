@@ -10,7 +10,11 @@ import {
   createNodesRenderer as createBlenderNodesRenderer,
   createRenderer as createBlenderRenderer,
 } from '@material-fidelity/renderer-blender';
-import { createRenderer as createMaterialXViewRenderer } from '@material-fidelity/renderer-materialxview';
+import {
+  createGlslRenderer as createMaterialXGlslRenderer,
+  createMetalRenderer as createMaterialXMetalRenderer,
+  createOslRenderer as createMaterialXOslRenderer,
+} from '@material-fidelity/renderer-materialxview';
 import {
   createCurrentRenderer as createThreeJsCurrentRenderer,
   createRenderer as createThreeJsNewRenderer,
@@ -267,7 +271,9 @@ export const command = defineCommand({
       createBlenderRenderer({ thirdPartyRoot }),
       createBlenderNodesRenderer({ thirdPartyRoot }),
       createBlenderEeveeNodesRenderer({ thirdPartyRoot }),
-      createMaterialXViewRenderer(),
+      createMaterialXGlslRenderer(),
+      createMaterialXMetalRenderer(),
+      createMaterialXOslRenderer(),
       createThreeJsNewRenderer({ thirdPartyRoot }),
       createThreeJsCurrentRenderer({ thirdPartyRoot }),
     ];

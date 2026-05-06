@@ -24,45 +24,18 @@ function formatMetricValue(value: number | null | undefined, digits = 3): string
 
 type MetricSeverity = 'none' | 'warning' | 'error';
 
-function getMetricSeverity(metricName: 'ssim' | 'psnr' | 'normalizedRgbRms' | 'vmaf', value: number | null): MetricSeverity {
+function getPsnrSeverity(value: number | null): MetricSeverity {
   if (value === null) {
     return 'none';
   }
 
-  switch (metricName) {
-    case 'ssim':
-      if (value <= 0.9) {
-        return 'error';
-      }
-      if (value <= 0.95) {
-        return 'warning';
-      }
-      return 'none';
-    case 'psnr':
-      if (value <= 20) {
-        return 'error';
-      }
-      if (value <= 24) {
-        return 'warning';
-      }
-      return 'none';
-    case 'normalizedRgbRms':
-      if (value >= 0.1) {
-        return 'error';
-      }
-      if (value >= 0.07) {
-        return 'warning';
-      }
-      return 'none';
-    case 'vmaf':
-      if (value <= 50) {
-        return 'error';
-      }
-      if (value <= 70) {
-        return 'warning';
-      }
-      return 'none';
+  if (value <= 20) {
+    return 'error';
   }
+  if (value <= 24) {
+    return 'warning';
+  }
+  return 'none';
 }
 
 function getMetricValueClassName(severity: MetricSeverity): string {
@@ -79,34 +52,11 @@ function getMetricValueClassName(severity: MetricSeverity): string {
 
 function RendererMetrics({ metrics }: { metrics: MaterialViewModel['metrics'][string] }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
-      <div className="flex justify-between gap-1">
-        <dt>SSIM</dt>
-        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('ssim', metrics?.ssim ?? null)))}>
-          {formatMetricValue(metrics?.ssim)}
-        </dd>
-      </div>
+    <dl className="grid grid-cols-1 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
       <div className="flex justify-between gap-1">
         <dt>PSNR</dt>
-        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('psnr', metrics?.psnr ?? null)))}>
+        <dd className={cn('font-mono', getMetricValueClassName(getPsnrSeverity(metrics?.psnr ?? null)))}>
           {formatMetricValue(metrics?.psnr, 1)}
-        </dd>
-      </div>
-      <div className="flex justify-between gap-1">
-        <dt>RMS</dt>
-        <dd
-          className={cn(
-            'font-mono',
-            getMetricValueClassName(getMetricSeverity('normalizedRgbRms', metrics?.normalizedRgbRms ?? null)),
-          )}
-        >
-          {formatMetricValue(metrics?.normalizedRgbRms)}
-        </dd>
-      </div>
-      <div className="flex justify-between gap-1">
-        <dt>VMAF</dt>
-        <dd className={cn('font-mono', getMetricValueClassName(getMetricSeverity('vmaf', metrics?.vmaf ?? null)))}>
-          {formatMetricValue(metrics?.vmaf, 1)}
         </dd>
       </div>
     </dl>

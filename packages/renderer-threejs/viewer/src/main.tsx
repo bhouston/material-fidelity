@@ -197,10 +197,10 @@ function recenterAndNormalizeModel(model: THREE.Object3D): void {
     return;
   }
 
-  const center = box.getCenter(new THREE.Vector3());
-  model.position.sub(center);
   const scale = IDEAL_MESH_SPHERE_RADIUS / sphereRadius;
-  model.scale.multiplyScalar(scale);
+  const center = box.getCenter(new THREE.Vector3());
+  model.scale.setScalar(scale);
+  model.position.copy(center).multiplyScalar(-scale);
   model.updateMatrixWorld(true);
 }
 
