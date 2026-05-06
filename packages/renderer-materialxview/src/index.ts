@@ -199,6 +199,8 @@ class MaterialXViewRenderer implements FidelityRenderer {
       'false',
       '--shadowMap',
       'false',
+      '--shadows',
+      'false',
       '--captureFilename',
       options.outputPngPath,
     ];
