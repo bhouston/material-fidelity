@@ -177,7 +177,7 @@ function RenderReportErrorState({ error }: { error: Error }) {
 export function RenderReportDialog({ report, onClose }: RenderReportDialogProps) {
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0">
+      <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto p-0 sm:max-w-6xl">
         <DialogHeader className="sticky top-0 z-10 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
           <DialogTitle>Render report</DialogTitle>
           <DialogDescription>

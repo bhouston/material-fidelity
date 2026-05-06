@@ -80,7 +80,7 @@ function MaterialSourceErrorState({ error }: { error: Error }) {
 export function MaterialSourceDialog({ material, onClose }: MaterialSourceDialogProps) {
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-0">
+      <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto p-0 sm:max-w-6xl">
         <DialogHeader className="sticky top-0 z-10 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
           <DialogTitle>Material source</DialogTitle>
           <DialogDescription>{material.materialName}</DialogDescription>
