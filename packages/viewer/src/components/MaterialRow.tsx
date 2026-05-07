@@ -15,6 +15,7 @@ interface MaterialRowProps {
   rendererGroups: RendererCategoryGroupViewModel[];
   onTrackMaterialAction: (action: 'download_mtlx' | 'open_live_viewer', material: MaterialViewModel) => void;
   onInspectMaterial: (material: { materialName: string; materialSourceUrl: string }) => void;
+  onOpenImagePreview: (image: { altText: string; imageUrl: string; materialName: string; rendererName: string }) => void;
   onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
@@ -23,6 +24,7 @@ export function MaterialRow({
   rendererGroups,
   onTrackMaterialAction,
   onInspectMaterial,
+  onOpenImagePreview,
   onOpenReport,
 }: MaterialRowProps) {
   const materialId = toAnchorId(material.id);
@@ -111,6 +113,7 @@ export function MaterialRow({
                 <MaterialCell
                   key={rendererName}
                   material={material}
+                  onOpenImagePreview={onOpenImagePreview}
                   onOpenReport={onOpenReport}
                   rendererName={rendererName}
                   shouldRenderContent={shouldRenderContent}

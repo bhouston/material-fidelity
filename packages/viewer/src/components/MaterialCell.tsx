@@ -6,6 +6,7 @@ interface MaterialCellProps {
   material: MaterialViewModel;
   rendererName: string;
   shouldRenderContent: boolean;
+  onOpenImagePreview: (image: { altText: string; imageUrl: string; materialName: string; rendererName: string }) => void;
   onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
@@ -87,7 +88,13 @@ function getReportButtonClassName(summary: MaterialViewModel['reportSummaries'][
   return 'border-border bg-background/85 text-foreground hover:bg-background';
 }
 
-export function MaterialCell({ material, rendererName, shouldRenderContent, onOpenReport }: MaterialCellProps) {
+export function MaterialCell({
+  material,
+  rendererName,
+  shouldRenderContent,
+  onOpenImagePreview,
+  onOpenReport,
+}: MaterialCellProps) {
   if (!shouldRenderContent) {
     return (
       <figure className="flex w-[170px] flex-none flex-col gap-2 p-1.5 sm:w-[200px]">
@@ -106,6 +113,7 @@ export function MaterialCell({ material, rendererName, shouldRenderContent, onOp
   const reportSummary = material.reportSummaries[rendererName] ?? null;
   const metrics = material.metrics[rendererName] ?? null;
   const psnrSeverity = getPsnrSeverity(metrics?.psnr ?? null);
+  const imageAltText = `${material.name} rendered by ${rendererName}`;
 
   return (
     <figure
@@ -113,12 +121,26 @@ export function MaterialCell({ material, rendererName, shouldRenderContent, onOp
     >
       <div className="relative">
         {imageUrl ? (
-          <img
-            alt={`${material.name} rendered by ${rendererName}`}
-            className="aspect-square w-full border border-border object-cover"
-            loading="lazy"
-            src={imageUrl}
-          />
+          <button
+            aria-label={`Zoom ${imageAltText}`}
+            className="block w-full cursor-zoom-in"
+            onClick={() =>
+              onOpenImagePreview({
+                altText: imageAltText,
+                imageUrl,
+                materialName: material.displayPath,
+                rendererName,
+              })
+            }
+            type="button"
+          >
+            <img
+              alt={imageAltText}
+              className="aspect-square w-full border border-border object-cover"
+              loading="lazy"
+              src={imageUrl}
+            />
+          </button>
         ) : (
           <div
             className="flex aspect-square w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground"

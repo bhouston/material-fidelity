@@ -4,10 +4,12 @@ import { Info } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useGoogleAnalytics } from 'tanstack-router-ga4';
 import Header from '#/components/Header';
+import { ImagePreviewDialog } from '#/components/ImagePreviewDialog';
 import { MaterialRow } from '#/components/MaterialRow';
 import { MaterialSourceDialog } from '#/components/MaterialSourceDialog';
 import { RenderReportDialog } from '#/components/RenderReportDialog';
 import { resolveSelectedRenderers, toRendererSearchValue } from '#/components/SelectRenderersDialog';
+import type { ActiveImagePreviewState } from '#/components/ImagePreviewDialog';
 import type { ActiveMaterialSourceState } from '#/components/MaterialSourceDialog';
 import type { ActiveReportState } from '#/components/RenderReportDialog';
 import { getViewerIndexData } from '#/lib/material-index';
@@ -119,6 +121,7 @@ function App() {
   );
   const shownMaterialCount = filteredGroups.reduce((total, group) => total + group.materials.length, 0);
   const totalMaterialCount = data.groups.reduce((total, group) => total + group.materials.length, 0);
+  const [activeImagePreview, setActiveImagePreview] = useState<ActiveImagePreviewState | null>(null);
 
   useEffect(() => {
     setMaterialFilterInput(search.materials ?? '');
@@ -337,6 +340,7 @@ function App() {
                 key={material.id}
                 material={material}
                 onInspectMaterial={setActiveMaterialSource}
+                onOpenImagePreview={setActiveImagePreview}
                 onOpenReport={setActiveReport}
                 onTrackMaterialAction={trackMaterialAction}
                 rendererGroups={visibleRendererGroups}
@@ -351,6 +355,9 @@ function App() {
 
         {activeMaterialSource ? (
           <MaterialSourceDialog material={activeMaterialSource} onClose={() => setActiveMaterialSource(null)} />
+        ) : null}
+        {activeImagePreview ? (
+          <ImagePreviewDialog image={activeImagePreview} onClose={() => setActiveImagePreview(null)} />
         ) : null}
         {activeReport ? <RenderReportDialog report={activeReport} onClose={() => setActiveReport(null)} /> : null}
       </main>
