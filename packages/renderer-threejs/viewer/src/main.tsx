@@ -164,6 +164,20 @@ function disposeObject3DResources(root: THREE.Object3D): void {
   }
 }
 
+function replicatePrimaryUvToSecondaryUv(model: THREE.Object3D): void {
+  model.traverse((node: THREE.Object3D) => {
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.geometry) {
+      return;
+    }
+
+    const primaryUv = mesh.geometry.getAttribute('uv');
+    if (primaryUv && !mesh.geometry.getAttribute('uv1')) {
+      mesh.geometry.setAttribute('uv1', primaryUv.clone());
+    }
+  });
+}
+
 function recenterAndNormalizeModel(model: THREE.Object3D): void {
   // First, bake the GLTF node hierarchy into the geometry to match MaterialXView's "Object Space"
   model.updateMatrixWorld(true);
@@ -269,6 +283,7 @@ async function buildScene(): Promise<void> {
   const gltfLoader = new GLTFLoader();
   const gltf = await gltfLoader.loadAsync(query.modelPath);
   modelForCleanup = gltf.scene;
+  replicatePrimaryUvToSecondaryUv(gltf.scene);
   recenterAndNormalizeModel(gltf.scene);
   scene.add(gltf.scene);
 
