@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { XMLParser } from 'fast-xml-parser';
-import { FileLoader } from '../../../third_party/three.js/build/three.webgpu.js';
+import {
+  ClampToEdgeWrapping,
+  FileLoader,
+  MirroredRepeatWrapping,
+  RepeatWrapping,
+} from '../../../third_party/three.js/build/three.webgpu.js';
 import { MaterialXLoader } from '../../../third_party/three.js/examples/jsm/loaders/MaterialXLoader.js';
 import { createArchiveResolver } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXArchive.js';
 import { MaterialXDocument } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXDocument.js';
@@ -183,6 +188,37 @@ describe('vendored three.js MaterialX translator contracts', () => {
     expect(() => loader.parseBuffer('<materialx version="1.38" />', 'material.mtlx', { uvSpace: 'upper-left' })).toThrow(
       /Unsupported MaterialX uvSpace/,
     );
+  });
+
+  it('maps image address modes to texture wrapping per axis', () => {
+    const document = new MaterialXDocument({ getHandler: () => null }, '', new MaterialXIssueCollector({}));
+    document.textureLoader.load = vi.fn();
+    document.parseNode(
+      createDomLikeDocument(`
+<materialx version="1.38">
+  <nodegraph name="graph">
+    <image name="image1" type="color3">
+      <input name="file" type="filename" value="textures/checker.png" />
+      <input name="uaddressmode" type="string" value="clamp" />
+      <input name="vaddressmode" type="string" value="mirror" />
+    </image>
+    <image name="image2" type="color3">
+      <input name="file" type="filename" value="textures/checker.png" />
+      <input name="uaddressmode" type="string" value="periodic" />
+      <input name="vaddressmode" type="string" value="constant" />
+    </image>
+  </nodegraph>
+</materialx>`).documentElement,
+    );
+
+    const firstTexture = document.getMaterialXNode('materialx/graph/image1/file').getTexture();
+    const secondTexture = document.getMaterialXNode('materialx/graph/image2/file').getTexture();
+
+    expect(firstTexture.wrapS).toBe(ClampToEdgeWrapping);
+    expect(firstTexture.wrapT).toBe(MirroredRepeatWrapping);
+    expect(secondTexture.wrapS).toBe(RepeatWrapping);
+    expect(secondTexture.wrapT).toBe(ClampToEdgeWrapping);
+    expect(secondTexture).not.toBe(firstTexture);
   });
 
   it('supports loadAsync options and propagates load errors', async () => {
