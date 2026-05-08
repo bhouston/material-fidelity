@@ -254,7 +254,7 @@ describe('createReferences', () => {
     const viewerDir = path.join(samplesRoot, 'viewer');
     const renderer = createPngWriterRenderer(NON_BLACK_PIXEL_PNG_BASE64, 'fake');
     const skippedRenderer = createFailingPrerequisiteRenderer('alt');
-    renderer.generateImage = vi.fn(renderer.generateImage);
+    renderer.generateImage = vi.fn<FidelityRenderer['generateImage']>(renderer.generateImage);
 
     await mkdir(existingDir, { recursive: true });
     await mkdir(missingDir, { recursive: true });
@@ -1043,7 +1043,9 @@ export function createAdapter() {
       concurrency: 1,
     });
 
-    const report = parseRenderReport(JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown);
+    const report = parseRenderReport(
+      JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown,
+    );
     if (report.status === 'validation_failed') {
       throw new Error('Expected render result report.');
     }
@@ -1087,7 +1089,9 @@ export function createAdapter() {
       { level: 'error', source: 'renderer', message: 'shader compile failed' },
     ]);
 
-    const report = parseRenderReport(JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown);
+    const report = parseRenderReport(
+      JSON.parse(await readFile(path.join(materialDir, 'fake.json'), 'utf8')) as unknown,
+    );
     if (report.status === 'validation_failed') {
       throw new Error('Expected render result report.');
     }

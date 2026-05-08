@@ -1,4 +1,4 @@
-import { createElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 import { Box, Text } from 'ink';
 
 export const MAX_PROGRESS_LOG_LINES = 20;
@@ -85,7 +85,7 @@ export function ProgressDisplay({
   etaText,
   footerTone = 'gray',
   footerSuffix,
-}: ProgressDisplayProps) {
+}: ProgressDisplayProps): ReactElement {
   const footer = `Elapsed: ${elapsedText} | ETA: ${etaText}${footerSuffix ? ` | ${footerSuffix}` : ''}`;
 
   return createElement(

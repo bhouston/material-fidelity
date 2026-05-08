@@ -2,7 +2,12 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { Component, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { createServerFn, useServerFn } from '@tanstack/react-start';
-import { parseRenderReport, type RenderReport, type RenderReportError, type RenderReportIssue } from '@material-fidelity/samples';
+import {
+  parseRenderReport,
+  type RenderReport,
+  type RenderReportError,
+  type RenderReportIssue,
+} from '@material-fidelity/samples';
 import { RenderLogViewer } from '#/components/RenderLogViewer';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '#/components/ui/dialog';
 

@@ -197,9 +197,9 @@ describe('vendored three.js MaterialX translator contracts', () => {
     );
 
     const loader = new MaterialXLoader();
-    expect(() => loader.parseBuffer('<materialx version="1.38" />', 'material.mtlx', { uvSpace: 'upper-left' })).toThrow(
-      /Unsupported MaterialX uvSpace/,
-    );
+    expect(() =>
+      loader.parseBuffer('<materialx version="1.38" />', 'material.mtlx', { uvSpace: 'upper-left' }),
+    ).toThrow(/Unsupported MaterialX uvSpace/);
   });
 
   it('maps image address modes to texture wrapping per axis', () => {
@@ -277,10 +277,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
 
   it('parses artistic_ior helper nodes without surfacing issues', () => {
     const loader = new MaterialXLoader();
-    const result = loader.parseBuffer(
-      readNodeSample('artistic_ior'),
-      'artistic_ior.mtlx',
-    );
+    const result = loader.parseBuffer(readNodeSample('artistic_ior'), 'artistic_ior.mtlx');
 
     expect(Object.keys(result.materials ?? {})).toEqual(['M_artistic_ior']);
     expect(result.report.issues).toEqual([]);
@@ -346,7 +343,9 @@ describe('vendored three.js MaterialX translator contracts', () => {
 
     const warnLoader = new MaterialXLoader();
     const warnResult = warnLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', { materialName: 'mat_missing' });
-    expect(warnResult.report.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'missing-material' })]));
+    expect(warnResult.report.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'missing-material' })]),
+    );
 
     const strictAllLoader = new MaterialXLoader();
     expect(() =>

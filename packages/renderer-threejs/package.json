@@ -2,6 +2,13 @@
   "name": "@material-fidelity/renderer-threejs",
   "version": "0.1.0",
   "source": "./src/index.ts",
+  "files": [
+    "dist",
+    "viewer"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,13 +19,6 @@
       "import": "./dist/loader/index.js"
     }
   },
-  "files": [
-    "dist",
-    "viewer"
-  ],
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "tsc": "tsgo",
     "tsgo": "tsgo",

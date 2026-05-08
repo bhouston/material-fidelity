@@ -61,10 +61,7 @@ export const getMeta = (options: MetadataOptions): MetadataItem[] => {
   const ogType = options.ogType ?? 'website';
   const description = options.description ?? import.meta.env.VITE_SITE_DESCRIPTION;
 
-  const canonicalUrl =
-    options.canonicalUrl ??
-    options.ogUrl ??
-    (baseUrl ? `${trimTrailingSlash(baseUrl)}/` : '');
+  const canonicalUrl = options.canonicalUrl ?? options.ogUrl ?? (baseUrl ? `${trimTrailingSlash(baseUrl)}/` : '');
 
   const ogUrl = options.ogUrl ?? canonicalUrl;
 
@@ -115,10 +112,7 @@ export const getMeta = (options: MetadataOptions): MetadataItem[] => {
 export const getHead = (options: HeadOptions) => {
   const baseUrl = trimTrailingSlash(import.meta.env.VITE_BASE_URL);
 
-  const canonicalUrl =
-    options.canonicalUrl ??
-    options.ogUrl ??
-    (baseUrl ? `${trimTrailingSlash(baseUrl)}/` : '');
+  const canonicalUrl = options.canonicalUrl ?? options.ogUrl ?? (baseUrl ? `${trimTrailingSlash(baseUrl)}/` : '');
 
   const meta = getMeta(options);
 

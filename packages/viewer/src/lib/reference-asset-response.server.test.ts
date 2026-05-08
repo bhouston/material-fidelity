@@ -16,9 +16,14 @@ describe('referenceAssetGetResponse', () => {
   it('uses immutable cache-control for opted-in production assets', () => {
     process.env.NODE_ENV = 'production';
 
-    const response = referenceAssetGetResponse(new Request('https://example.com/image.png'), Buffer.from('image'), 'image/png', {
-      immutable: true,
-    });
+    const response = referenceAssetGetResponse(
+      new Request('https://example.com/image.png'),
+      Buffer.from('image'),
+      'image/png',
+      {
+        immutable: true,
+      },
+    );
 
     expect(response.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
   });

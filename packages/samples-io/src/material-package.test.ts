@@ -44,7 +44,9 @@ describe('createMaterialPackage', () => {
     expect(pack.suggestedBasename).toBe('sample_mat');
 
     const zip = await JSZip.loadAsync(pack.bytes);
-    const names = Object.keys(zip.files).filter((key) => !zip.files[key]?.dir).toSorted();
+    const names = Object.keys(zip.files)
+      .filter((key) => !zip.files[key]?.dir)
+      .toSorted();
     expect(names[0]).toBe('sample_mat.mtlx');
     expect(names.includes('textures/diffuse.png')).toBe(true);
 

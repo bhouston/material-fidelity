@@ -19,10 +19,10 @@
   },
   "dependencies": {
     "@material-fidelity/core": "workspace:*",
-    "@material-fidelity/samples": "workspace:*",
     "@material-fidelity/renderer-blender": "workspace:*",
     "@material-fidelity/renderer-materialxview": "workspace:*",
     "@material-fidelity/renderer-threejs": "workspace:*",
+    "@material-fidelity/samples": "workspace:*",
     "humanize-units": "^2.0.4",
     "ink": "^7.0.1",
     "react": "^19.2.5",

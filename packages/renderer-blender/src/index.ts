@@ -87,8 +87,7 @@ const BLENDER_NODES_RENDERER_OPTIONS: BlenderRendererOptions = {
   minimumBlenderVersion: { major: 4, minor: 0, patch: 0 },
   requiredThirdPartyFiles: BLENDER_MATERIALX_IMPORTER_REQUIRED_FILES,
   executableCandidates: createBlenderNodesExecutableCandidates,
-  executableNotFoundMessage: (candidates) =>
-    createBlenderNodesExecutableNotFoundMessage('blender-nodes', candidates),
+  executableNotFoundMessage: (candidates) => createBlenderNodesExecutableNotFoundMessage('blender-nodes', candidates),
   runtimePythonExpression: () => createMxCustomNodeProbeExpression(),
 };
 
@@ -182,7 +181,11 @@ function resolveExecutable(options?: BlenderRendererOptions, packageRoot?: strin
   const configuredExecutable = process.env[BLENDER_EXECUTABLE_ENV]?.trim();
   const discoveredExecutables = discoverMacOSBlenderExecutables();
   const defaultCandidates = options?.executableCandidates?.(packageRoot ?? '') ?? ['blender', ...discoveredExecutables];
-  const candidates = options?.executableCandidates ? defaultCandidates : configuredExecutable ? [configuredExecutable, ...defaultCandidates] : defaultCandidates;
+  const candidates = options?.executableCandidates
+    ? defaultCandidates
+    : configuredExecutable
+      ? [configuredExecutable, ...defaultCandidates]
+      : defaultCandidates;
   const match = candidates.find((candidate) => commandExists(candidate));
   if (!match) {
     if (options?.executableNotFoundMessage) {
@@ -284,7 +287,9 @@ function parseRendererJsonEvent(message: string): Record<string, unknown> | unde
   }
   try {
     const parsed = JSON.parse(message);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : undefined;
   } catch {
     return undefined;
   }
@@ -443,11 +448,7 @@ function checkBlenderRuntime(
   return { success: true };
 }
 
-function execute(
-  executable: string,
-  args: string[],
-  activeProcesses: Set<ChildProcess>,
-): Promise<RenderLogEntry[]> {
+function execute(executable: string, args: string[], activeProcesses: Set<ChildProcess>): Promise<RenderLogEntry[]> {
   return new Promise((resolve, reject) => {
     const processHandle = spawn(executable, args, {
       detached: process.platform !== 'win32',

@@ -75,7 +75,9 @@ describe('calculateImageSimilarityMetrics', () => {
     await writeFile(referencePath, createSolidPngBuffer(0, 0, 0, 1, 1));
     await writeFile(sourcePath, createSolidPngBuffer(0, 0, 0, 2, 1));
 
-    await expect(calculateImageSimilarityMetrics(sourcePath, referencePath)).rejects.toThrow('Image dimensions mismatch');
+    await expect(calculateImageSimilarityMetrics(sourcePath, referencePath)).rejects.toThrow(
+      'Image dimensions mismatch',
+    );
   });
 });
 

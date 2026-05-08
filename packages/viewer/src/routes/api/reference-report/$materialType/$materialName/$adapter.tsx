@@ -9,7 +9,11 @@ export const Route = createFileRoute('/api/reference-report/$materialType/$mater
     handlers: {
       GET: async ({ params, request }) => {
         const roots = resolveSampleRoots();
-        const materialDirectory = await resolveMaterialDirectory(roots.materialsRoot, params.materialType, params.materialName);
+        const materialDirectory = await resolveMaterialDirectory(
+          roots.materialsRoot,
+          params.materialType,
+          params.materialName,
+        );
         if (!materialDirectory) {
           return new Response('Not found', { status: 404 });
         }

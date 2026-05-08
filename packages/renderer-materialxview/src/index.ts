@@ -73,7 +73,10 @@ function inferMaterialXSearchPath(executable: string): string | undefined {
 }
 
 function localMaterialXSourcePath(): string | undefined {
-  if (existsSync(join(LOCAL_MATERIALX_SOURCE_ROOT, 'libraries')) && existsSync(join(LOCAL_MATERIALX_SOURCE_ROOT, 'resources'))) {
+  if (
+    existsSync(join(LOCAL_MATERIALX_SOURCE_ROOT, 'libraries')) &&
+    existsSync(join(LOCAL_MATERIALX_SOURCE_ROOT, 'resources'))
+  ) {
     return LOCAL_MATERIALX_SOURCE_ROOT;
   }
   return undefined;
@@ -227,7 +230,7 @@ class MaterialXViewRenderer implements FidelityRenderer {
     ];
 
     if (this.options.supportsShadowsOption) {
-   //   args.push('--shadows', 'false');
+      //   args.push('--shadows', 'false');
     }
 
     const searchPaths = uniqueSearchPaths([

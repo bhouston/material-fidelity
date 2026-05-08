@@ -308,7 +308,10 @@ describe('blender renderer', () => {
     );
     expect(renderArgs).not.toContain('--model-path');
     expect(renderArgs).not.toContain('--environment-hdr-path');
-    expect(result.logs.map((entry: { message: string }) => entry.message)).toEqual(['render started', 'render finished']);
+    expect(result.logs.map((entry: { message: string }) => entry.message)).toEqual([
+      'render started',
+      'render finished',
+    ]);
   });
 
   it('passes Eevee render engine options for the blender-eevee-nodes renderer', async () => {

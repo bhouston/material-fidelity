@@ -56,10 +56,7 @@ export function resolveSelectedRenderers(rendererFilter: string | undefined, ava
   return availableRenderers.filter((rendererName) => normalizedFilterSet.has(rendererName));
 }
 
-export function toRendererSearchValue(
-  selectedRenderers: string[],
-  availableRenderers: string[],
-): string | undefined {
+export function toRendererSearchValue(selectedRenderers: string[], availableRenderers: string[]): string | undefined {
   if (selectedRenderers.length === 0) {
     return NO_RENDERERS_SEARCH_VALUE;
   }
@@ -122,10 +119,7 @@ export function SelectRenderersDialog({
         </button>
       </DialogTrigger>
 
-      <DialogContent
-        className="top-20 max-w-md translate-y-0 p-0"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
+      <DialogContent className="top-20 max-w-md translate-y-0 p-0" onOpenAutoFocus={(event) => event.preventDefault()}>
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>Renderer Filter</DialogTitle>
           <DialogDescription>Choose which renderer columns are shown in the comparison grid.</DialogDescription>

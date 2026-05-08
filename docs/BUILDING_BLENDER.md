@@ -19,7 +19,7 @@ You can still override this with `BLENDER_NODES_EXECUTABLE`.
 
 CMake expects `third_party/blender/lib/macos_arm64` (see Blender’s build handbook). Populate it either:
 
-- run `make update` from `third_party/blender` (downloads the official precompiled libs), or  
+- run `make update` from `third_party/blender` (downloads the official precompiled libs), or
 - point `third_party/blender/lib/macos_arm64` at another checkout that already has those libs (symlink is fine for local use).
 
 ## Xcode Environment

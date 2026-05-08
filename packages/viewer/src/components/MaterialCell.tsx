@@ -6,7 +6,12 @@ interface MaterialCellProps {
   material: MaterialViewModel;
   rendererName: string;
   shouldRenderContent: boolean;
-  onOpenImagePreview: (image: { altText: string; imageUrl: string; materialName: string; rendererName: string }) => void;
+  onOpenImagePreview: (image: {
+    altText: string;
+    imageUrl: string;
+    materialName: string;
+    rendererName: string;
+  }) => void;
   onOpenReport: (report: { materialName: string; rendererName: string; reportUrl: string }) => void;
 }
 
@@ -142,9 +147,7 @@ export function MaterialCell({
             />
           </button>
         ) : (
-          <div
-            className="flex aspect-square w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
+          <div className="flex aspect-square w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             missing
           </div>
         )}

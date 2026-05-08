@@ -121,8 +121,7 @@ function rewriteQuotedPaths(xml: string, replacementMap: Map<string, string>): s
   return xml.replace(QUOTED_VALUE_REGEX, (fullMatch, inner: string) => {
     const trimmed = inner.trim();
     const withoutQuery = trimmed.split('#')[0]?.split('?')[0] ?? trimmed;
-    const replacement =
-      replacementMap.get(trimmed) ?? replacementMap.get(withoutQuery) ?? replacementMap.get(inner);
+    const replacement = replacementMap.get(trimmed) ?? replacementMap.get(withoutQuery) ?? replacementMap.get(inner);
     if (replacement === undefined) {
       return fullMatch;
     }

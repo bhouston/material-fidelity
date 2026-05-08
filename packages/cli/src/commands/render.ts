@@ -22,12 +22,7 @@ import {
 import { humanizeTime } from 'humanize-units';
 import { defineCommand } from 'yargs-file-commands';
 import { resolveRendererNames } from '../renderer-selectors.js';
-import {
-  ProgressDisplay,
-  appendProgressLogLine,
-  upsertProgressLogLine,
-  type ProgressLogLine,
-} from '../progress-ui.js';
+import { ProgressDisplay, appendProgressLogLine, upsertProgressLogLine, type ProgressLogLine } from '../progress-ui.js';
 
 function inferRepoRoot(invocationCwd: string): string {
   if (path.basename(invocationCwd) === 'cli' && path.basename(path.dirname(invocationCwd)) === 'packages') {
@@ -242,8 +237,7 @@ export const command = defineCommand({
     yargs
       .option('renderers', {
         type: 'array',
-        describe:
-          'Renderer selectors to use. Supports repeated values, comma-separated lists, and substring matches.',
+        describe: 'Renderer selectors to use. Supports repeated values, comma-separated lists, and substring matches.',
       })
       .option('concurrency', {
         type: 'number',

@@ -20,12 +20,7 @@ import {
   type PreflightIssue,
   type PreflightResult,
 } from './material-validation.js';
-import type {
-  CreateReferencesOptions,
-  CreateReferencesResult,
-  FidelityRenderer,
-  RenderFailure,
-} from './types.js';
+import type { CreateReferencesOptions, CreateReferencesResult, FidelityRenderer, RenderFailure } from './types.js';
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
@@ -88,9 +83,7 @@ function readRendererLogs(value: unknown): RenderLogEntry[] {
     return [];
   }
   return filterReportableLogs(
-    candidate.rendererLogs.filter(
-      (entry): entry is RenderLogEntry => RenderLogEntrySchema.safeParse(entry).success,
-    ),
+    candidate.rendererLogs.filter((entry): entry is RenderLogEntry => RenderLogEntrySchema.safeParse(entry).success),
   );
 }
 

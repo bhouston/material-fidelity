@@ -7,11 +7,7 @@ import {
   type RendererCategory,
   type RendererDescriptor,
 } from '@material-fidelity/samples';
-import {
-  MaterialSamples,
-  pathExists,
-  resolveSampleRoots,
-} from '@material-fidelity/samples-io';
+import { MaterialSamples, pathExists, resolveSampleRoots } from '@material-fidelity/samples-io';
 import { contentHashFromBytes } from './reference-asset-response.server.ts';
 
 const MATERIAL_SOURCE_BASE_URL = 'https://github.com/bhouston/material-samples/tree/main/materials';
@@ -70,7 +66,12 @@ async function imageContentHash(filePath: string | undefined): Promise<string | 
   return contentHashFromBytes(await readFile(filePath));
 }
 
-function toReferenceImageUrl(materialType: string, materialName: string, rendererName: string, imageHash: string | null): string {
+function toReferenceImageUrl(
+  materialType: string,
+  materialName: string,
+  rendererName: string,
+  imageHash: string | null,
+): string {
   const url = `/api/reference-image/${encodeURIComponent(materialType)}/${encodeURIComponent(materialName)}/${encodeURIComponent(rendererName)}`;
   if (!imageHash || !shouldHashImageUrls()) {
     return url;

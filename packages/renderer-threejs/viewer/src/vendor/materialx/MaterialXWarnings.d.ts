@@ -3,7 +3,11 @@ export const ISSUE_POLICIES: Record<string, string>;
 export function normalizeIssuePolicy(policy: string): string;
 
 export class MaterialXIssueCollector {
-  constructor(options?: { issuePolicy?: string; unsupportedPolicy?: string; onWarning?: ((issue: unknown) => void) | null });
+  constructor(options?: {
+    issuePolicy?: string;
+    unsupportedPolicy?: string;
+    onWarning?: ((issue: unknown) => void) | null;
+  });
   issues: unknown[];
   addIssue(issue: unknown): void;
   addUnsupportedNode(category: string, nodeName?: string): void;
