@@ -56,11 +56,18 @@ jobs:
 
       - name: Checkout viewer third_party submodules
         if: ${{ inputs.third_party_submodules == 'viewer' }}
-        run: >-
-          git submodule update --init --depth 1
-          third_party/material-samples
-          third_party/material-viewer
-          third_party/three.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          # Agents have no SSH key — map git@github.com to HTTPS; authenticate HTTPS with the job token (needed for private forks).
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git submodule sync -- third_party/material-samples third_party/material-viewer third_party/three.js
+          git submodule update --init --depth 1 \
+            third_party/material-samples \
+            third_party/material-viewer \
+            third_party/three.js
 
       - name: Google Auth
         id: auth

@@ -12,7 +12,7 @@
 	url = git@github.com:bhouston/blender-materialx-importer.git
 [submodule "third_party/three.js"]
 	path = third_party/three.js
-	url = git@github.com:bhouston/three.js
+	url = https://github.com/bhouston/three.js.git
 	branch = materialx-upgrade
 [submodule "third_party/blender"]
 	path = third_party/blender
