@@ -296,6 +296,17 @@ describe('vendored three.js MaterialX translator contracts', () => {
     expect(result.report.issues).toEqual([]);
   });
 
+  it('parses switch node samples without surfacing unsupported-node issues', () => {
+    const loader = new MaterialXLoader();
+    const switchSamples = ['switch', 'switch_float_floor_clamp', 'switch_integer_zero_based'];
+
+    for (const sample of switchSamples) {
+      const result = loader.parseBuffer(readNodeSample(sample), `${sample}.mtlx`);
+      expect(Object.keys(result.materials ?? {})).toEqual([`M_${sample}`]);
+      expect(result.report.issues).toEqual([]);
+    }
+  });
+
   it('applies strictness policies to unsupported nodes and missing references in real parse flow', () => {
     const unsupportedSurfaceMtlx = `<?xml version="1.0"?>
 <materialx version="1.38">
