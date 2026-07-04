@@ -38,6 +38,16 @@ async function createFile(filePath: string): Promise<void> {
   await writeFile(filePath, 'x', 'utf8');
 }
 
+async function createRequiredThreeJsFiles(thirdPartyRoot: string): Promise<void> {
+  const threeRoot = path.join(thirdPartyRoot, 'three.js');
+  await Promise.all([
+    createFile(path.join(threeRoot, 'build', 'three.module.js')),
+    createFile(path.join(threeRoot, 'build', 'three.webgpu.js')),
+    createFile(path.join(threeRoot, 'build', 'three.tsl.js')),
+    createFile(path.join(threeRoot, 'examples', 'jsm', 'loaders', 'MaterialXLoader.js')),
+  ]);
+}
+
 function hasDisposeEvaluation(page: { evaluate: { mock: { calls: unknown[][] } } }): boolean {
   const calls = page.evaluate.mock.calls;
   return calls.some((call) => String(call[0]).includes('__MTLX_DISPOSE_SCENE__'));
@@ -59,6 +69,7 @@ describe('threejs renderer', () => {
     const viewerRoot = path.join(samplesRoot, 'viewer');
     await createFile(path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'));
     await createFile(path.join(viewerRoot, 'ShaderBall.glb'));
+    await createRequiredThreeJsFiles(thirdPartyRoot);
 
     const server = {
       listen: vi.fn<() => Promise<void>>(async () => undefined),
@@ -141,5 +152,96 @@ describe('threejs renderer', () => {
     expect(probeBrowser.close).toHaveBeenCalledTimes(1);
     expect(browser.close).toHaveBeenCalledTimes(1);
     expect(server.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns MaterialX warning and error logs from the capture page', async () => {
+    const thirdPartyRoot = await makeTempDir('third-party-');
+    const samplesRoot = path.join(thirdPartyRoot, 'material-samples');
+    const viewerRoot = path.join(samplesRoot, 'viewer');
+    await createFile(path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'));
+    await createFile(path.join(viewerRoot, 'ShaderBall.glb'));
+    await createRequiredThreeJsFiles(thirdPartyRoot);
+
+    const server = {
+      listen: vi.fn<() => Promise<void>>(async () => undefined),
+      close: vi.fn<() => Promise<void>>(async () => undefined),
+      resolvedUrls: { local: ['http://127.0.0.1:4173/'], network: [] },
+    };
+    createServerMock.mockResolvedValue(server);
+
+    const page = {
+      setViewportSize: vi.fn<() => Promise<void>>(async () => undefined),
+      goto: vi.fn<() => Promise<void>>(async () => undefined),
+      waitForFunction: vi.fn<() => Promise<void>>(async () => undefined),
+      evaluate: vi.fn<AsyncUnknownFn>(async (callback?: unknown) => {
+        const source = String(callback);
+        if (source.includes('__MTLX_MATERIALX_LOG__')) {
+          return [
+            {
+              code: 'ignored-surface-input',
+              severity: 'warning',
+              message: 'Input was ignored.',
+              nodeName: 'base',
+            },
+            {
+              code: 'missing-reference',
+              severity: 'error',
+              message: 'Missing referenced node.',
+            },
+          ];
+        }
+        return undefined;
+      }),
+      screenshot: vi.fn<() => Promise<void>>(async () => undefined),
+      close: vi.fn<() => Promise<void>>(async () => undefined),
+      on: vi.fn<() => void>(() => undefined),
+      off: vi.fn<() => void>(() => undefined),
+      route: vi.fn<() => Promise<void>>(async () => undefined),
+      waitForTimeout: vi.fn<() => Promise<void>>(async () => undefined),
+    };
+
+    const browserContext = {
+      newPage: vi.fn<() => Promise<typeof page>>(async () => page),
+      close: vi.fn<() => Promise<void>>(async () => undefined),
+    };
+    const probeBrowser = {
+      close: vi.fn<() => Promise<void>>(async () => undefined),
+    };
+    const browser = {
+      newContext: vi.fn<() => Promise<typeof browserContext>>(async () => browserContext),
+      close: vi.fn<() => Promise<void>>(async () => undefined),
+    };
+    launchMock.mockResolvedValueOnce(probeBrowser).mockResolvedValueOnce(browser);
+
+    const renderer = createRenderer({ thirdPartyRoot });
+    await renderer.start({
+      modelPath: path.join(viewerRoot, 'ShaderBall.glb'),
+      environmentHdrPath: path.join(viewerRoot, 'san_giuseppe_bridge_2k.hdr'),
+      backgroundColor: '0,0,0',
+    });
+
+    const materialPath = path.join(samplesRoot, 'materials', 'example', 'example.mtlx');
+    const outputPngPath = path.join(samplesRoot, 'materials', 'example', 'threejs-new.png');
+    await createFile(materialPath);
+
+    const result = await renderer.generateImage({
+      mtlxPath: materialPath,
+      outputPngPath,
+    });
+
+    expect(result.logs).toEqual([
+      {
+        level: 'warning',
+        source: 'renderer',
+        message: 'MaterialX warning: ignored-surface-input [base]: Input was ignored.',
+      },
+      {
+        level: 'error',
+        source: 'renderer',
+        message: 'MaterialX error: missing-reference: Missing referenced node.',
+      },
+    ]);
+
+    await renderer.shutdown();
   });
 });

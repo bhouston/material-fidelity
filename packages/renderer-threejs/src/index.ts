@@ -24,6 +24,12 @@ interface RuntimeState {
 }
 
 type MaterialXLoaderVariant = 'custom' | 'official';
+type MaterialXLogEntry = {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  nodeName?: string;
+};
 
 const VIEWER_HDR_FILENAME = 'san_giuseppe_bridge_2k.hdr';
 const VIEWER_MODEL_FILENAME = 'ShaderBall.glb';
@@ -67,6 +73,41 @@ function readGlobalError(page: Page): Promise<string | undefined> {
     const value = Reflect.get(globalThis, '__MTLX_CAPTURE_ERROR__');
     return typeof value === 'string' ? value : undefined;
   });
+}
+
+function isMaterialXLogEntry(candidate: unknown): candidate is MaterialXLogEntry {
+  if (!candidate || typeof candidate !== 'object') {
+    return false;
+  }
+
+  const value = candidate as Record<string, unknown>;
+  return (
+    typeof value.code === 'string' &&
+    (value.severity === 'error' || value.severity === 'warning') &&
+    typeof value.message === 'string' &&
+    (value.nodeName === undefined || typeof value.nodeName === 'string')
+  );
+}
+
+function formatMaterialXLogEntry(entry: MaterialXLogEntry): string {
+  const nodeName = entry.nodeName ? ` [${entry.nodeName}]` : '';
+  return `MaterialX ${entry.severity}: ${entry.code}${nodeName}: ${entry.message}`;
+}
+
+async function readMaterialXLogs(page: Page): Promise<RenderLogEntry[]> {
+  const entries = await page.evaluate(() => {
+    const value = Reflect.get(globalThis, '__MTLX_MATERIALX_LOG__');
+    return Array.isArray(value) ? value : [];
+  });
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.filter(isMaterialXLogEntry).map((entry) => ({
+    level: entry.severity,
+    source: 'renderer',
+    message: formatMaterialXLogEntry(entry),
+  }));
 }
 
 async function renderAdditionalFrames(page: Page, passes: number): Promise<void> {
@@ -272,6 +313,7 @@ class ThreeJsRenderer implements FidelityRenderer {
 
     const page = await this.runtimeState.context.newPage();
     const logs: RenderLogEntry[] = [];
+    let hasReadMaterialXLogs = false;
     let browserError: Error | undefined;
     let resolveBrowserError: (() => void) | undefined;
     const browserErrorSignal = new Promise<void>((resolve) => {
@@ -305,6 +347,13 @@ class ThreeJsRenderer implements FidelityRenderer {
     };
     page.on('console', onConsole);
     page.on('pageerror', onPageError);
+    const captureMaterialXLogs = async (): Promise<void> => {
+      if (hasReadMaterialXLogs) {
+        return;
+      }
+      hasReadMaterialXLogs = true;
+      logs.push(...(await readMaterialXLogs(page)));
+    };
     try {
       await page.route('**/favicon.ico', (route) => route.fulfill({ status: 204, body: '' }));
       await page.setViewportSize({
@@ -319,6 +368,22 @@ class ThreeJsRenderer implements FidelityRenderer {
       url.searchParams.set('environmentRotationDegrees', String(VIEWER_ENVIRONMENT_ROTATION_DEGREES));
       url.searchParams.set('backgroundColor', this.startOptions.backgroundColor);
       url.searchParams.set('materialXLoaderVariant', this.materialXLoaderVariant);
+      if (this.materialXLoaderVariant === 'custom') {
+        url.searchParams.set(
+          'interfaceValidatorPath',
+          toFsUrlPath(
+            join(
+              this.thirdPartyRoot,
+              'three.js',
+              'examples',
+              'jsm',
+              'loaders',
+              'materialx',
+              'MaterialXInterfaceValidation.js',
+            ),
+          ),
+        );
+      }
 
       await page.goto(url.toString(), { waitUntil: 'networkidle' });
       await Promise.race([
@@ -327,6 +392,7 @@ class ThreeJsRenderer implements FidelityRenderer {
         }),
         browserErrorSignal,
       ]);
+      await captureMaterialXLogs();
 
       const renderError = await readGlobalError(page);
       if (renderError) {
@@ -352,6 +418,7 @@ class ThreeJsRenderer implements FidelityRenderer {
       });
       return { logs };
     } catch (error) {
+      await captureMaterialXLogs().catch(() => undefined);
       if (error && typeof error === 'object' && 'rendererLogs' in error) {
         throw error;
       }

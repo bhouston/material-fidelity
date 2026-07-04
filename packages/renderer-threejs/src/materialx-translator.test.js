@@ -4,16 +4,19 @@ import { XMLParser } from 'fast-xml-parser';
 import {
   ClampToEdgeWrapping,
   FileLoader,
+  ImageBitmapLoader,
+  ImageLoader,
   MirroredRepeatWrapping,
   RepeatWrapping,
 } from '../../../third_party/three.js/build/three.webgpu.js';
 import { MaterialXLoader } from '../../../third_party/three.js/examples/jsm/loaders/MaterialXLoader.js';
+import { createStrictInterfaceValidator } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXInterfaceValidation.js';
 import { createArchiveResolver } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXArchive.js';
 import { MaterialXDocument } from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXDocument.js';
 import {
-  ISSUE_POLICIES,
-  MaterialXIssueCollector,
-} from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXWarnings.js';
+  MaterialXLogCodes,
+  MaterialXLog,
+} from '../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXLog.js';
 import { parseMaterialXNodeTree } from '../../../third_party/three.js/examples/jsm/loaders/materialx/parse/MaterialXParser.js';
 
 function createDomLikeNode(nodeName, nodeValue) {
@@ -69,8 +72,22 @@ function readMaterialSample(relativePath) {
   return readFileSync(new URL(`../../../${relativePath}`, import.meta.url), 'utf8');
 }
 
+function readThreeJsSample(name) {
+  return readMaterialSample(`third_party/material-samples/materials/threejs/${name}/${name}.mtlx`);
+}
+
+function errorCodes(result) {
+  return (result.errors ?? []).map((error) => error.code);
+}
+
+function errorMessages(result) {
+  return (result.errors ?? []).map((error) => error.message);
+}
+
 describe('vendored three.js MaterialX translator contracts', () => {
   const originalDOMParser = globalThis.DOMParser;
+  let imageLoaderLoadSpy;
+  let imageBitmapLoaderLoadSpy;
 
   beforeAll(() => {
     globalThis.DOMParser = class DOMParserMock {
@@ -78,10 +95,22 @@ describe('vendored three.js MaterialX translator contracts', () => {
         return createDomLikeDocument(text);
       }
     };
+    imageLoaderLoadSpy = vi.spyOn(ImageLoader.prototype, 'load').mockImplementation(function (_url, onLoad) {
+      onLoad?.({});
+      return this;
+    });
+    imageBitmapLoaderLoadSpy = vi
+      .spyOn(ImageBitmapLoader.prototype, 'load')
+      .mockImplementation(function (_url, onLoad) {
+        onLoad?.({});
+        return this;
+      });
   });
 
   afterAll(() => {
     globalThis.DOMParser = originalDOMParser;
+    imageLoaderLoadSpy?.mockRestore();
+    imageBitmapLoaderLoadSpy?.mockRestore();
   });
 
   it('parses xml-like tree into a typed tree shape', () => {
@@ -137,19 +166,30 @@ describe('vendored three.js MaterialX translator contracts', () => {
     expect(indexed.has('materialx/graph/albedo/file')).toBe(true);
   });
 
-  it('supports strict core issue policy for unsupported and invalid nodes', () => {
-    const collector = new MaterialXIssueCollector({ issuePolicy: ISSUE_POLICIES.ERROR_CORE });
-    collector.addUnsupportedNode('unknown_node', 'nodeA');
-    collector.addInvalidValue('nodeA', 'bad value');
-    expect(() => collector.throwIfNeeded()).toThrow(/translation failed in error-core mode/i);
+  it('collects MaterialX log errors via add', () => {
+    const log = new MaterialXLog();
+    log.add(
+      MaterialXLogCodes.UNSUPPORTED_NODE,
+      'Unsupported MaterialX node category "unknown_node" on "nodeA".',
+      'nodeA',
+    );
+    log.add(MaterialXLogCodes.INVALID_VALUE, 'bad value', 'nodeA');
+    expect(log.errors).toHaveLength(2);
   });
 
-  it('keeps warn policy non-throwing for translator issues', () => {
-    const collector = new MaterialXIssueCollector({ issuePolicy: ISSUE_POLICIES.WARN });
-    collector.addUnsupportedNode('unknown_node', 'nodeA');
-    collector.addMissingReference('nodeA', 'materialx/graph/missing');
-    collector.addInvalidValue('nodeA', 'bad value');
-    expect(() => collector.throwIfNeeded()).not.toThrow();
+  it('throws from MaterialXLoader when throwOnErrors is enabled', () => {
+    const unsupportedSurfaceMtlx = `<?xml version="1.0"?>
+<materialx version="1.38">
+  <future_surface name="future_surface_1" />
+  <surfacematerial name="mat_unsupported">
+    <input name="surfaceshader" nodename="future_surface_1" />
+  </surfacematerial>
+</materialx>`;
+
+    const loader = new MaterialXLoader();
+    expect(() => loader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx', { throwOnErrors: true })).toThrow(
+      /MaterialX translation failed with \d+ error\(s\)/,
+    );
   });
 
   it('keeps callback load API behavior intact', () => {
@@ -178,7 +218,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
   });
 
   it('configures MaterialX UV-space helpers from loader options', () => {
-    const defaultDocument = new MaterialXDocument(undefined, '', new MaterialXIssueCollector({}));
+    const defaultDocument = new MaterialXDocument(undefined, '', new MaterialXLog());
     const uvNode = {};
 
     expect(defaultDocument.uvSpace).toBe('bottom-left');
@@ -187,7 +227,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     expect(defaultDocument.compileContext.mxToUvSpace).toBeUndefined();
     expect(defaultDocument.compileContext.mxFromUvSpace).toBeUndefined();
 
-    const topLeftDocument = new MaterialXDocument(undefined, '', new MaterialXIssueCollector({}), null, 'top-left');
+    const topLeftDocument = new MaterialXDocument(undefined, '', new MaterialXLog(), null, 'top-left');
     expect(topLeftDocument.uvSpace).toBe('top-left');
     expect(topLeftDocument.compileContext.mxToBottomLeftUvSpace).not.toBe(
       defaultDocument.compileContext.mxToBottomLeftUvSpace,
@@ -203,7 +243,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
   });
 
   it('maps image address modes to texture wrapping per axis', () => {
-    const document = new MaterialXDocument({ getHandler: () => null }, '', new MaterialXIssueCollector({}));
+    const document = new MaterialXDocument({ getHandler: () => null }, '', new MaterialXLog());
     document.textureLoader.load = vi.fn();
     document.parseNode(
       createDomLikeDocument(`
@@ -223,8 +263,8 @@ describe('vendored three.js MaterialX translator contracts', () => {
 </materialx>`).documentElement,
     );
 
-    const firstTexture = document.getMaterialXNode('materialx/graph/image1/file').getTexture();
-    const secondTexture = document.getMaterialXNode('materialx/graph/image2/file').getTexture();
+    const firstTexture = document.getMaterialXNode('graph/image1/file').getTexture();
+    const secondTexture = document.getMaterialXNode('graph/image2/file').getTexture();
 
     expect(firstTexture.wrapS).toBe(ClampToEdgeWrapping);
     expect(firstTexture.wrapT).toBe(MirroredRepeatWrapping);
@@ -237,7 +277,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     const loader = new MaterialXLoader();
     const loadSpy = vi.spyOn(loader, 'load');
     const resolvedMaterial = { material: true };
-    const options = { issuePolicy: ISSUE_POLICIES.ERROR_CORE };
+    const options = { throwOnErrors: true };
     loadSpy.mockImplementationOnce((url, onLoad) => {
       onLoad(resolvedMaterial);
       return loader;
@@ -253,7 +293,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     await expect(loader.loadAsync('broken.mtlx')).rejects.toThrow('load failed');
   });
 
-  it('parses implicit boolean-to-float connections without surfacing issues', () => {
+  it('parses implicit boolean-to-float connections without surfacing strict validation issues', () => {
     const loader = new MaterialXLoader();
     const result = loader.parseBuffer(
       readNodeSample('convert_invalid_implicit_boolean_to_float'),
@@ -261,10 +301,10 @@ describe('vendored three.js MaterialX translator contracts', () => {
     );
 
     expect(Object.keys(result.materials ?? {})).toEqual(['M_convert_invalid_implicit_boolean_to_float']);
-    expect(result.report.issues).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 
-  it('parses implicit float-to-boolean connections without surfacing issues', () => {
+  it('parses implicit float-to-boolean connections without surfacing strict validation issues', () => {
     const loader = new MaterialXLoader();
     const result = loader.parseBuffer(
       readNodeSample('convert_invalid_implicit_float_to_boolean'),
@@ -272,7 +312,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     );
 
     expect(Object.keys(result.materials ?? {})).toEqual(['M_convert_invalid_implicit_float_to_boolean']);
-    expect(result.report.issues).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 
   it('parses artistic_ior helper nodes without surfacing issues', () => {
@@ -280,7 +320,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     const result = loader.parseBuffer(readNodeSample('artistic_ior'), 'artistic_ior.mtlx');
 
     expect(Object.keys(result.materials ?? {})).toEqual(['M_artistic_ior']);
-    expect(result.report.issues).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 
   it('parses artistic_ior multioutput nodegraphs without surfacing issues', () => {
@@ -293,7 +333,7 @@ describe('vendored three.js MaterialX translator contracts', () => {
     );
 
     expect(Object.keys(result.materials ?? {})).toEqual(['showcase_graph_pbr_helpers']);
-    expect(result.report.issues).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 
   it('parses switch node samples without surfacing unsupported-node issues', () => {
@@ -303,11 +343,11 @@ describe('vendored three.js MaterialX translator contracts', () => {
     for (const sample of switchSamples) {
       const result = loader.parseBuffer(readNodeSample(sample), `${sample}.mtlx`);
       expect(Object.keys(result.materials ?? {})).toEqual([`M_${sample}`]);
-      expect(result.report.issues).toEqual([]);
+      expect(result.errors).toEqual([]);
     }
   });
 
-  it('applies strictness policies to unsupported nodes and missing references in real parse flow', () => {
+  it('records unsupported nodes and missing references without throwing by default', () => {
     const unsupportedSurfaceMtlx = `<?xml version="1.0"?>
 <materialx version="1.38">
   <future_surface name="future_surface_1" />
@@ -324,23 +364,27 @@ describe('vendored three.js MaterialX translator contracts', () => {
 </materialx>`;
 
     const warnLoader = new MaterialXLoader();
-    const unsupportedWarnResult = warnLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx');
-    expect(unsupportedWarnResult.report.issues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'unsupported-node', category: 'future_surface' })]),
+    const unsupportedWarnResult = warnLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx', {
+      throwOnErrors: false,
+    });
+    expect(unsupportedWarnResult.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'unsupported-node' })]),
     );
 
-    const missingWarnResult = warnLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx');
-    expect(missingWarnResult.report.issues).toEqual(
+    const missingWarnResult = warnLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx', {
+      throwOnErrors: false,
+    });
+    expect(missingWarnResult.errors).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'missing-reference', nodeName: 'surfaceshader' })]),
     );
 
     const strictLoader = new MaterialXLoader();
-    expect(() =>
-      strictLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx', { issuePolicy: ISSUE_POLICIES.ERROR_CORE }),
-    ).toThrow(/unsupported node categories/i);
-    expect(() =>
-      strictLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx', { issuePolicy: ISSUE_POLICIES.ERROR_CORE }),
-    ).toThrow(/missing references/i);
+    expect(() => strictLoader.parseBuffer(unsupportedSurfaceMtlx, 'unsupported.mtlx', { throwOnErrors: true })).toThrow(
+      /MaterialX translation failed with \d+ error\(s\)/,
+    );
+    expect(() => strictLoader.parseBuffer(missingReferenceMtlx, 'missing-ref.mtlx', { throwOnErrors: true })).toThrow(
+      /MaterialX translation failed with \d+ error\(s\)/,
+    );
   });
 
   it('supports missing material failure path via loader options', () => {
@@ -353,28 +397,19 @@ describe('vendored three.js MaterialX translator contracts', () => {
 </materialx>`;
 
     const warnLoader = new MaterialXLoader();
-    const warnResult = warnLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', { materialName: 'mat_missing' });
-    expect(warnResult.report.issues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'missing-material' })]),
-    );
+    const warnResult = warnLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', {
+      materialName: 'mat_missing',
+      throwOnErrors: false,
+    });
+    expect(warnResult.errors).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'missing-material' })]));
 
-    const strictAllLoader = new MaterialXLoader();
+    const strictLoader = new MaterialXLoader();
     expect(() =>
-      strictAllLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', {
-        issuePolicy: ISSUE_POLICIES.ERROR_ALL,
+      strictLoader.parseBuffer(materialMtlx, 'missing-material.mtlx', {
+        throwOnErrors: true,
         materialName: 'mat_missing',
       }),
-    ).toThrow(/missing materials/i);
-  });
-
-  it('treats ignored surface inputs as fatal only in error-all mode', () => {
-    const errorCoreCollector = new MaterialXIssueCollector({ issuePolicy: ISSUE_POLICIES.ERROR_CORE });
-    errorCoreCollector.addIgnoredSurfaceInput('open_pbr_surface', 'surfaceA', 'future_input');
-    expect(() => errorCoreCollector.throwIfNeeded()).not.toThrow();
-
-    const errorAllCollector = new MaterialXIssueCollector({ issuePolicy: ISSUE_POLICIES.ERROR_ALL });
-    errorAllCollector.addIgnoredSurfaceInput('open_pbr_surface', 'surfaceA', 'future_input');
-    expect(() => errorAllCollector.throwIfNeeded()).toThrow(/ignored surface inputs/i);
+    ).toThrow(/MaterialX translation failed with \d+ error\(s\)/);
   });
 
   it('revokes archive object urls on resolver dispose', () => {
@@ -389,6 +424,66 @@ describe('vendored three.js MaterialX translator contracts', () => {
       createObjectURL.mockRestore();
       revokeObjectURL.mockRestore();
     }
+  });
+
+  it('does not run strict interface validation unless explicitly enabled', () => {
+    const loader = new MaterialXLoader();
+    const result = loader.parseBuffer(readThreeJsSample('standard_surface_rotate2d_test'), 'rotate2d.mtlx');
+
+    expect(errorCodes(result).filter((code) => code === 'unknown-input')).toEqual([]);
+    expect(errorCodes(result).filter((code) => code === 'invalid-output-connection')).toEqual([]);
+  });
+
+  it('reports unknown nodedef inputs, invalid output wiring, and type mismatches', () => {
+    const loader = new MaterialXLoader();
+    const strictValidate = createStrictInterfaceValidator();
+    const texturePath = 'third_party/material-samples/materials/threejs/standard_surface_rotate2d_test/';
+    const strictOptions = { interfaceValidator: strictValidate, path: texturePath, throwOnErrors: false };
+
+    const rotate2dResult = loader.parseBuffer(
+      readThreeJsSample('standard_surface_rotate2d_test'),
+      'rotate2d.mtlx',
+      strictOptions,
+    );
+    expect(errorCodes(rotate2dResult)).toContain('unknown-input');
+    expect(errorMessages(rotate2dResult).some((message) => message.includes("Input 'pivot'"))).toBe(true);
+
+    const rotate3dResult = loader.parseBuffer(readThreeJsSample('standard_surface_rotate3d_test'), 'rotate3d.mtlx', {
+      interfaceValidator: strictValidate,
+      throwOnErrors: false,
+    });
+    expect(
+      errorCodes(rotate3dResult).filter((code) => code === 'invalid-output-connection').length,
+    ).toBeGreaterThanOrEqual(2);
+
+    const colorCmResult = loader.parseBuffer(
+      readThreeJsSample('standard_surface_color3_vec3_cm_test'),
+      'color3_vec3_cm.mtlx',
+      { interfaceValidator: strictValidate, throwOnErrors: false },
+    );
+    expect(errorCodes(colorCmResult)).toContain('type-mismatch');
+    expect(errorMessages(colorCmResult).some((message) => message.includes('base_color'))).toBe(true);
+
+    const combinedResult = loader.parseBuffer(readThreeJsSample('standard_surface_combined_test'), 'combined.mtlx', {
+      interfaceValidator: strictValidate,
+      throwOnErrors: false,
+    });
+    expect(errorCodes(combinedResult)).toContain('unknown-input');
+    expect(errorMessages(combinedResult).some((message) => message.includes("Input 'opacity'"))).toBe(true);
+
+    const roughnessResult = loader.parseBuffer(readThreeJsSample('standard_surface_roughness_test'), 'roughness.mtlx', {
+      interfaceValidator: strictValidate,
+      throwOnErrors: false,
+    });
+    expect(errorCodes(roughnessResult)).toContain('unknown-input');
+    expect(errorMessages(roughnessResult).some((message) => message.includes("Input 'roughness'"))).toBe(true);
+
+    const iorResult = loader.parseBuffer(readThreeJsSample('standard_surface_ior_test'), 'ior.mtlx', {
+      interfaceValidator: strictValidate,
+      throwOnErrors: false,
+    });
+    expect(errorCodes(iorResult)).toContain('unknown-input');
+    expect(errorMessages(iorResult).some((message) => message.includes("Input 'ior'"))).toBe(true);
   });
 
   it('clears archive resources at parse boundaries and dispose', () => {

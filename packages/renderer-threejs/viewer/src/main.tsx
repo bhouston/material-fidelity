@@ -9,6 +9,7 @@ import { MaterialXLoader } from 'three/addons/loaders/MaterialXLoader.js';
 declare global {
   var __MTLX_CAPTURE_DONE__: boolean | undefined;
   var __MTLX_CAPTURE_ERROR__: string | undefined;
+  var __MTLX_MATERIALX_LOG__: MaterialXLogEntry[] | undefined;
   var __MTLX_FORCE_RENDER__: (() => void) | undefined;
   var __MTLX_DISPOSE_SCENE__: (() => void) | undefined;
 }
@@ -31,6 +32,7 @@ const querySchema = z.object({
     return [pieces[0], pieces[1], pieces[2]] as const;
   }),
   materialXLoaderVariant: z.enum(['custom', 'official']).default('custom'),
+  interfaceValidatorPath: z.string().optional(),
 });
 
 type ViewerQuery = z.infer<typeof querySchema>;
@@ -41,9 +43,16 @@ const REFERENCE_IMAGE_HEIGHT = 512;
 type ThreeMaterialXLoaderResult = {
   materials?: Record<string, THREE.Material>;
   material?: THREE.Material;
-  report?: {
-    warnings?: unknown[];
-  };
+  log?: MaterialXLogEntry[];
+  errors?: MaterialXLogEntry[];
+  warnings?: MaterialXLogEntry[];
+};
+
+type MaterialXLogEntry = {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  nodeName?: string;
 };
 
 type MaterialXLoaderLike = {
@@ -52,34 +61,37 @@ type MaterialXLoaderLike = {
   dispose?: () => void;
 };
 
-function logMaterialXWarnings(candidate: unknown): void {
+type StrictInterfaceValidationModule = {
+  createStrictInterfaceValidator?: () => unknown;
+};
+
+function isMaterialXLogEntry(candidate: unknown): candidate is MaterialXLogEntry {
   if (!candidate || typeof candidate !== 'object') {
-    return;
+    return false;
   }
 
-  const report = (candidate as { report?: unknown }).report;
-  if (!report || typeof report !== 'object') {
-    return;
+  const value = candidate as Record<string, unknown>;
+  return (
+    typeof value.code === 'string' &&
+    (value.severity === 'error' || value.severity === 'warning') &&
+    typeof value.message === 'string' &&
+    (value.nodeName === undefined || typeof value.nodeName === 'string')
+  );
+}
+
+function readMaterialXLog(candidate: unknown): MaterialXLogEntry[] {
+  if (!candidate || typeof candidate !== 'object') {
+    return [];
   }
 
-  const warnings = (report as { warnings?: unknown }).warnings;
-  if (!Array.isArray(warnings) || warnings.length === 0) {
-    return;
+  const value = candidate as { log?: unknown; errors?: unknown; warnings?: unknown };
+  if (Array.isArray(value.log)) {
+    return value.log.filter(isMaterialXLogEntry);
   }
 
-  const warningMessages = warnings
-    .map((warning) => {
-      if (!warning || typeof warning !== 'object') {
-        return undefined;
-      }
-      const message = (warning as { message?: unknown }).message;
-      return typeof message === 'string' && message.trim().length > 0 ? message : undefined;
-    })
-    .filter((message): message is string => typeof message === 'string');
-
-  if (warningMessages.length > 0) {
-    console.warn(`Three.js MaterialX compile warnings: ${warningMessages.join(' | ')}`);
-  }
+  return [value.errors, value.warnings].flatMap((entries) =>
+    Array.isArray(entries) ? entries.filter(isMaterialXLogEntry) : [],
+  );
 }
 
 function parseQuery(search: string): ViewerQuery {
@@ -121,6 +133,21 @@ function splitPath(path: string): { basePath: string; fileName: string } {
     basePath: `${normalized.slice(0, separatorIndex + 1)}`,
     fileName: normalized.slice(separatorIndex + 1),
   };
+}
+
+async function createInterfaceValidator(query: ViewerQuery): Promise<unknown> {
+  if (query.materialXLoaderVariant !== 'custom' || !query.interfaceValidatorPath) {
+    return undefined;
+  }
+
+  const module = (await import(/* @vite-ignore */ query.interfaceValidatorPath)) as StrictInterfaceValidationModule;
+  if (typeof module.createStrictInterfaceValidator !== 'function') {
+    throw new Error(
+      `MaterialX interface validator module did not export createStrictInterfaceValidator: ${query.interfaceValidatorPath}`,
+    );
+  }
+
+  return module.createStrictInterfaceValidator();
 }
 
 function disposeMaterialTextures(material: THREE.Material): void {
@@ -288,14 +315,19 @@ async function buildScene(): Promise<void> {
   scene.add(gltf.scene);
 
   const materialXPath = splitPath(query.mtlxPath);
-  const materialXLoader: MaterialXLoaderLike = new MaterialXLoader();
+  const materialXLoader = new MaterialXLoader() as unknown as MaterialXLoaderLike;
   materialXLoader.setPath(materialXPath.basePath);
   materialXLoaderForCleanup = materialXLoader;
+  const interfaceValidator = await createInterfaceValidator(query);
   const materialXResult =
     query.materialXLoaderVariant === 'custom'
-      ? await materialXLoader.loadAsync(materialXPath.fileName, { issuePolicy: 'error-core', uvSpace: 'top-left' })
+      ? await materialXLoader.loadAsync(materialXPath.fileName, {
+          interfaceValidator,
+          throwOnErrors: false,
+          uvSpace: 'top-left',
+        })
       : await materialXLoader.loadAsync(materialXPath.fileName);
-  logMaterialXWarnings(materialXResult);
+  globalThis.__MTLX_MATERIALX_LOG__ = readMaterialXLog(materialXResult);
 
   const resolvedMaterial = firstMaterial(materialXResult);
   if (!resolvedMaterial) {
@@ -331,6 +363,7 @@ async function buildScene(): Promise<void> {
 async function initialize(): Promise<void> {
   globalThis.__MTLX_CAPTURE_DONE__ = false;
   delete globalThis.__MTLX_CAPTURE_ERROR__;
+  globalThis.__MTLX_MATERIALX_LOG__ = [];
   globalThis.__MTLX_FORCE_RENDER__ = undefined;
   globalThis.__MTLX_DISPOSE_SCENE__ = undefined;
 

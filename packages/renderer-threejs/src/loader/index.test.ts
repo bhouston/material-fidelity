@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ISSUE_CODES, ISSUE_POLICIES, MaterialXLoader, normalizeIssuePolicy } from './index.js';
+import { MaterialXLog, MaterialXLogCodes, MaterialXLoader } from './index.js';
 
 describe('renderer-threejs loader entrypoint', () => {
-  it('exports MaterialXLoader and issue policy helpers', () => {
+  it('exports MaterialXLoader and MaterialXLog helpers', () => {
     expect(typeof MaterialXLoader).toBe('function');
-    expect(ISSUE_CODES.UNSUPPORTED_NODE).toBe('unsupported-node');
-    expect(ISSUE_POLICIES.ERROR_CORE).toBe('error-core');
-    expect(normalizeIssuePolicy('error')).toBe(ISSUE_POLICIES.ERROR_CORE);
+    expect(MaterialXLogCodes.UNSUPPORTED_NODE.label).toBe('unsupported-node');
+    expect(MaterialXLogCodes.UNSUPPORTED_NODE.severity).toBe('error');
+
+    const log = new MaterialXLog();
+    log.add(MaterialXLogCodes.INVALID_VALUE, 'bad value', 'nodeA');
+    expect(log.errors).toEqual([{ code: 'invalid-value', severity: 'error', message: 'bad value', nodeName: 'nodeA' }]);
   });
 });

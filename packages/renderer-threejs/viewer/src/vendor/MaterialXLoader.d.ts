@@ -1,10 +1,25 @@
+export interface MaterialXLogEntry {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  nodeName?: string;
+}
+
+export interface MaterialXLoaderResult {
+  materials?: Record<string, unknown>;
+  material?: unknown;
+  log?: MaterialXLogEntry[];
+  errors?: MaterialXLogEntry[];
+  warnings?: MaterialXLogEntry[];
+}
+
 export class MaterialXLoader {
   archiveDisposer: (() => void) | null;
   constructor(manager?: unknown);
   setPath(path: string): this;
   load(
     url: string,
-    onLoad: (result: unknown) => void,
+    onLoad: (result: MaterialXLoaderResult) => void,
     onProgress?: (event: unknown) => void,
     onError?: (error: unknown) => void,
     options?: MaterialXLoaderOptions,
@@ -13,18 +28,21 @@ export class MaterialXLoader {
     url: string,
     onProgressOrOptions?: ((event: unknown) => void) | MaterialXLoaderOptions,
     options?: MaterialXLoaderOptions,
-  ): Promise<unknown>;
-  parseBuffer(data: ArrayBuffer | Uint8Array | string, url?: string, options?: MaterialXLoaderOptions): unknown;
-  parse(text: string, options?: MaterialXLoaderOptions): unknown;
+  ): Promise<MaterialXLoaderResult>;
+  parseBuffer(
+    data: ArrayBuffer | Uint8Array | string,
+    url?: string,
+    options?: MaterialXLoaderOptions,
+  ): MaterialXLoaderResult;
+  parse(text: string, options?: MaterialXLoaderOptions): MaterialXLoaderResult;
   dispose(): this;
 }
 
 export interface MaterialXLoaderOptions {
-  issuePolicy?: string;
   materialName?: string | null;
   uvSpace?: 'bottom-left' | 'top-left';
-  onWarning?: ((issue: unknown) => void) | null;
-  warningCallback?: ((issue: unknown) => void) | null;
   archiveResolver?: ((uri: string) => string | null) | null;
   path?: string;
+  throwOnErrors?: boolean;
+  interfaceValidator?: ((rootNode: unknown, log: unknown) => void) | null;
 }

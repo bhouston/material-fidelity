@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { devtools } from '@tanstack/devtools-vite';
-import { nitro } from 'nitro/vite';
+import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin';
 
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 
@@ -41,8 +41,13 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
     babel({ presets: [reactCompilerPreset()] }),
-    nitro({
+    nitroV2Plugin({
       preset: 'node-server',
+      compatibilityDate: '2025-11-07',
+      compressPublicAssets: {
+        gzip: true,
+        brotli: false,
+      },
       routeRules: {
         '/assets/**': {
           headers: {
