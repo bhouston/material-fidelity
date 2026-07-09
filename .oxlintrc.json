@@ -6,7 +6,9 @@
   },
   "ignorePatterns": ["third_party/**"],
   "plugins": ["eslint", "typescript", "oxc", "unicorn", "vitest"],
-  "rules": {},
+  "rules": {
+    "eslint/no-underscore-dangle": "off"
+  },
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.spec.ts"],
