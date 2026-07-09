@@ -11,9 +11,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "tsc": "tsgo",
-    "tsgo": "tsgo",
-    "dev": "tsgo -w --preserveWatchOutput"
+    "tsc": "tsc",
+    "dev": "tsc -w --preserveWatchOutput"
   },
   "dependencies": {
     "@material-fidelity/core": "workspace:*",

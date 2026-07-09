@@ -3,7 +3,16 @@ export interface MaterialXLogCode {
   severity: 'error' | 'warning';
 }
 
-export const MaterialXLogCodes: Record<string, MaterialXLogCode>;
+export const MaterialXLogCodes: {
+  UNSUPPORTED_NODE: MaterialXLogCode;
+  IGNORED_SURFACE_INPUT: MaterialXLogCode;
+  MISSING_REFERENCE: MaterialXLogCode;
+  MISSING_MATERIAL: MaterialXLogCode;
+  INVALID_VALUE: MaterialXLogCode;
+  UNKNOWN_INPUT: MaterialXLogCode;
+  INVALID_OUTPUT_CONNECTION: MaterialXLogCode;
+  TYPE_MISMATCH: MaterialXLogCode;
+};
 
 export interface MaterialXLogEntry {
   code: string;

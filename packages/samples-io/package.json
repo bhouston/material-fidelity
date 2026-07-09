@@ -15,9 +15,8 @@
     }
   },
   "scripts": {
-    "tsc": "tsgo",
-    "tsgo": "tsgo",
-    "dev": "tsgo -w --preserveWatchOutput"
+    "tsc": "tsc",
+    "dev": "tsc -w --preserveWatchOutput"
   },
   "dependencies": {
     "@material-fidelity/samples": "workspace:*",

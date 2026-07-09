@@ -13,7 +13,7 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "build": "tsgo -b && pnpm --filter ./third_party/three.js build && pnpm -r --if-present --filter '!./third_party/three.js' build",
+    "build": "tsc -b && pnpm --filter ./third_party/three.js build && pnpm -r --if-present --filter '!./third_party/three.js' build",
     "dev": "pnpm -r --parallel --stream dev",
     "clean": "rimraf dist packages/**/dist",
     "clean:all": "pnpm clean && rimraf node_modules packages/**/node_modules",
@@ -21,8 +21,7 @@
     "format": "oxfmt .",
     "lint": "oxlint packages docs tools vitest.config.ts",
     "lint:fix": "oxlint --fix packages docs tools vitest.config.ts",
-    "tsc": "tsgo -b",
-    "tsgo": "tsgo -b",
+    "tsc": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -37,7 +36,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@types/yargs": "^17.0.35",
-    "@typescript/native-preview": "7.0.0-dev.20260421.2",
+    "typescript": "^7",
     "@vitest/coverage-v8": "^4.1.5",
     "husky": "^9.1.7",
     "oxfmt": "^0.46.0",

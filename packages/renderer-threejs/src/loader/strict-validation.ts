@@ -1,1 +1,1 @@
-export { createStrictInterfaceValidator } from '../../../../third_party/three.js/examples/jsm/loaders/materialx/MaterialXInterfaceValidation.js';
+export { createStrictInterfaceValidator } from '../../viewer/src/vendor/materialx/MaterialXInterfaceValidation.js';
