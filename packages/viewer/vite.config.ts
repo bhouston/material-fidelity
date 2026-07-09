@@ -38,8 +38,8 @@ const config = defineConfig({
   plugins: [
     devtools(),
     tailwindcss(),
-    tanstackStart(),
     viteReact(),
+    tanstackStart(),
     babel({ presets: [reactCompilerPreset()] }),
     nitroV2Plugin({
       preset: 'node-server',
