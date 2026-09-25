@@ -15,3 +15,7 @@ minimumReleaseAgeExclude:
   - humanize-units
   - yargs-file-commands
   - tanstack-router-ga4
+  - '@vitest/coverage-v8'
+  - '@vitest/mocker'
+  - '@vitest/spy'
+  - vitest
