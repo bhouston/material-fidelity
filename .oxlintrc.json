@@ -5,14 +5,15 @@
     "suspicious": "warn"
   },
   "ignorePatterns": ["submodules/**"],
-  "plugins": ["eslint", "typescript", "oxc", "unicorn", "vitest"],
+  "plugins": ["eslint", "typescript", "oxc", "unicorn", "react", "jsx-a11y", "vitest"],
   "rules": {
-    "eslint/no-underscore-dangle": "off"
+    "eslint/no-underscore-dangle": "off",
+    "react/react-in-jsx-scope": "off"
   },
   "overrides": [
     {
-      "files": ["**/*.test.ts", "**/*.spec.ts"],
-      "plugins": ["eslint", "typescript", "oxc", "unicorn", "vitest"]
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+      "plugins": ["eslint", "typescript", "oxc", "unicorn", "react", "jsx-a11y", "vitest"]
     }
   ]
 }
