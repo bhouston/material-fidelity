@@ -13,7 +13,8 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "build": "tsc -b && pnpm --filter ./third_party/three.js build && pnpm -r --if-present --filter '!./third_party/three.js' build",
+    "build:deps": "tsc -p third_party/material-viewer/packages/mtlx-core && tsc -p third_party/material-viewer/packages/materialx-three",
+    "build": "pnpm build:deps && pnpm --filter ./third_party/three.js build && pnpm -r --if-present --filter './packages/**' build",
     "dev": "pnpm -r --parallel --stream dev",
     "clean": "rimraf dist packages/**/dist",
     "clean:all": "pnpm clean && rimraf node_modules packages/**/node_modules",
@@ -21,7 +22,7 @@
     "format": "oxfmt .",
     "lint": "oxlint packages docs tools vitest.config.ts",
     "lint:fix": "oxlint --fix packages docs tools vitest.config.ts",
-    "tsc": "tsc -b",
+    "tsc": "pnpm build:deps && pnpm -r --if-present --filter './packages/**' tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -40,7 +41,7 @@
     "husky": "^9.1.7",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
-    "typescript": "^7",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "engines": {
