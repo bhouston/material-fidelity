@@ -10,3 +10,8 @@ allowBuilds:
   sharp: true
 
 link-workspace-packages: false
+
+minimumReleaseAgeExclude:
+  - humanize-units
+  - yargs-file-commands
+  - tanstack-router-ga4
